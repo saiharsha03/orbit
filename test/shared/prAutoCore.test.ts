@@ -11,7 +11,7 @@ test('fixChecksPrompt names the failing checks, the logs to read and the same PR
   const p = fixChecksPrompt(12, ['test', 'lint'])
   for (const s of ['#12', '`test`, `lint`', 'gh run view', '--log-failed', 'gh pr checks 12', 'Do not open another']) assert.ok(p.includes(s), s)
   assert.ok(fixChecksPrompt(3, []).includes('some checks'))
-  assert.ok(fixReviewPrompt(4, ['alex', 'alex', 'sam']).includes('from alex, sam'))
+  assert.ok(fixReviewPrompt(4, ['robin', 'robin', 'sam']).includes('from robin, sam'))
 })
 
 test('autoFixNow sends the checks prompt once per head sha, only when on, idle and open', () => {
@@ -32,8 +32,8 @@ test('autoFixNow sends the checks prompt once per head sha, only when on, idle a
 
 test('autoFixNow sends review comments newer than the switch-on and the last sent, once', () => {
   const quiet = { checks: 'passing' }
-  assert.equal(autoFixNow(x({ ...quiet, feedback: [{ author: 'alex', at: 50 }] }), 12), null) // before Auto-fix was on
-  const r = autoFixNow(x({ ...quiet, feedback: [{ author: 'alex', at: 50 }, { author: 'sam', at: 150 }, { author: 'alex', at: 200 }] }), 12)
+  assert.equal(autoFixNow(x({ ...quiet, feedback: [{ author: 'robin', at: 50 }] }), 12), null) // before Auto-fix was on
+  const r = autoFixNow(x({ ...quiet, feedback: [{ author: 'robin', at: 50 }, { author: 'sam', at: 150 }, { author: 'robin', at: 200 }] }), 12)
   assert.equal(r?.kind, 'review')
   assert.equal(r?.kind === 'review' && r.at, 200)
   assert.ok(r?.text.includes('from sam, alex'))
