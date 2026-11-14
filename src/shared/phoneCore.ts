@@ -133,7 +133,8 @@ export function withWakes(threads: PhoneThread[], wakeups: PhoneWakeup[]): Phone
   })
 }
 
-// The usage guard: the plan window closest to its limit once one is at 85% or more. fullAt: when it reaches 100% if
+// The usage guard: the plan window (5-hour or 7-day; a single model's own limit, like Fable's, is not one) closest to
+// its limit once one is at 85% or more. fullAt: when it reaches 100% if
 // it goes on as it has since the window opened, when that is before it resets (else null: it will last).
 export type GuardRow = { key: string; label: string; pct: number; resetsAt: string | null }
 export type UsageGuard = { key: string; window: string; pct: number; resetAt: number; fullAt: number | null }
@@ -146,7 +147,7 @@ export function windowName(key: string): string {
   return key.startsWith('seven_day') ? `7-day ${model ? `${model[0].toUpperCase()}${model.slice(1)} ` : ''}window` : 'plan window'
 }
 export function usageGuard(rows: GuardRow[], now: number, at = GUARD_AT): UsageGuard | null {
-  const near = rows.filter((r) => r.pct >= at && r.resetsAt && Date.parse(r.resetsAt) > now).sort((a, b) => b.pct - a.pct)[0]
+  const near = rows.filter((r) => (r.key === 'five_hour' || r.key === 'seven_day') && r.pct >= at && r.resetsAt && Date.parse(r.resetsAt) > now).sort((a, b) => b.pct - a.pct)[0]
   if (!near) return null
   const resetAt = Date.parse(near.resetsAt as string)
   const len = windowMs(near.key)

@@ -4,6 +4,13 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-11-14
+
+### Fixed
+
+- The phone's usage alert only watches the plan windows (5-hour and 7-day). A single model's own weekly limit, like
+  Fable's, no longer sets it off.
+
 ## [2.1.1] - 2026-11-14
 
 ### Added
