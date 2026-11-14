@@ -923,13 +923,13 @@ export function SessionView(p: Props) {
           </div>
           <span className="phead-acts">
             {PANEL_ACTS.map((a) => (
-              <button key={a.tab} type="button" className="btn pact fold" aria-pressed={p.panel === a.tab} aria-label={a.label} onClick={() => p.onPanel(a.tab)} title={a.title} data-testid={`chat-${a.tab}`}>
-                <Icon name={a.icon} /><span>{a.label}</span>{a.tab === 'activity' && runningTasks > 0 && <b className="num" data-testid="chat-activity-count">{runningTasks}</b>}
+              <button key={a.tab} type="button" className="btn pact pact-icon" aria-pressed={p.panel === a.tab} aria-label={a.label} onClick={() => p.onPanel(a.tab)} title={`${a.label}: ${a.title}`} data-testid={`chat-${a.tab}`}>
+                <Icon name={a.icon} />{a.tab === 'activity' && runningTasks > 0 && <b className="num" data-testid="chat-activity-count">{runningTasks}</b>}
               </button>
             ))}
             <AdvisorPicker tabId={session.id} />
-            <button type="button" className="btn pact fold2" aria-label="Terminal" onClick={p.onTerminal} title="This thread's terminal (Ctrl+`)" data-testid="terminal-toggle"><Icon name="terminal" /><span>Terminal</span></button>
-            <button type="button" className="btn pact" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)} title="Pin, split, export, find, background" data-testid="chat-export">More</button>
+            <button type="button" className="btn pact pact-icon" aria-label="Terminal" onClick={p.onTerminal} title="Terminal: this thread's terminal (Ctrl+`)" data-testid="terminal-toggle"><Icon name="terminal" /></button>
+            <button type="button" className="btn pact pact-icon" aria-label="More" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)} title="More: pin, split, export, find, background" data-testid="chat-export"><Icon name="ellipsis" /></button>
             {menu && (
               <div className="phead-menu" role="menu" data-testid="export-menu">
                 <Btn kind="link" onClick={() => { setMenu(false); setPinning('') }} testid="pin-add" title="Pin a fact to this thread's header">Pin a fact</Btn>
