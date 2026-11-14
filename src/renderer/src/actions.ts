@@ -157,10 +157,14 @@ export const setPanes = (f: (p: PaneState) => PaneState) => panes.set(f)
 export { visibleNow }
 
 // ---- threads ----
+// a new thread's id and number are never shared: two made in the same millisecond get their own ids, and the number is
+// one above the highest New thread N open (a count repeats a number once an earlier one is closed or replaced)
+let made = 0
 export function makeSession(title?: string): Session {
   const { workspace, folder } = place.get()
+  const top = Math.max(0, ...getSessions().map((s) => Number(/^New thread (\d+)$/.exec(s.title ?? '')?.[1] ?? 0)))
   return {
-    id: `new-${Date.now()}`, title: title ?? `New thread ${getSessions().filter((s) => s.id.startsWith('new-')).length + 1}`, cwd: workspace || folder,
+    id: `new-${Date.now()}-${++made}`, title: title ?? `New thread ${top + 1}`, cwd: workspace || folder,
     items: [], streaming: '', busy: false, loaded: true, background: false,
   }
 }
