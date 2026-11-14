@@ -203,7 +203,8 @@ const wake = (s: Live) => { for (const cb of [...s.onIdle]) cb() }
 // what follows a Send now whose message was taken into the stopped turn and left unanswered
 const authTried = new Map<string, number>() // tab -> when a sign-in failure was last retried
 const SEND_NOW_NUDGE = 'Carry on: answer my last message above.'
-const userMsg = (text: string, uuid: string = randomUUID()) => ({ type: 'user', message: { role: 'user', content: [{ type: 'text', text }] }, parent_tool_use_id: null, uuid }) as SDKUserMessage
+// images: pictures sent with it (the phone's attachments), ahead of the text as the window sends them
+const userMsg = (text: string, uuid: string = randomUUID(), images: { mediaType: string; data: string }[] = []) => ({ type: 'user', message: { role: 'user', content: [...images.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.data } })), { type: 'text', text }] }, parent_tool_use_id: null, uuid }) as SDKUserMessage
 
 // Idle compaction, as the terminal does it: a conversation of IDLE_COMPACT_MIN tokens or more that has sat idle for
 // IDLE_COMPACT_MS is compacted just before its one-hour prompt cache expires, so the next message sends a summary
@@ -1529,7 +1530,9 @@ export function unreadOf(tabId: string): string[] {
   const s = live.get(tabId)
   if (!s) return []
   const handed = [...s.outbox.values()].filter((u) => u.source === 'you').map((u) => u.text)
-  return handed.filter((t) => t.trim())
+  // still in the queue behind the running turn: until now the phone did not show these at all
+  const queued = s.turns.list().filter(({ id }) => s.queuedFrom.get(id) === 'you').map(({ msg }) => messageParts(msg.message.content).text)
+  return [...handed, ...queued].filter((t) => t.trim())
 }
 
 // a transcript whose thread is working now: search leaves it until the turn ends
@@ -1560,7 +1563,7 @@ export function stopCodex(id: string): boolean {
 // foreground: opened as a normal tab (its usual permission mode), e.g. messages resent after a restart from a tab
 // user: the user wrote it (the phone): it goes through a paused team's hold like a message typed in the window;
 // uuid: the message's id (messages resent after a restart are seen under it)
-export type BackgroundThread = { tabId: string; cwd: string; title: string; prompt: string; from?: From; resume?: string; foreground?: boolean; user?: boolean; uuid?: string }
+export type BackgroundThread = { tabId: string; cwd: string; title: string; prompt: string; from?: From; resume?: string; foreground?: boolean; user?: boolean; uuid?: string; images?: { mediaType: string; data: string }[] }
 export function startBackgroundThread(t: BackgroundThread, web: WebContents): void {
   if (holdForRewind(t.tabId, t.resume, () => startBackgroundThread(t, web))) return
   if (live.has(t.tabId)) throw new Error(`Thread ${t.tabId} is already running`)
@@ -1575,7 +1578,7 @@ export function startBackgroundThread(t: BackgroundThread, web: WebContents): vo
   live.set(t.tabId, s)
   gone.delete(t.tabId)
   s.turns.markBusy()
-  const m = userMsg(t.from ? labelFromThread(t.from, t.prompt) : t.prompt, t.uuid)
+  const m = userMsg(t.from ? labelFromThread(t.from, t.prompt) : t.prompt, t.uuid, t.images)
   track(s, m, t.user || (!t.from && t.foreground) ? 'you' : 'hive')
   s.push(m)
 }
@@ -1794,7 +1797,7 @@ export function runInThread(t: BackgroundThread, web: WebContents): void {
   const s = live.get(t.tabId)
   if (!s) return startBackgroundThread(t, web)
   if (web.isDestroyed()) throw new Error('No window to show the thread in')
-  const m = userMsg(t.prompt, t.uuid)
+  const m = userMsg(t.prompt, t.uuid, t.images)
   const source = t.user ? 'you' : 'hive'
   if (s.turns.isBusy() || s.turns.isHeld()) {
     const queueId = randomUUID()

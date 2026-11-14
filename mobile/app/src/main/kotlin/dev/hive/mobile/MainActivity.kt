@@ -8,7 +8,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
 import android.security.keystore.KeyPermanentlyInvalidatedException
-import android.speech.RecognizerIntent
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -263,21 +262,6 @@ private fun linkNotice(): String {
     return listOf(trouble, link, clock).filter { it.isNotEmpty() }.joinToString(" ")
 }
 
-// speech to text through the phone's own recogniser: the words land in the text box, nothing is sent
-@Composable
-private fun rememberMic(onText: (String) -> Unit, onError: (String) -> Unit): () -> Unit {
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-        r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.takeIf { it.isNotBlank() }?.let(onText)
-    }
-    return {
-        try {
-            launcher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM).putExtra(RecognizerIntent.EXTRA_PROMPT, "Say your message"))
-        } catch (e: Exception) { onError("This phone has no speech recognition to dictate with.") }
-    }
-}
-
-private fun joinDraft(old: String, said: String): String = if (old.isBlank()) said else old.trimEnd() + " " + said
-
 @Composable
 private fun App(openThread: MutableState<String?>, openPane: MutableState<String>) {
     val ctx = LocalContext.current
@@ -428,6 +412,18 @@ private fun ThreadRoute(id: String, notice: String, online: Boolean, can: Collec
     var err by remember { mutableStateOf("") }
     var leaving by remember { mutableStateOf(false) }
     var sentAsks by remember { mutableStateOf(emptySet<String>()) }
+    // what you sent from here that Orbit has not listed back yet: shown at once, marked SENDING
+    var outgoing by remember(id) { mutableStateOf(listOf<String>()) }
+    // photos and files picked with +, sent with the next message
+    var attachments by remember(id) { mutableStateOf(listOf<Attachment>()) }
+    val ctx = LocalContext.current
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        scope.launch {
+            val (got, fail) = Attachments.read(ctx, uris, attachments)
+            attachments = attachments + got
+            if (fail.isNotEmpty()) err = fail
+        }
+    }
     val draft = Drafts.text[id] ?: ""
     val list = rememberLazyListState()
     // follow the end on the first load, after a send, and while the reader is already at the bottom; not when scrolled up
@@ -469,34 +465,45 @@ private fun ThreadRoute(id: String, notice: String, online: Boolean, can: Collec
     LaunchedEffect(id, v.working, v.tasks.size) { loadMore() }
     LaunchedEffect(id, v.working) { while (v.working) { kotlinx.coroutines.delay(6_000); loadMore() } }
     val sendHow: (String, String) -> Unit = { text, how ->
+        val files = attachments
+        attachments = emptyList()
         // the same text sent again after a try that got no answer carries the same id: Orbit runs it once
-        val mid = Drafts.midFor(id, text)
+        val mid = Drafts.midFor(id, text + files.joinToString("") { it.name })
         follow = true
+        val shown = listOf(text, files.joinToString("\n") { "Attached ${it.name}" }).filter { it.isNotBlank() }.joinToString("\n")
+        outgoing = outgoing + shown
         // not this screen's own scope: a send that fails after the screen is left still puts the text back
         appScope.launch {
-            val failed = attempt { Relay.ask("send", if (how.isEmpty()) mapOf("id" to id, "text" to text, "mid" to mid) else mapOf("id" to id, "text" to text, "mid" to mid, "how" to how)) }
+            val req = buildMap<String, Any> {
+                put("id", id); put("text", text); put("mid", mid)
+                if (how.isNotEmpty()) put("how", how)
+                if (files.isNotEmpty()) put("files", Attachments.json(files))
+            }
+            val failed = attempt { Relay.ask("send", req) }
             if (failed.isEmpty()) { Drafts.pending.remove(id); v = v.copy(working = true) }
-            else if (Drafts.text[id].isNullOrEmpty()) Drafts.text[id] = text // unless something new was typed meanwhile
+            else {
+                if (Drafts.text[id].isNullOrEmpty()) Drafts.text[id] = text // unless something new was typed meanwhile
+                if (attachments.isEmpty()) attachments = files
+            }
             err = failed
             reload()
+            // listed back by Orbit (or failed, with the text back in the box): no longer shown as sending
+            outgoing = outgoing - shown
         }
     }
     val send: (String) -> Unit = { text -> sendHow(text, "") }
-    val mic = rememberMic(onText = { Drafts.text[id] = joinDraft(Drafts.text[id] ?: "", it) }, onError = { err = it })
     val how = "sendHow" in can
     // 3.2: the thread's changes, in place of the conversation until Back
     var changesOpen by remember { mutableStateOf(false) }
     if (changesOpen) { ChangesRoute(id, notice, online, "prMerge" in can) { changesOpen = false }; return }
-    ThreadScreen(v, draft, online, loaded, err, notice, leaving, sentAsks, list,
+    ThreadScreen(Read.withOutgoing(v, outgoing), draft, online, loaded, err, notice, leaving, sentAsks, list,
         onBack = back, onStay = { leaving = false }, onLeave = { leaving = false; onBack() },
         onDraft = { Drafts.text[id] = it },
         onSend = { val text = draft.trim(); Drafts.text.remove(id); send(text) },
-        // a quick reply is a short message, sent at once; what is in the text box stays there
-        onQuick = { r -> send(r.text) },
+        attachments = attachments, onAttach = if ("attach" in can) ({ pick.launch(arrayOf("image/*", "*/*")) }) else null, onRemove = { a -> attachments = attachments - a },
         onStop = { act("stop", mapOf("id" to id)) { } },
         onStopTask = { t -> act("stopTask", mapOf("id" to id, "task" to t.id)) { } },
         onAnswer = { a, answers -> sentAsks = sentAsks + a.id; act("answer", mapOf("id" to id, "ask" to a.id, "answers" to answers)) { ok -> if (!ok) sentAsks = sentAsks - a.id } },
-        onMic = mic,
         more = more, morePane = morePane, now = now, rewinding = rewinding, onMorePane = { morePane = it },
         onRewind = { p -> rewinding = p.uuid; scope.launch { err = attempt { Relay.ask("rewind", mapOf("id" to id, "uuid" to p.uuid)) }; rewinding = ""; if (err.isEmpty()) { morePane = ""; Drafts.text[id] = p.text }; reload(); loadMore() } },
         settings = settings?.copy(advisor = more?.advisor ?: ""), settingsOpen = settingsOpen, onSettingsOpen = { settingsOpen = it },
@@ -736,10 +743,9 @@ private fun NewThreadRoute(notice: String, online: Boolean, onDone: (String?) ->
         }
         if (!busy) err = failed
     }
-    val mic = rememberMic(onText = { Drafts.text[""] = joinDraft(Drafts.text[""] ?: "", it) }, onError = { err = it })
     NewThreadScreen(folders, folder, text, busy, online, err, notice, leaving,
         onBack = back, onStay = { leaving = false }, onLeave = { leaving = false; onDone(null) },
-        onFolder = { Drafts.newFolder = it }, onText = { Drafts.text[""] = it }, onMic = mic,
+        onFolder = { Drafts.newFolder = it }, onText = { Drafts.text[""] = it },
         onStart = {
             busy = true
             val body = text.trim()

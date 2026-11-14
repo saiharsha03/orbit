@@ -159,5 +159,26 @@ export function guardNote(g: UsageGuard, working: number, clock: (ms: number) =>
   const then = working > 0 ? `${working} working ${working === 1 ? 'thread pauses' : 'threads pause'} then and ${working === 1 ? 'continues' : 'continue'} at ${clock(g.resetAt)}.` : `It resets at ${clock(g.resetAt)}.`
   return { title: `${g.window[0].toUpperCase()}${g.window.slice(1)} at ${g.pct}%`, body: fills + then }
 }
-// said once when a window passes 85% and once more at 95%, per window and reset
-export const guardStep = (g: UsageGuard): string => `${g.key}:${g.resetAt}:${g.pct >= 95 ? 95 : GUARD_AT}`
+// said once when a window passes 85% and once more at 95%, per window and reset. The reset is rounded to the minute:
+// each reading's resetsAt jitters by a few hundred ms, which otherwise looked like a new window every five minutes.
+export const guardStep = (g: UsageGuard): string => `${g.key}:${Math.round(g.resetAt / 60_000) * 60_000}:${g.pct >= 95 ? 95 : GUARD_AT}`
+
+// ---- attachments sent from the phone ----
+export type PhoneImage = { mediaType: string; data: string }
+const PICTURES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
+// a file name that is safe to write: no folders, nothing a path or shell reads specially, never empty
+export const phoneFileName = (name: string): string =>
+  (name.split(/[\\/]/).pop() ?? '').replace(/[^\w.\- ]/g, '_').replace(/^[.\s]+/, '').slice(0, 100) || 'file'
+// the phone's files: [{ name, mime, data (base64) }]; pictures Claude can read go as images, the rest as files
+export function splitPhoneFiles(raw: unknown): { images: PhoneImage[]; files: { name: string; data: string }[] } {
+  const images: PhoneImage[] = []
+  const files: { name: string; data: string }[] = []
+  for (const f of Array.isArray(raw) ? raw : []) {
+    const data = typeof f?.data === 'string' ? f.data : ''
+    if (!data) continue
+    const mime = typeof f.mime === 'string' ? f.mime.toLowerCase() : ''
+    if (PICTURES.has(mime)) images.push({ mediaType: mime, data })
+    else files.push({ name: typeof f.name === 'string' ? f.name : '', data })
+  }
+  return { images, files }
+}

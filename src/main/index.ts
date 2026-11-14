@@ -199,16 +199,16 @@ const phoneItems = (items: Awaited<ReturnType<typeof loadRecentHistory>>['items'
 }).slice(-80).map((p) => ({ ...p, t: p.t.length > 4000 ? `${p.t.slice(0, 4000)}…` : p.t })) // well under the relay's frame limit
 // a message to a thread by tab or session id: a live one takes it like a window message, a closed one is resumed.
 // user: typed on the phone (it passes a paused team's hold); an automatic continue is not
-async function sendTo(id: string, text: string, user: boolean): Promise<string> {
+async function sendTo(id: string, text: string, user: boolean, images: { mediaType: string; data: string }[] = []): Promise<string> {
   const w = appWindow()
   if (!w) throw new Error(`The ${appName()} window is not open`)
   if (text !== CONTINUE_PROMPT) cancelContinue(id) // the user wrote to it: no automatic continue
   const l = liveThreads().find((t) => t.tabId === id || t.sessionId === id)
-  if (l) { runInThread({ tabId: l.tabId, cwd: l.cwd, title: l.title, prompt: text, user }, w.webContents); return 'sent' }
+  if (l) { runInThread({ tabId: l.tabId, cwd: l.cwd, title: l.title, prompt: text, user, images }, w.webContents); return 'sent' }
   const s = (await listSessions()).find((x) => x.id === id)
   if (!s) throw new Error('That thread is gone')
   // a watcher's session resumes in the watcher's own tab, so it stays read-only
-  runInThread({ tabId: watcherTabFor(s.id) ?? s.id, cwd: s.cwd, title: s.title, prompt: text, resume: s.id, user }, w.webContents)
+  runInThread({ tabId: watcherTabFor(s.id) ?? s.id, cwd: s.cwd, title: s.title, prompt: text, resume: s.id, user, images }, w.webContents)
   return 'sent'
 }
 // the folder a phone request about a thread works in: the last worktree the thread made, else its own folder
@@ -246,7 +246,7 @@ const mobileDeps = () => ({
     const unread: PhoneItem[] = l ? unreadOf(l.tabId).map((t) => ({ k: 'you', t: t.length > 4000 ? `${t.slice(0, 4000)}…` : t, seen: false })) : []
     return { title: l?.title ?? saved?.title ?? id, items: [...phoneItems(items), ...unread, ...ended], working: !!l?.busy, asks: l ? openAsks(l.tabId) : [], tasks }
   },
-  send: (id: string, text: string) => sendTo(id, text, true),
+  send: (id: string, text: string, images?: { mediaType: string; data: string }[]) => sendTo(id, text, true, images),
   start: async (folder: string, text: string) => {
     const w = appWindow()
     if (!w) throw new Error(`The ${appName()} window is not open`)
@@ -315,9 +315,9 @@ const mobileDeps = () => ({
   },
   // queue: the message waits for the running turn to end (what a send to a working thread does). interrupt: the
   // running turn is stopped first, so the message goes in at once
-  sendHow: async (id: string, text: string, how: 'queue' | 'interrupt') => {
+  sendHow: async (id: string, text: string, how: 'queue' | 'interrupt', images?: { mediaType: string; data: string }[]) => {
     const l = liveThreads().find((t) => t.tabId === id || t.sessionId === id)
-    const r = await sendTo(id, text, true)
+    const r = await sendTo(id, text, true, images)
     if (how === 'interrupt' && l?.busy) await interrupt(l.tabId)
     return r
   },

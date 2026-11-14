@@ -34,19 +34,19 @@ import androidx.compose.ui.unit.sp
 
 // the design's tokens (dark)
 object C {
-    val bg = Color(0xFF1C1F23)      // panes
-    val side = Color(0xFF171A1D)    // the tab bar, the composer
-    val raised = Color(0xFF23272C)  // the question card, confirm bars
-    val band = Color(0xFF22262B)    // your own messages
-    val sel = Color(0xFF1F2B3D)     // the selected row
-    val rule = Color(0xFF2B3035)    // zone and row rules
-    val rule2 = Color(0xFF3A4047)   // inputs at rest, secondary buttons
-    val hi = Color(0xFFF1F3F5)      // titles, values
-    val ink = Color(0xFFCBD1D7)     // body text
-    val dim = Color(0xFF8A929B)     // labels, secondary text
-    val faint = Color(0xFF5D656D)   // placeholders, times
-    val accent = Color(0xFF3D8BFF)  // the active item and the primary action only
-    val link = Color(0xFF6AA6FF)
+    val bg = Color(0xFF1F1E1D)      // panes: warm charcoal, as the chat apps
+    val side = Color(0xFF1A1918)    // the tab bar
+    val raised = Color(0xFF2B2A28)  // the message box, the question card, confirm bars
+    val band = Color(0xFF34332F)    // your own messages
+    val sel = Color(0xFF2E2C29)     // the selected row
+    val rule = Color(0xFF33322E)    // zone and row rules
+    val rule2 = Color(0xFF45443F)   // inputs at rest, secondary buttons
+    val hi = Color(0xFFF3F1EA)      // titles, values
+    val ink = Color(0xFFE3E0D8)     // body text
+    val dim = Color(0xFFA6A39A)     // labels, secondary text
+    val faint = Color(0xFF75726B)   // placeholders, times
+    val accent = Color(0xFFD97757)  // the active item and the primary action only
+    val link = Color(0xFFE8A384)
     val work = Color(0xFF4FC1E0)
     val wait = Color(0xFFF2B33D)
     val fail = Color(0xFFF2605A)
@@ -63,7 +63,8 @@ object T {
     val sub = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 17.sp, lineHeight = 21.sp, color = C.hi)
     val title = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 15.sp, lineHeight = 20.sp, color = C.hi)
     val body = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp, color = C.ink)
-    val conv = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 14.5.sp, lineHeight = 23.5.sp, color = C.ink)
+    val conv = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp, color = C.ink)
+    val reply = TextStyle(fontFamily = FontFamily.Serif, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 25.sp, color = C.ink)
     val note = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp, color = C.dim)
     val label = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp, color = C.dim)
     val state = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 10.5.sp, lineHeight = 14.sp, letterSpacing = 0.09.em)
@@ -217,14 +218,6 @@ fun UnderlineInput(value: String, onChange: (String) -> Unit, placeholder: Strin
             if (trailing != null) { Spacer(Modifier.width(10.dp)); trailing() }
         }
         Rule(rule)
-    }
-}
-
-// a small square box button with a word in it (Mic)
-@Composable
-fun BoxWord(word: String, on: Boolean = false, onClick: () -> Unit) {
-    Box(Modifier.size(34.dp).then(if (on) Modifier.background(C.fail, RoundedCornerShape(2.dp)) else Modifier.border(1.dp, C.rule2, RoundedCornerShape(2.dp))).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Text(word, style = T.label.copy(fontWeight = FontWeight.Bold, color = if (on) Color.White else C.hi))
     }
 }
 

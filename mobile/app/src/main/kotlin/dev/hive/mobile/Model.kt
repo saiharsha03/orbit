@@ -68,6 +68,15 @@ object Read {
             objs(t.optJSONArray("posts")).map { Post(it.optString("from"), it.optString("text")) })
     }.distinctBy { it.id }
 
+    // your sends still on their way, after the thread: each one Orbit already lists among your last messages is shown
+    // once, from Orbit (Orbit cuts a long message at 4000 characters)
+    fun withOutgoing(v: ThreadView, outgoing: List<String>): ThreadView {
+        if (outgoing.isEmpty()) return v
+        val listed = v.items.takeLast(40).filter { it.k == "you" }.map { it.t.removeSuffix("…") }.toMutableList()
+        val sending = outgoing.filter { o -> val i = listed.indexOfFirst { o.startsWith(it) && it.isNotEmpty() }; if (i >= 0) { listed.removeAt(i); false } else true }
+        return if (sending.isEmpty()) v else v.copy(items = v.items + sending.map { Item("sending", it) })
+    }
+
     fun thread(t: JSONObject): ThreadView = ThreadView(
         t.optString("title"),
         objs(t.optJSONArray("items")).map { Item(it.optString("k"), it.optString("t"), if (it.has("seen") && !it.isNull("seen")) it.optBoolean("seen") else null) },
@@ -242,13 +251,4 @@ object NoteButtons {
         if (b.op == "answer") j.put("ask", b.ask).put("label", b.label)
         return j
     }
-}
-
-// ---- the thread screen's quick replies ----
-object Quick {
-    // One-tap sends under the conversation: three short messages a phone is slow to type. (A question's own choices
-    // are on its card, which has room for them; a cell here has not.)
-    data class Reply(val label: String, val text: String)
-
-    val all = listOf(Reply("Go ahead", "Go ahead."), Reply("Wait", "Wait, do not continue yet."), Reply("Show diff", "Show me the diff first."))
 }
