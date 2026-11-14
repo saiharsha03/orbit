@@ -393,6 +393,10 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .app .pact.pact-icon { padding: 0 5px; min-width: 26px; justify-content: center; gap: 4px; }
 .app .pact[data-testid="chat-export"] { --c: var(--hi); }
 .app .pact[data-testid="advisor-picker"]:not(.pact-on) .codicon { color: var(--dim); }
+/* selected (its panel open, the advisor on): a solid fill in its colour, so it stands out at a glance */
+.app .pact.pact-icon[aria-pressed="true"], .app .pact.pact-icon.pact-on { background: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
+.app .pact.pact-icon[aria-pressed="true"] .codicon, .app .pact.pact-icon.pact-on .codicon { color: var(--bg) !important; }
+.app .pact.pact-icon[aria-pressed="true"] b.num { color: var(--c); background: var(--bg); }
 .app .pact.pact-on { background: color-mix(in srgb, var(--c) 12%, transparent); }
 .app .pact .codicon { display: inline; color: var(--c); }
 .app .pact:hover { background: color-mix(in srgb, var(--c) 14%, transparent); }
