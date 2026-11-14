@@ -4,6 +4,25 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-11-14
+
+### Added
+
+- Session recap: coming back to a thread that moved on while you were away (three or more replies, idle now) shows
+  Claude Code's one-line recap under the "Since you looked" line. It is written by a throwaway fork of the thread,
+  the same way `/btw` answers, so nothing goes into the conversation.
+- Idle compaction: a conversation of 200K tokens or more that has sat idle for 55 minutes is compacted just before
+  its one-hour prompt cache expires, so the next message sends a summary instead of the whole conversation uncached.
+  The thread notes "Compacted while idle". Watcher runs are left alone.
+
+### Fixed
+
+- "Since you looked" counted the replies you watched arrive live after switching back to a thread (it showed
+  "13 replies" for a thread that had been on screen the whole time). It now counts only what came in while you were
+  away, and is hidden when nothing did.
+- The thread header showed only the latest pull request, and missed PRs opened earlier than the part of a long
+  thread that was loaded. It now links every PR the thread opened, read from its whole transcript.
+
 ## [2.0.3] - 2026-11-14
 
 ### Fixed

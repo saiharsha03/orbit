@@ -524,6 +524,10 @@ export function SessionView(p: Props) {
 
   // "since you looked": what happened since this thread was last on screen and focused
   const [since] = useState(() => looked.get(session.id) ?? null)
+  // what came in while you were away ends where this view opened: replies you then watch arrive are not "since you
+  // looked" (the line counted 13 replies read live after a tab switch). A thread still loading counts from when it loads
+  const [openedAt, setOpenedAt] = useState<number | null>(() => (session.loaded ? session.items.length : null))
+  useEffect(() => { if (openedAt === null && session.loaded) setOpenedAt(session.items.length) }, [openedAt, session.loaded, session.items.length])
   const itemsRef = useRef(session.items)
   itemsRef.current = session.items
   useEffect(() => {
@@ -532,7 +536,19 @@ export function SessionView(p: Props) {
     mark()
     return mark
   }, [focused, session.id])
-  const sinceLine = since ? sinceSummary(session.items, since.n, session.busy, workingOn(session.items)) : ''
+  const away = since && openedAt !== null ? session.items.slice(0, openedAt) : null
+  const sinceLine = since && away && away.length > since.n ? sinceSummary(away, since.n, session.busy, workingOn(session.items)) : ''
+  // the session recap, as the terminal shows it when you come back: once per return, for a thread with at least three
+  // replies that is idle now, from a throwaway fork (nothing goes into the thread)
+  const [recap, setRecap] = useState<string | null>(null)
+  const recapAsked = useRef(false)
+  const replyCount = session.items.filter((it) => it.kind === 'assistant').length
+  useEffect(() => {
+    if (recapAsked.current || !sinceLine || session.busy || !session.sessionId || !session.cwd || replyCount < 3) return
+    recapAsked.current = true
+    setRecap('')
+    window.api.askRecap(session.cwd, session.sessionId).then((t) => setRecap(t.trim() || null)).catch(() => setRecap(null))
+  }, [sinceLine, session.busy, session.sessionId, session.cwd, replyCount])
 
   // Export: the conversation as Markdown, to the clipboard or a file (earlier history loaded first)
   const exportAs = useCallback(async (to: 'copy' | 'save') => {
@@ -825,8 +841,20 @@ export function SessionView(p: Props) {
   const shownMode = session.mode ?? (session.background ? 'auto' : mode)
   const wt = session.worktrees?.at(-1)
   const folder = wt ? `${wt.repo} on ${wt.branch}` : (session.cwd ?? '').split(/[\\/]/).filter(Boolean).at(-1) ?? ''
-  // the pull requests this thread opened: the latest on the header, the rest in its tooltip
-  const prs = useMemo(() => threadPrs(session.items), [session.items])
+  // the pull requests this thread opened, oldest first, every one on the header: the whole transcript's (the view holds
+  // only its recent end, so earlier PRs were missing) plus any opened since
+  const [earlierPrs, setEarlierPrs] = useState<{ repo: string; num: number; url: string }[]>([])
+  useEffect(() => {
+    if (!session.path) return
+    let alive = true
+    window.api.threadPrs(session.path).then((x) => { if (alive) setEarlierPrs(x) }).catch(() => {})
+    return () => { alive = false }
+  }, [session.path])
+  const prs = useMemo(() => {
+    const all = [...earlierPrs]
+    for (const p of threadPrs(session.items)) if (!all.some((x) => x.url === p.url)) all.push(p)
+    return all
+  }, [earlierPrs, session.items])
   const pr = prs.at(-1)
   // its checks as the Changes panel last read them (only when that panel is about this same PR)
   const seen = useStore(prChecksSeen, (all) => all[session.id])
@@ -860,10 +888,11 @@ export function SessionView(p: Props) {
         <div className="phead-t">
           <div className="phead-l">
             {folder && <div className="phead-sub" title={session.cwd} data-testid="folder-picker">{wt ? <>{wt.repo} on <b>{wt.branch}</b></> : folder}</div>}
-            {pr && (
-              <a className="phead-pr" href={pr.url} target="_blank" rel="noreferrer" data-testid="thread-pr"
-                title={[`${pr.repo} #${pr.num}`, ...prs.slice(0, -1).reverse().map((x, i) => `${i ? '' : 'Earlier: '}${x.repo} #${x.num}`)].join('\n')}>PR #{pr.num}</a>
-            )}
+            {prs.map((x, i) => (
+              <a key={x.url} className="phead-pr" href={x.url} target="_blank" rel="noreferrer" data-testid="thread-pr" title={`${x.repo} #${x.num}`}>
+                {i === 0 ? `PR${prs.length > 1 ? 's' : ''} ` : ''}#{x.num}
+              </a>
+            ))}
             {pr && ci && ci.state !== 'none' && <span className={`phead-ci ci-${ci.state}`} title={`Checks: ${ci.text} (as last read in Changes)`} data-testid="thread-pr-checks">{ci.state}</span>}
           </div>
           <span className="phead-acts">
@@ -892,7 +921,11 @@ export function SessionView(p: Props) {
             onBlur={() => setPinning(null)} onKeyDown={(e) => { if (e.key === 'Enter' && pinning.trim()) { savePins([...pins, pinning.trim()]); setPinning(null) } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setPinning(null) } }} data-testid="pin-input" />
         )}
       </header>
-      {sinceLine && <div className="since" data-testid="since-line"><b>Since you looked at {clock(since!.at)}</b>{sinceLine}</div>}
+      {sinceLine && (
+        <div className="since" data-testid="since-line"><b>Since you looked at {clock(since!.at)}</b>{sinceLine}
+          {recap !== null && <span className="since-recap" data-testid="since-recap">{recap || 'Writing a recap…'}</span>}
+        </div>
+      )}
       {wakeAt && (
         <div className="hold-line" data-testid="auto-continue">Paused: usage limit reached. Continues by itself at {wakeLabel(wakeAt, Date.now())}.
           <Btn kind="quiet" onClick={() => void wakeActs.resume()} testid="auto-continue-now">Resume now</Btn>

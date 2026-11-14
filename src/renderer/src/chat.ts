@@ -29,6 +29,7 @@ export type Session = {
   endedRun?: boolean // a finished watcher run opened from the list: its thread is closed until a message reopens it
   asks?: string[] // AskUserQuestion tool calls waiting for the user's answer (their cards take it)
   compacting?: boolean // the engine is summarising the conversation to free context (can take minutes)
+  idleCompact?: boolean // the compaction running now is Orbit's idle compaction (its note says so)
   compactions?: number // how many times it compacted while open (a handoff is offered after one)
   turnOpen?: boolean // during a compaction: a turn is still running underneath it
   loaded: boolean // history read (reopened sessions)
@@ -121,6 +122,8 @@ export function applyEvent(s: Session, ev: any): Session {
       return { ...s, sessionId: ev.sessionId, path: ev.path, endedRun: undefined } // running again
     case 'hive_continue':
       return { ...s, continueRev: (s.continueRev ?? 0) + 1 }
+    case 'hive_idle_compact':
+      return { ...s, idleCompact: true }
     case 'hive_ask': {
       const asks = [...(s.asks ?? []).filter((x) => x !== ev.id), ev.id]
       // Claude's own AskUserQuestion already has its tool row (the card draws on it); a question Orbit asks itself
@@ -187,7 +190,11 @@ export function applyEvent(s: Session, ev: any): Session {
       if (ev.subtype === 'compact_boundary') {
         const how = ev.compact_metadata?.trigger === 'manual' ? 'compacted' : 'auto-compacted'
         const ended = s.compacting ? { compacting: false, busy: !!s.turnOpen } : {}
-        return { ...s, ...ended, compactions: (s.compactions ?? 0) + 1, items: [...s.items, { kind: 'note', text: `Conversation ${how} to free up context` }] }
+        // Orbit's idle compaction (hive_idle_compact came first) says so, as the terminal's notice does
+        const text = s.idleCompact
+          ? 'Compacted while idle, before the prompt cache expired: your next message sends a summary instead of the whole conversation'
+          : `Conversation ${how} to free up context`
+        return { ...s, ...ended, idleCompact: false, compactions: (s.compactions ?? 0) + 1, items: [...s.items, { kind: 'note', text }] }
       }
       // a model's safeguards flagged the request and it re-ran on the fallback model for that category (cyber: Opus 4.8,
       // bio: Opus 5): the refused answer goes and a note says why the model changed and that the thread stays on it

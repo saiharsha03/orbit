@@ -175,7 +175,9 @@ contextBridge.exposeInMainWorld('api', {
   settingsSave: (draft: unknown) => ipcRenderer.invoke('settings:save', draft),
   homeDir: () => ipcRenderer.invoke('app:home'),
   loadHistory: (path: string) => ipcRenderer.invoke('history:load', path),
+  threadPrs: (path: string) => ipcRenderer.invoke('history:prs', path),
   askBtw: (cwd: string, sessionId: string | null, question: string) => ipcRenderer.invoke('chat:btw', cwd, sessionId, question),
+  askRecap: (cwd: string, sessionId: string) => ipcRenderer.invoke('chat:recap', cwd, sessionId),
   loadRecentHistory: (path: string) => ipcRenderer.invoke('history:recent', path),
   // every event from every live session: (tabId, event)
   onChatEvent: (cb: (tabId: string, event: any) => void) => {

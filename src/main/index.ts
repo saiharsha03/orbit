@@ -23,6 +23,7 @@ import { initMobile, mobileStatus, notifyPhone, pairPhone, unpairPhone, type Pho
 import { registerStatusIpc, setAdvisor, setEffort, setModel } from './liveStatus'
 import { registerClaudeConfigIpc } from './claudeConfig'
 import { modeLabel } from '../shared/modeCore'
+import { threadPrs } from '../shared/prLinkCore'
 import { threadStatusView } from './statusView'
 import { cleanupThread, linkThread, moveThreadLinks, threadLinks } from './threadWorktrees'
 import { checkStatus, deployConfig, dismissWatcher, initDeploy, listWatchers, rewatch, startDeploy, suiteDiffs } from './deploy'
@@ -32,7 +33,7 @@ import { setWatcherPosts } from './readOnly'
 import { initTracker, trackerBoard } from './tracker'
 import { cancelSwitch, switchAccount } from './account'
 import { currentEmail, listAccounts, otherClaudeProcesses, realAccountPaths, removeAccount, saveCurrent, switchAccount as switchProfile } from './accounts'
-import { askBtw } from './btw'
+import { askBtw, askRecap } from './btw'
 import { deleteNote, listNotes, saveNote, watchNotes } from './notes'
 import { editorMtime, editorRead, editorWrite, vsCodeUrl } from './editorFiles'
 import { lspChange, lspClose, lspOpen, lspRequest, lspSaved, setDiagnosticsSink, stopLanguageServers } from './lsp'
@@ -848,8 +849,12 @@ handle('dev:start', (_e, name: string, src: Source) => dev.startService(name, sr
 handle('dev:stop', (_e, name: string) => dev.stopService(name, dev.USER))
 handle('dev:logs', (_e, name: string) => dev.logs(name, 1000))
 handle('history:load', (_e, path: string) => loadHistory(path))
+// every pull request a thread opened, from its whole transcript (the open view holds only its recent end)
+handle('history:prs', async (_e, path: string) => threadPrs(await loadHistory(String(path))))
 // /btw: a side question about a thread, answered by a throwaway fork (nothing goes into the thread)
 handle('chat:btw', (_e, cwd: string, sessionId: string | null, question: string) => askBtw(String(cwd ?? ''), sessionId ? String(sessionId) : null, String(question)))
+// the session recap shown when you come back to a thread, from the same kind of throwaway fork
+handle('chat:recap', (_e, cwd: string, sessionId: string) => askRecap(String(cwd ?? ''), String(sessionId)))
 // a reopened thread: its recent end first (more = there is earlier conversation to load)
 handle('history:recent', (_e, path: string) => loadRecentHistory(path))
 handle('fs:readText', (_e, path: string) => readText(path))
