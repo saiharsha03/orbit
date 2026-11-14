@@ -200,16 +200,10 @@ export function ModelEffort({ tabId, ultra }: { tabId: string; ultra: boolean })
   const [allModels, setModels] = useState<{ value: string; displayName: string }[] | null>(null)
   // the lists show the newest model of each class; the thread's own model stays listed whatever its age
   const models = allModels && latestPerClass(allModels, st.model ?? '')
-  const [open, setOpen] = useState<'model' | 'effort' | 'advisor' | null>(null)
+  const [open, setOpen] = useState<'model' | 'effort' | null>(null)
   const [err, setErr] = useState('')
   const mref = useRef<HTMLButtonElement>(null)
   const eref = useRef<HTMLButtonElement>(null)
-  const aref = useRef<HTMLButtonElement>(null)
-  const openAdvisor = () => {
-    setOpen(open === 'advisor' ? null : 'advisor')
-    void readAdvisorDefault().then(setDflt)
-    if (!models) { setLoadErr(false); window.api.chatModels(tabId).then(setModels).catch(() => setLoadErr(true)) }
-  }
   // a list that failed to load is asked for again the next time the picker opens
   const [loadErr, setLoadErr] = useState(false)
   const openModels = () => {
@@ -222,7 +216,6 @@ export function ModelEffort({ tabId, ultra }: { tabId: string; ultra: boolean })
   const thinking = ultra || st.ultrathink
   const [dflt, setDflt] = useState(advisorDefault)
   useEffect(() => { void readAdvisorDefault().then(setDflt) }, [])
-  const word = advisorWord(st, dflt, modelLabel)
   const advisorOn = advisorChecked(st, dflt)
   const pickAdvisor = (v: string) => {
     const was = { advisorPick: st.advisorPick, advisor: st.advisor }
@@ -254,16 +247,7 @@ export function ModelEffort({ tabId, ultra }: { tabId: string; ultra: boolean })
         title={`Model ${modelText}, effort ${effortText}: click to change them`} data-testid="model-summary">
         {modelText === 'default' ? 'default model' : short(modelText)}, {short(effortText)}
       </button>
-      {/* the advisor keeps its own place in the row: whether a second model is being asked is worth seeing at a glance */}
-      <button ref={aref} className={word ? 'pick pick-on' : 'pick'} onClick={openAdvisor} title="The advisor for this thread: a second model Claude can ask for advice. Click to turn it on or off" aria-haspopup="listbox" data-testid="advisor-picker">
-        {word || 'advisor off'}
-      </button>
       {failed}
-      {open === 'advisor' && (
-        <PickList anchor={anchorOf(aref.current)} isOn={(v) => v === advisorOn} loading={!models && !loadErr} testid="advisor-list" onClose={() => setOpen(null)}
-          items={models ? advisorItems(models, dflt, modelLabel, st.model || dfl.model || seen.model || '') : []}
-          onPick={(v) => pickAdvisor(v)} />
-      )}
     </>
   )
   return (
@@ -274,10 +258,7 @@ export function ModelEffort({ tabId, ultra }: { tabId: string; ultra: boolean })
       <button ref={eref} className={thinking ? 'pick ultra' : 'pick'} onClick={() => setOpen(open === 'effort' ? null : 'effort')} title={thinking ? 'ultrathink: max effort for this turn' : 'Effort for this thread'} aria-haspopup="listbox" data-testid="effort-picker">
         <i>Effort</i>{effortText}
       </button>
-      <button ref={aref} className="pick" onClick={openAdvisor} title="The advisor for this thread: a second model Claude can ask for advice" aria-haspopup="listbox" data-testid="advisor-picker">
-        <i>Advisor</i>{word || 'advisor off'}
-      </button>
-      <button className="pick pick-done" onClick={fold} title="Fold the model, effort and advisor back into one (Esc)" data-testid="model-collapse">Done</button>
+      <button className="pick pick-done" onClick={fold} title="Fold the model and effort back into one (Esc)" data-testid="model-collapse">Done</button>
       {failed}
       {open === 'model' && (
         <PickList anchor={anchorOf(mref.current)} isOn={(v) => (v.startsWith(DEFAULT_PICK) ? v.slice(DEFAULT_PICK.length) === dfl.own.model : isAdvisorValue(v) ? v === advisorOn : v === st.model)} loading={!models && !loadErr} testid="model-list" onClose={() => setOpen(null)}
@@ -285,15 +266,51 @@ export function ModelEffort({ tabId, ultra }: { tabId: string; ultra: boolean })
             ...(models ?? []).filter((m) => m.value !== 'default').map((m) => ({ value: DEFAULT_PICK + m.value, label: m.displayName, group: 'Default for new threads' }))]}
           onPick={(v) => { if (v.startsWith(DEFAULT_PICK)) { setErr(''); void saveDefault({ model: v.slice(DEFAULT_PICK.length) }).catch((x) => setErr(String(x?.message ?? x))); return } if (isAdvisorValue(v)) { pickAdvisor(v); return } const was = st.model; setErr(''); setPicked(tabId, { model: v }); window.api.chatSetModel(tabId, v).catch((x) => { setPicked(tabId, { model: was ?? undefined }); setErr(String(x?.message ?? x)) }) }} />
       )}
-      {open === 'advisor' && (
-        <PickList anchor={anchorOf(aref.current)} isOn={(v) => v === advisorOn} loading={!models && !loadErr} testid="advisor-list" onClose={() => setOpen(null)}
-          items={models ? advisorItems(models, dflt, modelLabel, st.model || dfl.model || seen.model || '') : []}
-          onPick={(v) => pickAdvisor(v)} />
-      )}
       {open === 'effort' && (
         <PickList anchor={anchorOf(eref.current)} isOn={(v) => (v.startsWith(DEFAULT_PICK) ? v.slice(DEFAULT_PICK.length) === dfl.own.effort : v === st.effort)} testid="effort-list" onClose={() => setOpen(null)}
           items={[...levels.map((l) => ({ value: l, label: l })), ...EFFORTS.map((l) => ({ value: DEFAULT_PICK + l, label: l, group: 'Default for new threads' }))]}
           onPick={(v) => { if (v.startsWith(DEFAULT_PICK)) { setErr(''); void saveDefault({ effort: v.slice(DEFAULT_PICK.length) }).catch((x) => setErr(String(x?.message ?? x))); return } const was = st.effort; setErr(''); setPicked(tabId, { effort: v }); window.api.chatSetEffort(tabId, v).catch((x) => { setPicked(tabId, { effort: was ?? undefined }); setErr(String(x?.message ?? x)) }) }} />
+      )}
+    </>
+  )
+}
+
+// the thread header's Advisor button (beside Changes, Activity, Rewind): a second model Claude can ask for advice.
+// Lit while the thread has one; the list is Off, Default (Settings > General) and the models above the thread's own.
+export function AdvisorPicker({ tabId }: { tabId: string }) {
+  const st = useThreadStatus(tabId)
+  const dfl = useStore(defaults, (d) => d)
+  const [allModels, setModels] = useState<{ value: string; displayName: string }[] | null>(null)
+  const models = allModels && latestPerClass(allModels, st.model ?? '')
+  const [loadErr, setLoadErr] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [err, setErr] = useState('')
+  const ref = useRef<HTMLButtonElement>(null)
+  const [dflt, setDflt] = useState(advisorDefault)
+  useEffect(() => { void readAdvisorDefault().then(setDflt) }, [])
+  const word = advisorWord(st, dflt, modelLabel)
+  const toggle = () => {
+    setOpen((o) => !o)
+    void readAdvisorDefault().then(setDflt)
+    if (!models) { setLoadErr(false); window.api.chatModels(tabId).then(setModels).catch(() => setLoadErr(true)) }
+  }
+  const pick = (v: string) => {
+    const was = { advisorPick: st.advisorPick, advisor: st.advisor }
+    setErr('')
+    setPicked(tabId, { advisorPick: v, advisor: undefined })
+    window.api.chatSetAdvisor(tabId, advisorModelOf(v, dflt)).catch((x) => { setPicked(tabId, was); setErr(String(x?.message ?? x)) })
+  }
+  const thread = st.model || dfl.model || getPref<{ model: string }>('default.seen', { model: '' }).model || ''
+  return (
+    <>
+      <button ref={ref} type="button" className={`btn pact fold${word ? ' pact-on' : ''}`} aria-haspopup="listbox" aria-expanded={open} aria-label="Advisor" onClick={toggle}
+        title={err ? `Advisor switch failed, kept the old one: ${err}` : `${word ? word[0].toUpperCase() + word.slice(1) : 'No advisor'}: a second model Claude can ask for advice. Click to change it`} data-testid="advisor-picker">
+        <Icon name="sparkle" /><span>{word ? `Advisor: ${word.replace(/^advisor /, '')}` : 'Advisor'}</span>
+      </button>
+      {open && (
+        <PickList anchor={anchorOf(ref.current)} isOn={(v) => v === advisorChecked(st, dflt)} loading={!models && !loadErr} testid="advisor-list" onClose={() => setOpen(false)}
+          items={models ? advisorItems(models, dflt, modelLabel, thread) : []}
+          onPick={pick} />
       )}
     </>
   )

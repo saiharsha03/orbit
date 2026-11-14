@@ -387,6 +387,8 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .app .pact[data-testid="chat-activity"] { --c: var(--k-agent); }
 .app .pact[data-testid="chat-rewind"] { --c: var(--k-review); }
 .app .pact[data-testid="terminal-toggle"] { --c: var(--c-terminal); }
+.app .pact[data-testid="advisor-picker"] { --c: var(--k-advisor); }
+.app .pact.pact-on { background: color-mix(in srgb, var(--c) 12%, transparent); }
 .app .pact .codicon { display: inline; color: var(--c); }
 .app .pact:hover { background: color-mix(in srgb, var(--c) 14%, transparent); }
 .app .pact[aria-pressed="true"], .app .pact[aria-expanded="true"] { background: color-mix(in srgb, var(--c) 22%, transparent); box-shadow: inset 0 0 0 1px var(--c); }

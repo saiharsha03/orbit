@@ -13,6 +13,7 @@ import {
 import { dataDir, TEST_MODE } from './testMode'
 import { writeFileSafe } from './safeWrite'
 import { gh } from './gh'
+import { SIDE } from '../shared/edition'
 
 type State = { lastRun: number | null; reviewed: Reviewed; enabled?: boolean } // enabled: the Watchers view's switch (default on)
 export type StartReview = (t: { tabId: string; cwd: string; title: string; prompt: string }) => boolean // false: no window yet
@@ -64,7 +65,7 @@ let runAt = 0
 // called again when the settings change: the timer runs once and reads the latest config on every tick
 let timers = false
 export function initDependabot(env: Record<string, string>, workspaceRoot: string, startReview: StartReview, activeReviews?: ActiveReviews) {
-  if (TEST_MODE) return
+  if (TEST_MODE || SIDE) return // Orbit Next never reviews on its own: Orbit does
   cap = reviewCap(env)
   if (activeReviews) active = activeReviews
   const p = parseDependabotConfig(env)

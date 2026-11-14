@@ -14,7 +14,7 @@ import { counts, FILE_TOOLS, toolHunks, type Hunk } from '../../shared/diffCore'
 import type { ClipOffer } from '../../shared/clipboardCore'
 import { clearOffer, textHash, useClipboardOn, useClipOffer } from './clipboardOffer'
 import { CopyButton, MdBody } from './MdBody'
-import { ModelEffort, ModePicker } from './ThreadStatus'
+import { AdvisorPicker, ModelEffort, ModePicker } from './ThreadStatus'
 import { dismissGoal, useThreadStatus } from './statusStore'
 import { SummaryRow, ThinkingRow, WarningRow } from './ChatRows'
 import { FastToggle } from './FastToggle'
@@ -208,7 +208,17 @@ function ToolRow({ it, status, bg, cwd, onDiff, onBackground }: { it: Extract<It
     const at = errorLine(it.output)
     out.current.scrollTop = Math.max(0, at - 1) * 18
   }, [open, status, it.output])
+  // a command moved to the background: its row's first output only says where the real output goes. Once it ends,
+  // the row says how it ended and, opened, shows that file, so a failure shows its reason
+  const bgFile = bg ? (it.output ?? '').match(/Output is being written to: (\S+\.output)/)?.[1] : undefined
+  const [bgOut, setBgOut] = useState<string | null>(null)
+  useEffect(() => {
+    if (!open || !bgFile || bg === 'running') return
+    window.api.readText(bgFile).then((t) => setBgOut(t.trim() || '(no output)')).catch(() => setBgOut(null))
+  }, [open, bgFile, bg])
+  const bgEnd = bg === 'failed' ? <State word="FAILED" tone="fail" /> : bg === 'completed' ? <State word="DONE" tone="done" /> : bg === 'stopped' ? <State word="STOPPED" tone="idle" /> : null
   const result = bg === 'running' ? <><span className="dimt">background </span><State word="WORKING" tone="work" /></>
+    : bg && bgEnd ? <><span className="dimt">background </span>{bgEnd}</>
     : status === 'running' ? <State word="WORKING" tone="work" />
       : exit !== null ? <State word={`exit ${exit}`} tone="idle" title="The command ended with this exit code. Its output is in the row" testid="tool-exit" />
       : status === 'error' ? <State word="FAILED" tone="fail" />
@@ -232,9 +242,9 @@ function ToolRow({ it, status, bg, cwd, onDiff, onBackground }: { it: Extract<It
         <div className="toolout">
           {spec && hunks && <InlineDiff hunks={hunks} label={label} onOpen={() => onDiff(spec)} />}
           {(!spec || status === 'error') && <>
-            <CopyButton className="toolcopy" title="Copy the command and output" onCopy={() => navigator.clipboard.writeText([cmd && `$ ${cmd}`, it.output || '(no output)'].filter(Boolean).join('\n\n'))} />
+            <CopyButton className="toolcopy" title="Copy the command and output" onCopy={() => navigator.clipboard.writeText([cmd && `$ ${cmd}`, bgOut ?? (it.output || '(no output)')].filter(Boolean).join('\n\n'))} />
             {cmd && <div className="log tool-cmd" data-testid="tool-output-command">{cmd}</div>}
-            <div className="log tool-out" ref={out} data-testid="tool-output">{it.output || '(no output)'}</div>
+            <div className="log tool-out" ref={out} data-testid="tool-output">{bgOut ?? (it.output || '(no output)')}</div>
           </>}
         </div>
       )}
@@ -565,6 +575,22 @@ export function SessionView(p: Props) {
   }, [session.id, exportAs])
   const [menu, setMenu] = useState(false)
   useEscape(() => setMenu(false), menu)
+  // Esc stops the focused thread's turn wherever the focus is (the conversation, a button, nothing), as in Claude
+  // Code; not from another field, a terminal or the editor, and only after an open menu or popover took its Esc
+  const stop = useRef(p.onStop)
+  stop.current = p.onStop
+  useEffect(() => {
+    if (!focused || !session.busy) return
+    const f = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return
+      const t = e.target as HTMLElement | null
+      if (t?.closest('input, textarea, select, [contenteditable="true"], .xterm, .monaco-editor')) return // the message box stops it itself
+      // after every other handler: one that used the key (Shell's Esc leaving a whole page, a shown file) wins
+      setTimeout(() => { if (!e.defaultPrevented) stop.current() }, 0)
+    }
+    window.addEventListener('keydown', f)
+    return () => window.removeEventListener('keydown', f)
+  }, [focused, session.busy])
 
   // /btw answers, above the queue box until dismissed (never part of the conversation)
   const [btws, setBtws] = useState<{ q: string; a: string | null }[]>([])
@@ -901,6 +927,7 @@ export function SessionView(p: Props) {
                 <Icon name={a.icon} /><span>{a.label}</span>{a.tab === 'activity' && runningTasks > 0 && <b className="num" data-testid="chat-activity-count">{runningTasks}</b>}
               </button>
             ))}
+            <AdvisorPicker tabId={session.id} />
             <button type="button" className="btn pact fold2" aria-label="Terminal" onClick={p.onTerminal} title="This thread's terminal (Ctrl+`)" data-testid="terminal-toggle"><Icon name="terminal" /><span>Terminal</span></button>
             <button type="button" className="btn pact" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)} title="Pin, split, export, find, background" data-testid="chat-export">More</button>
             {menu && (

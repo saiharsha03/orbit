@@ -7,7 +7,7 @@ import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, re
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { carryOvers, skipOnCarry, type CarryKind } from '../shared/carryOverCore'
-import { PRODUCT, STATE_FOLDER } from '../shared/edition'
+import { PRODUCT, SIDE, STATE_FOLDER } from '../shared/edition'
 import { TEST_MODE } from './testMode'
 
 type Count = { files: number; skipped: number }
@@ -31,8 +31,19 @@ function copyTree(kind: CarryKind, from: string, to: string, rel: string, n: Cou
   }
 }
 
+// Orbit Next's first start: only Orbit's settings, look and threads list. Nothing that acts by itself (watchers,
+// wake-ups, auto-continue, the phone pairing) or that would reopen or clean up Orbit's live threads and worktrees.
+const SIDE_FILES = ['hive-settings.json', 'hive-prefs.json', 'hive-zoom.json', 'hive-allowlist.json', 'hive-threads.json']
+function carryOverFromOrbit(): void {
+  const to = join(homedir(), STATE_FOLDER)
+  if (existsSync(to)) return
+  mkdirSync(to, { recursive: true })
+  for (const f of SIDE_FILES) { const src = join(homedir(), '.orbit', f); if (existsSync(src)) cpSync(src, join(to, f)) }
+}
+
 export function carryOverFromHive(): void {
   if (TEST_MODE || process.env.HIVE_DATA_DIR) return
+  if (SIDE) { carryOverFromOrbit(); return }
   for (const c of carryOvers({ home: homedir(), appData: app.getPath('appData'), product: PRODUCT, stateFolder: STATE_FOLDER })) {
     if (existsSync(c.to) || !existsSync(c.from)) continue
     const side = `${c.to}.carrying`

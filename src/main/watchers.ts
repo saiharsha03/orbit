@@ -16,6 +16,7 @@ import {
   type Folders, type WatcherDetail, type WatcherFile, type WatcherInput, type WatcherState, type WatcherSummary, type WatchersList,
 } from '../shared/watchersCore'
 import { blocked, dataDir, TEST_MODE, testWeeklyPct } from './testMode'
+import { SIDE } from '../shared/edition'
 import { writeFileSafe } from './safeWrite'
 import { FALLBACK_MS, markWoken, readWakeups, scheduleFile, type Wakeup } from './selfSchedule'
 import { saveReminder } from '../shared/watcherSaveCore'
@@ -95,7 +96,7 @@ export function initWatchers(env: Record<string, string>, workspaceRoot: string,
   workspace = workspaceRoot
   woke = new Set()
   lastSeen = readHeartbeat()
-  if (TEST_MODE) return // never on its own in test mode, and the real Watch folder is never moved
+  if (TEST_MODE || SIDE) return // never on its own in test mode or in Orbit Next, and the real Watch folder is never moved
   migration = migrateLegacyWatch(env)
   if (migration.length) console.warn(`Watchers: ${migration.join('; ')}`)
   setTimeout(() => void tick(), 60_000).unref() // after the window has loaded (a reload stops every live thread)
