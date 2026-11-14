@@ -136,7 +136,9 @@ test('usageGuard: the window closest to its limit from 85%, when it fills, and w
   // it will last until the reset: a guard, with no fill time
   assert.equal(usageGuard([{ key: 'five_hour', label: '', pct: 86, resetsAt: '2026-11-09T13:50:00Z' }], now)!.fullAt, null)
   // the fuller of two windows; said once at 85 and once more at 95, per window and reset
-  assert.equal(usageGuard([rows[0], { ...rows[1], pct: 97, key: 'seven_day_opus' }], now)!.window, '7-day Opus window')
+  assert.equal(usageGuard([rows[0], { ...rows[1], pct: 97 }], now)!.window, '7-day window')
+  // a single model's own limit is not a plan window: no alert for it, however full
+  assert.equal(usageGuard([{ ...rows[1], pct: 97, key: 'seven_day_opus' }, { ...rows[1], pct: 99, key: 'model_fable' }], now), null)
   assert.equal(guardStep(g), `five_hour:${g.resetAt}:85`)
   assert.equal(guardStep({ ...g, pct: 96 }), `five_hour:${g.resetAt}:95`)
   // a reset that jitters by milliseconds between readings is the same window
