@@ -303,9 +303,9 @@ export function AdvisorPicker({ tabId }: { tabId: string }) {
   const thread = st.model || dfl.model || getPref<{ model: string }>('default.seen', { model: '' }).model || ''
   return (
     <>
-      <button ref={ref} type="button" className={`btn pact fold${word ? ' pact-on' : ''}`} aria-haspopup="listbox" aria-expanded={open} aria-label="Advisor" onClick={toggle}
+      <button ref={ref} type="button" className={`btn pact pact-icon${word ? ' pact-on' : ''}`} aria-haspopup="listbox" aria-expanded={open} aria-label="Advisor" onClick={toggle}
         title={err ? `Advisor switch failed, kept the old one: ${err}` : `${word ? word[0].toUpperCase() + word.slice(1) : 'No advisor'}: a second model Claude can ask for advice. Click to change it`} data-testid="advisor-picker">
-        <Icon name="sparkle" /><span>{word ? `Advisor: ${word.replace(/^advisor /, '')}` : 'Advisor'}</span>
+        <Icon name="sparkle" />
       </button>
       {open && (
         <PickList anchor={anchorOf(ref.current)} isOn={(v) => v === advisorChecked(st, dflt)} loading={!models && !loadErr} testid="advisor-list" onClose={() => setOpen(false)}

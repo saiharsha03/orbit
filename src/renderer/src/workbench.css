@@ -388,6 +388,9 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .app .pact[data-testid="chat-rewind"] { --c: var(--k-review); }
 .app .pact[data-testid="terminal-toggle"] { --c: var(--c-terminal); }
 .app .pact[data-testid="advisor-picker"] { --c: var(--k-advisor); }
+/* icon only (the advisor): square; off = a dim icon, on = the icon in its colour */
+.app .pact.pact-icon { padding: 0; width: 26px; justify-content: center; }
+.app .pact.pact-icon:not(.pact-on) .codicon { color: var(--dim); }
 .app .pact.pact-on { background: color-mix(in srgb, var(--c) 12%, transparent); }
 .app .pact .codicon { display: inline; color: var(--c); }
 .app .pact:hover { background: color-mix(in srgb, var(--c) 14%, transparent); }
