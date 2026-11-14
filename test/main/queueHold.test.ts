@@ -137,3 +137,14 @@ test('a send that fails after waiting is reported to the caller, not dropped', a
   assert.deepEqual(errors, ['no process'])
   assert.throws(() => o.run('t', () => { throw new Error('at once') }), /at once/) // nothing ahead: it throws to the caller (chat:send rejects)
 })
+
+test('list: what waits behind the running turn, in order, left in the queue (the phone shows it as not read yet)', () => {
+  const q = turnQueue<string>(() => {}, () => {})
+  q.markBusy()
+  q.submit('a', 'first')
+  q.submit('b', 'second')
+  assert.deepEqual(q.list(), [{ id: 'a', msg: 'first' }, { id: 'b', msg: 'second' }])
+  assert.equal(q.size(), 2)
+  q.turnEnded()
+  assert.deepEqual(q.list(), [{ id: 'b', msg: 'second' }])
+})

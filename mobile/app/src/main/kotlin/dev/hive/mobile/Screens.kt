@@ -3,6 +3,7 @@ package dev.hive.mobile
 // Every screen, drawn from plain values and callbacks: nothing here talks to Orbit, so the same code is what the
 // app shows and what the screenshot tests render (src/test, ScreensTest). MainActivity.kt wires them to the relay.
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +22,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -106,23 +109,25 @@ fun ThreadsScreen(
 private fun ItemRow(it: Item) {
     when (it.k) {
         // your own message: a band across the pane, a little heavier; whether Claude has taken it in, when Orbit says
-        "you" -> Box(Modifier.fillMaxWidth().padding(start = 56.dp, end = Pad, top = 6.dp, bottom = 6.dp), contentAlignment = Alignment.CenterEnd) {
-            Column(Modifier.background(C.sel, androidx.compose.foundation.shape.RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp, bottomStart = 12.dp, bottomEnd = 2.dp)).padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.End) {
+        "you", "sending" -> Box(Modifier.fillMaxWidth().padding(start = 56.dp, end = 14.dp, top = 8.dp, bottom = 8.dp), contentAlignment = Alignment.CenterEnd) {
+            Column(Modifier.background(C.band, androidx.compose.foundation.shape.RoundedCornerShape(20.dp)).padding(horizontal = 16.dp, vertical = 10.dp), horizontalAlignment = Alignment.End) {
                 SelectionContainer { Text(it.t, style = T.conv.copy(color = C.hi)) }
-                if (it.seen != null) StateWord(if (it.seen) "SEEN BY CLAUDE" else "NOT READ YET", Modifier.padding(top = 4.dp))
+                if (it.k == "sending") StateWord("SENDING", Modifier.padding(top = 4.dp))
+                else if (it.seen != null) StateWord(if (it.seen) "SEEN BY CLAUDE" else "NOT READ YET", Modifier.padding(top = 4.dp))
             }
         }
         "claude" -> SelectionContainer {
             val code = T.mono.copy(color = C.hi, fontSize = 12.5.sp, lineHeight = 19.sp)
             Markdown(it.t, modifier = Modifier.padding(horizontal = Pad, vertical = 6.dp),
                 colors = markdownColor(text = C.ink, linkText = C.link, codeBackground = C.side, inlineCodeBackground = C.side, dividerColor = C.rule),
-                typography = markdownTypography(h1 = T.sub, h2 = T.title.copy(fontWeight = FontWeight.SemiBold), h3 = T.title, h4 = T.title, h5 = T.title, h6 = T.title,
-                    text = T.conv, paragraph = T.conv, ordered = T.conv, bullet = T.conv, list = T.conv, quote = T.conv.copy(color = C.dim), code = code, inlineCode = code))
+                typography = markdownTypography(h1 = T.reply.copy(fontSize = 20.sp, fontWeight = FontWeight.SemiBold), h2 = T.reply.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), h3 = T.reply.copy(fontWeight = FontWeight.SemiBold), h4 = T.reply, h5 = T.reply, h6 = T.reply,
+                    text = T.reply, paragraph = T.reply, ordered = T.reply, bullet = T.reply, list = T.reply, quote = T.reply.copy(color = C.dim), code = code, inlineCode = code))
         }
-        // a tool row: the tool's name in the working colour, then what it ran, in mono
-        "tool" -> Row(Modifier.padding(horizontal = Pad, vertical = 2.dp)) {
-            Text(it.t.substringBefore(' '), Modifier.width(74.dp), style = T.mono.copy(color = C.work), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(it.t.substringAfter(' ', ""), style = T.mono.copy(color = C.dim), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // a tool row, folded to one quiet line: the tool, then what it ran
+        "tool" -> Row(Modifier.padding(horizontal = Pad, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("›", Modifier.padding(end = 8.dp), style = T.note.copy(color = C.faint))
+            Text(it.t.substringBefore(' '), Modifier.padding(end = 6.dp), style = T.note.copy(color = C.dim, fontWeight = FontWeight.Medium), maxLines = 1)
+            Text(it.t.substringAfter(' ', ""), style = T.note.copy(color = C.faint), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         else -> Text(it.t, Modifier.padding(horizontal = Pad, vertical = 4.dp), style = T.label)
     }
@@ -174,38 +179,67 @@ fun AskCard(ask: Ask, sent: Boolean = false, onAnswer: (JSONObject) -> Unit = {}
     }
 }
 
-// the composer: an underlined input with Mic beside it, and under it what Send will do and that the draft is kept
+// a file picked with +, ready to go with the next send (data: base64)
+data class Attachment(val name: String, val mime: String, val data: String)
+
+// the composer, as the chat apps have it: a rounded box with what is attached, the text, + on the left and a round
+// button on the right that sends, or stops Claude while it works and nothing is typed. Queue and Interrupt sit above
+// the box while Claude works and there is something to send.
 @Composable
-fun Composer(draft: String, working: Boolean, canSend: Boolean, placeholder: String = "Message Claude", mic: Boolean = true, onDraft: (String) -> Unit = {}, onSend: () -> Unit = {}, onMic: () -> Unit = {}, onQueue: (() -> Unit)? = null, onInterrupt: (() -> Unit)? = null) {
-    Column(Modifier.fillMaxWidth().background(C.side)) {
-        Rule()
-        Column(Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 10.dp)) {
-            UnderlineInput(draft, onDraft, placeholder, trailing = if (mic) ({ BoxWord("Mic", onClick = onMic) }) else null)
-            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (working) "Steers Claude" else "Starts a turn", style = T.label)
-                if (draft.isNotBlank()) Text("Draft kept", style = T.label)
+fun Composer(
+    draft: String, working: Boolean, canSend: Boolean, placeholder: String = "Message Claude", attachments: List<Attachment> = emptyList(),
+    onDraft: (String) -> Unit = {}, onSend: () -> Unit = {}, onAttach: (() -> Unit)? = null, onRemove: (Attachment) -> Unit = {}, onStop: (() -> Unit)? = null,
+    onQueue: (() -> Unit)? = null, onInterrupt: (() -> Unit)? = null,
+) {
+    val ok = canSend && (draft.isNotBlank() || attachments.isNotEmpty())
+    val round = androidx.compose.foundation.shape.RoundedCornerShape(26.dp)
+    Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 12.dp)) {
+        if (working && ok && (onQueue != null || onInterrupt != null)) Row(Modifier.padding(start = 6.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            if (onQueue != null) Text("Queue", Modifier.clickable(onClick = onQueue).padding(vertical = 4.dp), style = T.action)
+            if (onInterrupt != null) Text("Interrupt", Modifier.clickable(onClick = onInterrupt).padding(vertical = 4.dp), style = T.action, color = C.fail)
+        }
+        Column(Modifier.fillMaxWidth().background(C.raised, round).border(1.dp, C.rule2, round).padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 8.dp)) {
+            attachments.forEach { a ->
+                Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 6.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(a.name, Modifier.weight(1f), style = T.note.copy(color = C.ink), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Remove", Modifier.clickable { onRemove(a) }.padding(start = 10.dp, top = 2.dp, bottom = 2.dp), style = T.label, color = C.dim)
+                }
+            }
+            Box(Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 6.dp)) {
+                if (draft.isEmpty()) Text(placeholder, style = T.conv.copy(color = C.faint), maxLines = 1)
+                androidx.compose.foundation.text.BasicTextField(draft, onDraft, Modifier.fillMaxWidth(), textStyle = T.conv.copy(color = C.hi), cursorBrush = androidx.compose.ui.graphics.SolidColor(C.accent), maxLines = 6,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onAttach != null) RoundIcon("+", C.rule, C.hi, contentDescription = "Attach a photo or file", onClick = onAttach)
                 Spacer(Modifier.weight(1f))
-                val ok = canSend && draft.isNotBlank()
-                if (working && onQueue != null) Text("Queue", Modifier.clickable(enabled = ok, onClick = onQueue).padding(horizontal = 6.dp, vertical = 2.dp), style = T.label.copy(fontSize = 13.sp), color = if (ok) C.link else C.faint)
-                if (working && onInterrupt != null) Text("Interrupt", Modifier.clickable(enabled = ok, onClick = onInterrupt).padding(horizontal = 6.dp, vertical = 2.dp), style = T.label.copy(fontSize = 13.sp), color = if (ok) C.fail else C.faint)
-                Text(if (working) "Steer" else "Send", Modifier.clickable(enabled = canSend && draft.isNotBlank(), onClick = onSend).padding(start = 12.dp, top = 2.dp, bottom = 2.dp),
-                    style = T.label.copy(fontWeight = FontWeight.SemiBold, fontSize = 13.sp), color = if (canSend && draft.isNotBlank()) C.accent else C.faint)
+                // stop while Claude works and nothing waits to be sent; otherwise send (it steers a working Claude)
+                if (working && !ok && onStop != null) RoundIcon("■", C.fail, Color.White, contentDescription = "Stop Claude", onClick = onStop)
+                else RoundIcon("↑", if (ok) C.hi else C.rule2, if (ok) C.bg else C.faint, contentDescription = if (working) "Steer Claude" else "Send", enabled = ok, onClick = onSend)
             }
         }
     }
 }
+
+@Composable
+private fun RoundIcon(glyph: String, fill: Color, ink: Color, contentDescription: String, enabled: Boolean = true, onClick: () -> Unit) =
+    Box(Modifier.size(36.dp).background(fill, androidx.compose.foundation.shape.CircleShape).clickable(enabled = enabled, onClick = onClick)
+        .semantics { this.contentDescription = contentDescription }, contentAlignment = Alignment.Center) {
+        Text(glyph, style = T.title.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ink, lineHeight = 18.sp))
+    }
 
 // error: what the last request failed with. leaving: Back was pressed with unsent text. sentAsks: answered here already.
 @Composable
 fun ThreadScreen(
     v: ThreadView, draft: String = "", online: Boolean = true, loaded: Boolean = true, error: String = "", notice: String = "", leaving: Boolean = false, sentAsks: Set<String> = emptySet(),
     list: LazyListState = rememberLazyListState(),
-    onBack: () -> Unit = {}, onStay: () -> Unit = {}, onLeave: () -> Unit = {}, onDraft: (String) -> Unit = {}, onSend: () -> Unit = {}, onQuick: (Quick.Reply) -> Unit = {},
-    onStop: () -> Unit = {}, onStopTask: (Task) -> Unit = {}, onAnswer: (Ask, JSONObject) -> Unit = { _, _ -> }, onMic: () -> Unit = {},
+    onBack: () -> Unit = {}, onStay: () -> Unit = {}, onLeave: () -> Unit = {}, onDraft: (String) -> Unit = {}, onSend: () -> Unit = {},
+    onStop: () -> Unit = {}, onStopTask: (Task) -> Unit = {}, onAnswer: (Ask, JSONObject) -> Unit = { _, _ -> },
     settings: ThreadSettings? = null, settingsOpen: String = "", onSettingsOpen: (String) -> Unit = {}, onSetting: (String, String) -> Unit = { _, _ -> },
     onQueue: (() -> Unit)? = null, onInterrupt: (() -> Unit)? = null,
     more: ThreadMore? = null, morePane: String = "", now: Long = 0, rewinding: String = "", onMorePane: (String) -> Unit = {}, onRewind: (Point) -> Unit = {},
     onChanges: (() -> Unit)? = null,
+    attachments: List<Attachment> = emptyList(), onAttach: (() -> Unit)? = null, onRemove: (Attachment) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
         Head(v.title.ifEmpty { if (loaded) "Thread" else "Opening" }, sub = true, onBack = onBack, right = if (v.working) "Stop" else "", rightColor = C.fail, onRight = onStop)
@@ -233,18 +267,8 @@ fun ThreadScreen(
             if (v.working && v.asks.isEmpty()) item { Row(Modifier.padding(horizontal = Pad, vertical = 10.dp)) { StateWord("WORKING", Modifier.padding(end = 6.dp, top = 3.dp)); Text("Claude is on it", style = T.note) } }
             if (v.items.isEmpty() && v.asks.isEmpty() && loaded && !v.working) item { Empty("Nothing in this thread yet.") }
         }
-        // quick replies: one tap sends them; the last cell stops the turn
-        val quick = Quick.all
-        Rule()
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            quick.forEach { r ->
-                Text(r.label, Modifier.weight(1f).clickable(enabled = online) { onQuick(r) }.padding(horizontal = 4.dp, vertical = 9.dp), style = T.action, color = if (online) C.link else C.faint, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Box(Modifier.width(1.dp).fillMaxHeight().background(C.rule))
-            }
-            Text("Stop", Modifier.weight(1f).clickable(enabled = v.working, onClick = onStop).padding(vertical = 9.dp), style = T.action, color = if (v.working) C.fail else C.faint, textAlign = TextAlign.Center)
-        }
-        if (settings != null) ThreadSettingsBar(settings, settingsOpen, onSettingsOpen, onSetting)
-        Composer(draft, v.working, online, if (v.working) "Steer Claude" else "Message Claude", onDraft = onDraft, onSend = onSend, onMic = onMic, onQueue = onQueue, onInterrupt = onInterrupt)
+        if (settings != null) { Rule(); ThreadSettingsBar(settings, settingsOpen, onSettingsOpen, onSetting) }
+        Composer(draft, v.working, online, if (v.working) "Steer Claude" else "Message Claude", attachments, onDraft = onDraft, onSend = onSend, onAttach = onAttach, onRemove = onRemove, onStop = onStop, onQueue = onQueue, onInterrupt = onInterrupt)
     }
 }
 
@@ -467,7 +491,7 @@ fun TeamsScreen(teams: List<Team>?, notice: String = "", error: String = "", bus
 @Composable
 fun NewThreadScreen(
     folders: List<String>?, folder: String = "", text: String = "", busy: Boolean = false, online: Boolean = true, error: String = "", notice: String = "", leaving: Boolean = false,
-    onBack: () -> Unit = {}, onStay: () -> Unit = {}, onLeave: () -> Unit = {}, onFolder: (String) -> Unit = {}, onText: (String) -> Unit = {}, onStart: () -> Unit = {}, onMic: () -> Unit = {},
+    onBack: () -> Unit = {}, onStay: () -> Unit = {}, onLeave: () -> Unit = {}, onFolder: (String) -> Unit = {}, onText: (String) -> Unit = {}, onStart: () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Head("New thread", right = "Cancel", onRight = onBack)
@@ -488,7 +512,6 @@ fun NewThreadScreen(
             UnderlineInput(text, onText, "Say what you want done", minLines = 4, maxLines = 10, style = T.title.copy(fontWeight = FontWeight.Normal))
         }
         Row(Modifier.padding(horizontal = Pad, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Btn("Mic", Modifier.width(78.dp), onClick = onMic)
             // not before Orbit has listed the folders: a thread is never started in a folder nobody chose
             Btn(if (busy) "Starting" else "Start in background", Modifier.weight(1f), primary = true, enabled = text.isNotBlank() && !busy && folders != null && online, onClick = onStart)
         }

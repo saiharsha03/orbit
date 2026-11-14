@@ -1,6 +1,6 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { guardNote, guardStep, usageGuard, windowName, withWakes, limitedAnswer, noteActions, noteKind, oneTapAsk, phoneInbox, phoneTasks, phoneTeams, phoneWakeups, riskyChoice, type PhoneAsk } from '../../src/shared/phoneCore'
+import { guardNote, guardStep, phoneFileName, splitPhoneFiles, usageGuard, windowName, withWakes, limitedAnswer, noteActions, noteKind, oneTapAsk, phoneInbox, phoneTasks, phoneTeams, phoneWakeups, riskyChoice, type PhoneAsk } from '../../src/shared/phoneCore'
 import type { PhoneThread } from '../../src/shared/threadsCore'
 import type { Team } from '../../src/shared/teamCore'
 
@@ -139,5 +139,17 @@ test('usageGuard: the window closest to its limit from 85%, when it fills, and w
   assert.equal(usageGuard([rows[0], { ...rows[1], pct: 97, key: 'seven_day_opus' }], now)!.window, '7-day Opus window')
   assert.equal(guardStep(g), `five_hour:${g.resetAt}:85`)
   assert.equal(guardStep({ ...g, pct: 96 }), `five_hour:${g.resetAt}:95`)
+  // a reset that jitters by milliseconds between readings is the same window
+  assert.equal(guardStep({ ...g, resetAt: g.resetAt - 468 }), guardStep({ ...g, resetAt: g.resetAt + 442 }))
   assert.deepEqual(['five_hour', 'seven_day', 'seven_day_sonnet', 'other'].map(windowName), ['5-hour window', '7-day window', '7-day Sonnet window', 'plan window'])
+})
+
+test('phone attachments: pictures as images, other files kept by a safe name', () => {
+  const got = splitPhoneFiles([{ name: 'a.jpg', mime: 'IMAGE/JPEG', data: 'aGk=' }, { name: 'r.pdf', mime: 'application/pdf', data: 'cGQ=' }, { name: 'empty.txt', mime: 'text/plain', data: '' }, null])
+  assert.deepEqual(got.images, [{ mediaType: 'image/jpeg', data: 'aGk=' }])
+  assert.deepEqual(got.files, [{ name: 'r.pdf', data: 'cGQ=' }])
+  assert.deepEqual(splitPhoneFiles(undefined), { images: [], files: [] })
+  assert.equal(phoneFileName('..\\..\\evil$name?.txt'), 'evil_name_.txt')
+  assert.equal(phoneFileName('../x/.hidden'), 'hidden')
+  assert.equal(phoneFileName(''), 'file')
 })

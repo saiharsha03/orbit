@@ -5,6 +5,7 @@
 // in ~/.orbit/hive-mobile.json; the key never leaves this computer except inside the QR code shown to you.
 import { createHash, randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { notifyKey, open, seal } from './mobileLink'
 import { writeFileSafe } from './safeWrite'
@@ -14,7 +15,7 @@ export type { PhoneThread } from '../shared/threadsCore'
 import type { PhoneThread } from '../shared/threadsCore'
 import type { UsageRow } from '../shared/usageCore'
 import type { AskQuestion } from '../shared/askCore'
-import { guardNote, guardStep, limitedAnswer, noteActions, noteKind, phoneInbox, usageGuard, withWakes, type NoteActions, type NoteKind, type PhoneAccount, type PhoneAsk, type PhoneFail, type PhonePeek, type PhoneRunning, type PhoneTeam, type PhoneWakeup, type QuietHours } from '../shared/phoneCore'
+import { guardNote, guardStep, splitPhoneFiles, phoneFileName, type PhoneImage, limitedAnswer, noteActions, noteKind, phoneInbox, usageGuard, withWakes, type NoteActions, type NoteKind, type PhoneAccount, type PhoneAsk, type PhoneFail, type PhonePeek, type PhoneRunning, type PhoneTeam, type PhoneWakeup, type QuietHours } from '../shared/phoneCore'
 // seen: on your own message, whether Claude has taken it in (true) or not yet (false); absent when Orbit cannot tell
 export type PhoneItem = { k: 'you' | 'claude' | 'tool' | 'note'; t: string; seen?: boolean }
 export type MobileStatus = { configured: boolean; paired: boolean; connected: boolean; error: string }
@@ -23,7 +24,7 @@ export type Deps = {
   // asks: Claude's open multiple-choice questions in that thread (an older app ignores them)
   read: (id: string) => Promise<{ title: string; items: PhoneItem[]; working: boolean; asks?: { id: string; questions: AskQuestion[] }[] } | null>
   answer: (id: string, ask: string, answers: unknown) => boolean
-  send: (id: string, text: string) => Promise<string>
+  send: (id: string, text: string, images?: PhoneImage[]) => Promise<string>
   // { id }: the new thread's id, so the app can open it (a plain string is the older 'started')
   start: (folder: string, text: string) => Promise<string | { id: string }>
   stop: (id: string) => Promise<void>
@@ -56,7 +57,7 @@ export type Deps = {
   // notes, the to-dos and the watchers
   settings?: (id: string) => Promise<PhoneThreadSettings>
   setThread?: (id: string, what: 'mode' | 'model' | 'effort' | 'advisor', value: string) => Promise<string>
-  sendHow?: (id: string, text: string, how: 'queue' | 'interrupt') => Promise<string>
+  sendHow?: (id: string, text: string, how: 'queue' | 'interrupt', images?: PhoneImage[]) => Promise<string>
   notes?: () => Promise<{ id: string; title: string; text: string; updated: number }[]>
   noteSave?: (id: string | null, text: string) => Promise<string>
   todos?: () => Promise<{ id: string; text: string; status: string; due?: string }[]>
@@ -123,6 +124,17 @@ export function initMobile(env: Record<string, string>, d: Deps): void {
 const GUARD_EVERY_MS = 5 * 60_000
 let guardTimer: ReturnType<typeof setInterval> | undefined
 const guardFile = () => join(dataDir(), 'hive-usage-guard.json')
+// a file sent from the phone that is not a picture: kept in phone-files under the data folder, its full path returned
+async function savePhoneFiles(files: { name: string; data: string }[]): Promise<string[]> {
+  if (!files.length) return []
+  const dir = join(dataDir(), 'phone-files')
+  await mkdir(dir, { recursive: true })
+  return Promise.all(files.map(async (f, i) => {
+    const path = join(dir, `${Date.now()}-${i}-${phoneFileName(f.name)}`)
+    await writeFile(path, Buffer.from(f.data, 'base64'))
+    return path
+  }))
+}
 export function guardMemory(text: string | null): string[] {
   try { const v = JSON.parse(text ?? ''); return Array.isArray(v?.said) ? v.said.filter((x: unknown) => typeof x === 'string').slice(-GUARD_KEEP) : [] } catch { return [] }
 }
@@ -296,7 +308,7 @@ let staleSaid = 0
 
 // ---- what the 2.0 app asks for, from the optional deps or from the ones every Orbit has ----
 // which optional requests this Orbit answers; the app hides the screens and buttons for the others
-const can = (d: Deps): string[] => ['inbox', 'running', 'stopAll', 'noteButtons', ...(d.settings && d.setThread ? ['threadSettings'] : []), ...(d.sendHow ? ['sendHow'] : []), ...(d.notes && d.noteSave ? ['notes'] : []), ...(d.todos ? ['todos'] : []), ...(d.watchers ? ['watchers'] : []), ...(d.threadMore ? ['threadMore'] : []), ...(d.rewind ? ['rewind'] : []), ...(d.versions ? ['versions'] : []), ...(d.stopAll ? ['pause'] : []), ...(d.runWakeNow ? ['runWake'] : []), ...(d.accounts && d.switchAccount ? ['accounts'] : []), ...(d.quietHours ? ['quiet'] : []), ...(d.changes && d.diff ? ['changes'] : []), ...(d.prMerge ? ['prMerge'] : [])]
+const can = (d: Deps): string[] => ['inbox', 'running', 'stopAll', 'noteButtons', 'attach', ...(d.settings && d.setThread ? ['threadSettings'] : []), ...(d.sendHow ? ['sendHow'] : []), ...(d.notes && d.noteSave ? ['notes'] : []), ...(d.todos ? ['todos'] : []), ...(d.watchers ? ['watchers'] : []), ...(d.threadMore ? ['threadMore'] : []), ...(d.rewind ? ['rewind'] : []), ...(d.versions ? ['versions'] : []), ...(d.stopAll ? ['pause'] : []), ...(d.runWakeNow ? ['runWake'] : []), ...(d.accounts && d.switchAccount ? ['accounts'] : []), ...(d.quietHours ? ['quiet'] : []), ...(d.changes && d.diff ? ['changes'] : []), ...(d.prMerge ? ['prMerge'] : [])]
 
 async function peekThread(d: Deps, id: string): Promise<PhonePeek | null> {
   if (d.peek) return d.peek(id)
@@ -438,7 +450,13 @@ export async function phoneRequest(deps: Deps, m: Record<string, unknown>, limit
       case 'send': {
         const d = deps; fails.delete(id)
         const how = m.how === 'queue' || m.how === 'interrupt' ? m.how : null
-        return reply({ ok: await oncePerMid(m.mid, () => (how && d.sendHow ? d.sendHow(id, String(m.text ?? ''), how) : d.send(id, String(m.text ?? '')))) })
+        // attachments: pictures go to Claude as images; any other file is saved here and its path added to the text
+        const { images, files } = splitPhoneFiles(m.files)
+        const send = async () => {
+          const text = [String(m.text ?? ''), ...(await savePhoneFiles(files)).map((p) => `Attached from the phone: ${p}`)].filter((t) => t.trim()).join('\n')
+          return how && d.sendHow ? d.sendHow(id, text, how, images) : d.send(id, text, images)
+        }
+        return reply({ ok: await oncePerMid(m.mid, send) })
       }
       // ---- the 3.0 app ----
       case 'threadSettings': return deps.settings ? reply({ settings: await deps.settings(id) }) : reply({ error: 'unknown request threadSettings' })

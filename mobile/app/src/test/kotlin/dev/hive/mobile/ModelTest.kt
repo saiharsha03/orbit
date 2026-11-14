@@ -13,6 +13,18 @@ import java.time.Instant
 import java.time.ZoneOffset
 
 class ModelTest {
+    @Test fun sendsShowAtOnceUntilOrbitListsThem() {
+        val v = ThreadView(items = listOf(Item("you", "go", true), Item("claude", "ok"), Item("you", "and this", false)))
+        // "and this" is listed back; "go" twice: the second one is still on its way
+        val shown = Read.withOutgoing(v, listOf("and this", "go", "go"))
+        assertEquals(listOf("you", "claude", "you", "sending"), shown.items.map { it.k })
+        assertEquals("go", shown.items.last().t)
+        assertEquals(v, Read.withOutgoing(v, emptyList()))
+        // a long message Orbit cut short still counts as listed
+        val long = "x".repeat(4100)
+        assertEquals(1, Read.withOutgoing(ThreadView(items = listOf(Item("you", "x".repeat(4000) + "…", false))), listOf(long)).items.size)
+    }
+
     private val utc = ZoneOffset.UTC
     private val now = Instant.parse("2026-11-09T13:27:00Z").toEpochMilli()
     private fun at(iso: String) = Instant.parse(iso).toEpochMilli()

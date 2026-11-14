@@ -85,6 +85,8 @@ export function turnQueue<T>(deliver: (msg: T, priority: Priority | undefined, i
     // everything still waiting, taken out (the process ended with messages queued: they go back to the window)
     drain: (): { id: string; msg: T }[] => waiting.splice(0).map(({ id, msg }) => ({ id, msg })),
     has: (id: string) => waiting.some((w) => w.id === id),
+    // everything still waiting, left in place, in order
+    list: (): { id: string; msg: T }[] => waiting.map(({ id, msg }) => ({ id, msg })),
     size: () => waiting.length,
   }
 }
