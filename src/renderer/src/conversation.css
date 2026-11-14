@@ -63,6 +63,7 @@
 .pin-in { width: 100%; margin-top: 8px; font-size: 13px; }
 .since { display: block; padding: 18px var(--pane-pad) 0; font-size: 12.5px; color: var(--dim); flex: none; }
 .since b { color: var(--hi); font-weight: 550; margin-right: 8px; }
+.since-recap { display: block; margin-top: 4px; color: var(--ink); }
 .hold-line { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin: 14px var(--pane-pad) 0; padding: 10px 14px; font-size: 13px; color: var(--ink); background: var(--raised); flex: none; border-radius: var(--r-block); }
 .findbar { display: flex; gap: 14px; align-items: baseline; margin: 12px var(--pane-pad) 0; flex: none; }
 .findbar .uline { flex: 1; font-size: 13px; }

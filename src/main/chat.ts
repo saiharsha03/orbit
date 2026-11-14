@@ -168,6 +168,7 @@ type Live = {
   waitingReason?: string // organize_thread "waiting", until the next message comes in
   lastReply: string | null // the final text of the last finished turn
   lastReplyAt?: number // when that turn finished
+  idleTimer?: ReturnType<typeof setTimeout> // idle compaction, due a while after the last turn (idleCompact)
   // the message that started the current turn, until Claude starts answering it: an interrupt that lands while its
   // prompt hooks still run ends the turn with "prompt_check" and the message never reaches Claude, so it goes again
   unchecked?: SDKUserMessage | null
@@ -203,6 +204,25 @@ const wake = (s: Live) => { for (const cb of [...s.onIdle]) cb() }
 const authTried = new Map<string, number>() // tab -> when a sign-in failure was last retried
 const SEND_NOW_NUDGE = 'Carry on: answer my last message above.'
 const userMsg = (text: string, uuid: string = randomUUID()) => ({ type: 'user', message: { role: 'user', content: [{ type: 'text', text }] }, parent_tool_use_id: null, uuid }) as SDKUserMessage
+
+// Idle compaction, as the terminal does it: a conversation of IDLE_COMPACT_MIN tokens or more that has sat idle for
+// IDLE_COMPACT_MS is compacted just before its one-hour prompt cache expires, so the next message sends a summary
+// instead of the whole conversation uncached. Orbit runs /compact itself (the engine's own idle compaction is for the
+// terminal, VS Code and the desktop app); the thread notes it. Not for watcher runs; a newer turn starts a new wait.
+const IDLE_COMPACT_MS = 55 * 60_000
+const IDLE_COMPACT_MIN = 200_000
+async function idleCompact(tabId: string, s: Live, send: (ev: unknown) => void): Promise<void> {
+  if (live.get(tabId) !== s || s.turns.isBusy() || s.turns.isHeld() || !s.sessionId) return
+  if (Date.now() - (s.lastReplyAt ?? 0) < IDLE_COMPACT_MS - 1000) return
+  const u = await contextUsage(tabId).catch(() => null)
+  if (!u || u.total < IDLE_COMPACT_MIN || live.get(tabId) !== s || s.turns.isBusy()) return
+  send({ type: 'hive_idle_compact' })
+  const m = userMsg('/compact')
+  s.turns.markBusy()
+  s.unchecked = m
+  track(s, m, 'hive')
+  s.push(m)
+}
 // a message on its way to Claude: kept until Claude takes it in, so a process that ends first gives it back
 const track = (s: Live, m: SDKUserMessage, source: Unsent['source'], queueId?: string) => {
   if (m.uuid) s.outbox.set(m.uuid, { uuid: m.uuid, ...(queueId ? { queueId } : {}), ...messageParts(m.message.content), source })
@@ -1239,6 +1259,9 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
           s.lastOk = r.subtype === 'success' && !r.is_error
           s.lastReply = r.subtype === 'success' ? (r.result || lastText) : `The turn ended with an error (${r.subtype}). ${(r.errors ?? []).join('; ')}`.trim()
           s.lastReplyAt = Date.now()
+          // idle compaction: a long conversation left alone is compacted before its prompt cache expires
+          clearTimeout(s.idleTimer)
+          if (!watcher) s.idleTimer = setTimeout(() => void idleCompact(tabId, s, send), IDLE_COMPACT_MS)
           // the sidebar's list and the search index read this transcript again (it is not re-checked otherwise)
           if (s.sessionId) sessionTouched(transcriptPath(cwd, s.sessionId))
           // a usage limit: the thread continues by itself a minute after the reset (not a watcher: its schedule does)

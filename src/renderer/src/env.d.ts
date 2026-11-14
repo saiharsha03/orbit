@@ -179,7 +179,9 @@ interface Window {
     settingsSave: (draft: import('../../shared/settingsCore').Draft) => Promise<{ ok: boolean; problems: import('../../shared/settingsCore').Problem[]; notes: string[] }>
     homeDir: () => Promise<string>
     loadHistory: (path: string) => Promise<Item[]>
+    threadPrs: (path: string) => Promise<{ repo: string; num: number; url: string }[]>
     askBtw: (cwd: string, sessionId: string | null, question: string) => Promise<string>
+    askRecap: (cwd: string, sessionId: string) => Promise<string>
     loadRecentHistory: (path: string) => Promise<{ items: Item[]; more: boolean }>
     onChatEvent: (cb: (tabId: string, event: any) => void) => () => void
     gitList: () => Promise<import('../../shared/gitCore').GitRow[]>

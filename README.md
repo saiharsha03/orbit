@@ -149,7 +149,20 @@ In the message box:
   stays out of the conversation (a throwaway fork answers it, without tools).
 - **Plan approval.** When Claude finishes a plan, a card asks: approve into accept edits, approve and review each
   edit, or keep planning and say what to change. The phone gets it as a question.
-- **Thinking rows**, a **context meter** with a **Compact** button, and fast mode (Alt+O).
+- **Thinking rows**, a **context meter** with a **Compact** button, and fast mode (Alt+O). Fast mode is billed only
+  from usage credits on a subscription: while they are off or used up the control says so and cannot be turned on,
+  and its hover shows the credits used this month.
+- **Idle compaction**, as in the terminal: a conversation of 200K tokens or more left idle for 55 minutes is
+  compacted just before its one-hour prompt cache expires, so your next message sends a summary instead of the whole
+  conversation uncached. A note in the thread says when it happened.
+- **Since you looked**: come back to a thread and a line at the top says what happened while you were away (replies,
+  files edited, questions for you, failures), with Claude Code's one-line **session recap** under it once the thread
+  has three or more replies. The recap comes from a throwaway fork, so nothing goes into the conversation.
+- **Permission requests** in Manual or Accept edits mode show as a card under the call: Allow, Allow for this
+  thread, or Deny. The phone gets the same question.
+- **Safeguard fallback**: when a model's safeguards flag a request and Claude Code re-runs it on the fallback model
+  (cyber: Opus 4.8, bio: Opus 5), the refused answer is removed and a note says what was flagged and that the thread
+  now stays on the fallback model.
 - **Claude Code's own screens in the app**: `/mcp`, `/agents`, `/permissions`, `/hooks`, `/memory`, `/resume`,
   `/branch` and `/add-dir` open as panels instead of running in the engine.
 - **Diff line comments**: the `+` beside a diff line leaves a comment; they go to the thread as one message.
@@ -251,6 +264,7 @@ created by asking any agent.
 
 ### Pull requests
 
+The thread header links every pull request the thread opened, read from its whole transcript (oldest first).
 A thread's **Changes** panel shows its branch, its files and its pull request with the state of its checks. Orbit
 never commits or pushes itself: Ship (Update PR when one is open) sends the thread a message to do it by the
 project's own rules. The one thing Orbit writes to GitHub is a merge, and every merge goes through these guards:
