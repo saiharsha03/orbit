@@ -14,7 +14,8 @@ import { counts, FILE_TOOLS, toolHunks, type Hunk } from '../../shared/diffCore'
 import type { ClipOffer } from '../../shared/clipboardCore'
 import { clearOffer, textHash, useClipboardOn, useClipOffer } from './clipboardOffer'
 import { CopyButton, MdBody } from './MdBody'
-import { AdvisorPicker, ModelEffort, ModePicker } from './ThreadStatus'
+import { AdvisorPicker, ModelEffort, ModePicker, useNow } from './ThreadStatus'
+import { contextPct, contextWarn } from '../../shared/contextCore'
 import { dismissGoal, useThreadStatus } from './statusStore'
 import { SummaryRow, ThinkingRow, WarningRow } from './ChatRows'
 import { FastToggle } from './FastToggle'
@@ -35,7 +36,7 @@ import { nextMode } from '../../shared/planCore'
 import { PATH_MIME } from './FileTree'
 import { wakeLabel, CONTINUE_PROMPT } from '../../shared/continueCore'
 import { sinceSummary, toolVerb, toolResult, errorLine, exitOnly, historyStep, promptHistory, imageTag, dropImageTag } from './conversationCore'
-import { State, Btn, Pins, clock } from './kit'
+import { State, Btn, Pins, clock, tokens as fmtTokens } from './kit'
 import { untilText } from '../../shared/cronCore'
 import { RunningBar } from './RunningBar'
 import { needsNote } from './background'
@@ -389,6 +390,46 @@ const PANEL_ACTS: { tab: PanelTab; label: string; icon: string; title: string }[
   { tab: 'activity', label: 'Activity', icon: 'pulse', title: 'What runs for this thread: subagents, shells, workflows' },
   { tab: 'rewind', label: 'Rewind', icon: 'history', title: 'Go back to an earlier message' },
 ]
+
+// The header's two numbers: how much of the context window the thread uses, and how long its prompt cache stays warm
+// (from the last reply: 5 minutes or an hour, as the transcript says). A cold cache means the next message pays the
+// whole context again.
+const mmss = (ms: number) => { const sec = Math.ceil(ms / 1000); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}` }
+function HeaderMeters({ id, path, busy }: { id: string; path?: string; busy: boolean }) {
+  const [ctx, setCtx] = useState<{ total: number; max: number } | null>(null)
+  const [stats, setStats] = useState<SessionStats | null>(null)
+  useEffect(() => {
+    let alive = true
+    const load = () => {
+      void window.api.chatContext(id).then((c) => { if (alive) setCtx(c) }).catch(() => {})
+      if (path) void window.api.sessionStats(path).then((s) => { if (alive) setStats(s) }).catch(() => {})
+    }
+    load()
+    const t = setInterval(load, 10_000)
+    return () => { alive = false; clearInterval(t) }
+  }, [id, path, busy])
+  const until = stats?.lastReplyAt ? stats.lastReplyAt + stats.cacheTtlMs : null
+  const now = useNow(!!until && !busy)
+  const pct = ctx ? contextPct(ctx.total, ctx.max) : null
+  const left = until ? until - now : null
+  const ttl = stats && stats.cacheTtlMs >= 3_600_000 ? '1 hour' : '5 minute'
+  return (
+    <span className="hmeters">
+      {ctx && (
+        <span className={`hm${contextWarn(pct) ? ' hm-warn' : ''}`} data-testid="head-context"
+          title={`Context in use: ${fmtTokens(ctx.total)}${ctx.max ? ` of ${fmtTokens(ctx.max)}` : ''}`}>
+          <i className="hm-bar"><b style={{ width: `${pct ?? 0}%` }} /></i>{pct !== null ? `${pct}%` : fmtTokens(ctx.total)}
+        </span>
+      )}
+      {left !== null && (
+        <span className={`hm${!busy && left <= 0 ? ' hm-cold' : ''}`} data-testid="head-cache"
+          title={busy ? 'Prompt cache: this turn keeps it warm' : left > 0 ? `Prompt cache warm for ${mmss(left)} more (${ttl} cache). After that the next message re-reads the whole context` : 'Prompt cache expired: the next message re-reads the whole context'}>
+          <Icon name="clock" />{busy ? 'warm' : left > 0 ? mmss(left) : 'cold'}
+        </span>
+      )}
+    </span>
+  )
+}
 
 // the conversation, built only when it changes: typing in the box re-renders the view on every key
 const Transcript = memo(function Transcript({ session, limit, setLimit, st, startRewind }: {
@@ -925,6 +966,7 @@ export function SessionView(p: Props) {
             {pr && ci && ci.state !== 'none' && <span className={`phead-ci ci-${ci.state}`} title={`Checks: ${ci.text} (as last read in Changes)`} data-testid="thread-pr-checks">{ci.state}</span>}
           </div>
           <span className="phead-acts">
+            <HeaderMeters id={session.id} path={session.path} busy={session.busy} />
             {PANEL_ACTS.map((a) => (
               <button key={a.tab} type="button" className="btn pact pact-icon" aria-pressed={hp?.k === a.tab} aria-haspopup="dialog" aria-label={a.label} onClick={(e) => openHp(a.tab, e.currentTarget)} title={`${a.label}: ${a.title}`} data-testid={`chat-${a.tab}`}>
                 <Icon name={a.icon} />{a.tab === 'activity' && runningTasks > 0 && <b className="num" data-testid="chat-activity-count">{runningTasks}</b>}

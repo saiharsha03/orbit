@@ -476,3 +476,11 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 /* the header cards and their buttons are rounded (the app's square reset otherwise wins) */
 .app .pop.hpop, .ovl .pop.hpop { border-radius: 12px !important; }
 .app .btn.btn-quiet, .app .btn.btn-strong, .ovl .btn.btn-quiet, .ovl .btn.btn-strong { border-radius: 8px !important; }
+/* the header's context share and prompt-cache countdown, quiet beside the icons */
+.hmeters { display: inline-flex; align-items: center; gap: 10px; margin-right: 6px; font: 400 12px var(--mono); color: var(--dim); }
+.hm { display: inline-flex; align-items: center; gap: 5px; cursor: default; }
+.hm .codicon { font-size: 13px; }
+.hm-bar { display: inline-block; width: 28px; height: 4px; background: var(--rule2); overflow: hidden; }
+.hm-bar b { display: block; height: 100%; background: var(--dim); }
+.hm-warn { color: var(--signal); } .hm-warn .hm-bar b { background: var(--signal); }
+.hm-cold { color: color-mix(in srgb, var(--signal) 70%, var(--dim)); }
