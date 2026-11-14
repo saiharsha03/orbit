@@ -77,7 +77,7 @@ export const Inspector = memo(function Inspector() {
 })
 
 // ---- Activity ----
-function Activity({ s }: { s?: SessionMeta }) {
+export function Activity({ s }: { s?: SessionMeta }) {
   const all = useAllStatus()
   const metas = useSessionMetas()
   const session = useThreadSlice(s?.id)
@@ -186,7 +186,7 @@ function Activity({ s }: { s?: SessionMeta }) {
 }
 
 // ---- Rewind: everything you said in this thread, newest first; each is a point to go back to ----
-function RewindView({ s }: { s: SessionMeta }) {
+export function RewindView({ s }: { s: SessionMeta }) {
   const session = useThreadSlice(s.id)
   const points = useMemo(() => (session?.items ?? []).flatMap((it) => (it.kind === 'user' && it.uuid ? [{ uuid: it.uuid, text: it.text.replace(/\s+/g, ' ').trim(), at: it.at }] : [])).reverse(), [session?.items])
   if (!points.length) return <div className="iempty" style={{ paddingTop: 16 }}>Nothing to rewind to yet. Each message you send becomes a point to go back to.</div>

@@ -39,6 +39,7 @@ import { DiffPage } from './pages/DiffPage'
 import { insertIntoComposer } from './SessionView'
 import { accountsList, accountUse, engineCommands } from './api/next'
 import { Boundary, Btn } from './kit'
+import { useEscape } from './ui'
 import { NEXT } from '../../shared/edition'
 
 // slash commands that print a screen in the terminal open a real view here instead
@@ -67,6 +68,8 @@ export function Shell() {
   const scripts = useScripts((p) => setPreview(p))
   const live = useStore(liveStore, (l) => l)
   const pv = useStore(preview, (p) => p)
+  // Esc on a picture shown over the window closes it: the thread under it is back
+  useEscape(() => preview.set(null), !!pv)
   const toasts = useStore(notices, (n) => n)
   const quarry = useQuarry() // Quarry's page only when it is installed and usable
   const agents = useStore(agentDefs, (a) => a)

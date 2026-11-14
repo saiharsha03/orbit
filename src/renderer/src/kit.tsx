@@ -18,7 +18,7 @@ export function taskState(status: string): { word: string; tone: Tone } {
     case 'failed': case 'error': return { word: 'FAILED', tone: 'fail' }
     case 'stopped': case 'killed': return { word: 'STOPPED', tone: 'idle' }
     case 'paused': return { word: 'PAUSED', tone: 'hold' }
-    case 'waiting': return { word: 'WAITING', tone: 'wait' }
+    case 'waiting': return { word: 'NEEDS YOUR INPUT', tone: 'wait' }
     default: return { word: status.toUpperCase(), tone: 'idle' }
   }
 }

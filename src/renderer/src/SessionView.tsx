@@ -5,7 +5,7 @@
 // drafts and the "since you looked" mark are kept per thread.
 import { getPref, setPref } from './prefs'
 import { saveDraft, savedDrafts } from './restore'
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { toolLine, workingOn, SHOW, CODEX, type Session } from './chat'
@@ -24,7 +24,10 @@ import { useMentionMenu } from './MentionMenu'
 import { mentionText } from '../../shared/mentionCore'
 import { hasUltrathink, ultrathinkParts } from '../../shared/composerCore'
 import { historyMatches, isModelKey, stashStep, tabTakes, type Stash } from '../../shared/promptKeysCore'
-import { Icon, Modal, useEscape } from './ui'
+import { Icon, Modal, Popover, anchorOf, type Anchor } from './ui'
+// the header cards' views, loaded on first open (Inspector pulls in the editor and git views)
+const Activity = lazy(() => import('./Inspector').then((m) => ({ default: m.Activity })))
+const RewindView = lazy(() => import('./Inspector').then((m) => ({ default: m.RewindView })))
 import { conversationMarkdown } from '../../shared/exportCore'
 import { AskCard } from './AskCard'
 import { PlanCard } from './PlanCard'
@@ -383,7 +386,6 @@ export type ThreadCallbacks = {
 type Props = ThreadCallbacks & { session: Session; mode: string; focused: boolean; banner?: ReactNode; panel?: PanelTab | null }
 // the header buttons that open the detail panel; in a narrow pane they rest as icons (conversation.css)
 const PANEL_ACTS: { tab: PanelTab; label: string; icon: string; title: string }[] = [
-  { tab: 'changes', label: 'Changes', icon: 'diff', title: 'Changed files, beside the conversation' },
   { tab: 'activity', label: 'Activity', icon: 'pulse', title: 'What runs for this thread: subagents, shells, workflows' },
   { tab: 'rewind', label: 'Rewind', icon: 'history', title: 'Go back to an earlier message' },
 ]
@@ -573,8 +575,9 @@ export function SessionView(p: Props) {
     window.addEventListener('hive:export', f)
     return () => window.removeEventListener('hive:export', f)
   }, [session.id, exportAs])
-  const [menu, setMenu] = useState(false)
-  useEscape(() => setMenu(false), menu)
+  // the header card open now (Activity, Rewind, Export) and the button it hangs from; a second click closes it
+  const [hp, setHp] = useState<{ k: PanelTab | 'export'; a: Anchor } | null>(null)
+  const openHp = (k: PanelTab | 'export', el: HTMLElement) => setHp((cur) => (cur?.k === k ? null : { k, a: anchorOf(el) }))
   // Esc stops the focused thread's turn wherever the focus is (the conversation, a button, nothing), as in Claude
   // Code; not from another field, a terminal or the editor, and only after an open menu or popover took its Esc
   const stop = useRef(p.onStop)
@@ -923,22 +926,31 @@ export function SessionView(p: Props) {
           </div>
           <span className="phead-acts">
             {PANEL_ACTS.map((a) => (
-              <button key={a.tab} type="button" className="btn pact pact-icon" aria-pressed={p.panel === a.tab} aria-label={a.label} onClick={() => p.onPanel(a.tab)} title={`${a.label}: ${a.title}`} data-testid={`chat-${a.tab}`}>
+              <button key={a.tab} type="button" className="btn pact pact-icon" aria-pressed={hp?.k === a.tab} aria-haspopup="dialog" aria-label={a.label} onClick={(e) => openHp(a.tab, e.currentTarget)} title={`${a.label}: ${a.title}`} data-testid={`chat-${a.tab}`}>
                 <Icon name={a.icon} />{a.tab === 'activity' && runningTasks > 0 && <b className="num" data-testid="chat-activity-count">{runningTasks}</b>}
               </button>
             ))}
             <AdvisorPicker tabId={session.id} />
             <button type="button" className="btn pact pact-icon" aria-label="Terminal" onClick={p.onTerminal} title="Terminal: this thread's terminal (Ctrl+`)" data-testid="terminal-toggle"><Icon name="terminal" /></button>
-            <button type="button" className="btn pact pact-icon" aria-label="More" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)} title="More: pin, split, export, find, background" data-testid="chat-export"><Icon name="ellipsis" /></button>
-            {menu && (
-              <div className="phead-menu" role="menu" data-testid="export-menu">
-                <Btn kind="link" onClick={() => { setMenu(false); setPinning('') }} testid="pin-add" title="Pin a fact to this thread's header">Pin a fact</Btn>
-                {p.onSplit && <Btn kind="link" onClick={() => { setMenu(false); p.onSplit?.() }} testid="chat-split" title="A new thread beside this one (Ctrl+\)">Split</Btn>}
-                <Btn kind="link" onClick={() => { setMenu(false); void exportAs('copy') }} testid="export-copy">Copy as Markdown</Btn>
-                <Btn kind="link" onClick={() => { setMenu(false); void exportAs('save') }} testid="export-save">Save as Markdown</Btn>
-                <Btn kind="link" onClick={() => { setMenu(false); setFinding(true) }}>Find (Ctrl+F)</Btn>
-                <Btn kind="link" onClick={() => { setMenu(false); p.onRunInBackground() }} testid="chat-run-background">Move to the background</Btn>
-              </div>
+            <button type="button" className="btn pact pact-icon" aria-label="Move to the background" onClick={p.onRunInBackground} title="Move to the background: the thread keeps working off screen" data-testid="chat-run-background"><Icon name="layers" /></button>
+            {p.onSplit && <button type="button" className="btn pact pact-icon" aria-label="Split" onClick={p.onSplit} title="Split: a new thread beside this one (Ctrl+\)" data-testid="chat-split"><Icon name="split-horizontal" /></button>}
+            <button type="button" className="btn pact pact-icon" aria-label="Export" aria-haspopup="dialog" aria-pressed={hp?.k === 'export'} onClick={(e) => openHp('export', e.currentTarget)} title="Export this conversation as Markdown" data-testid="chat-export"><Icon name="export" /></button>
+            {/* each header icon opens its own small card right under it */}
+            {hp && (
+              <Popover anchor={hp.a} align="right" onClose={() => setHp(null)} className="hpop" testid={`hpop-${hp.k}`}>
+                <div className="hpop-head">{hp.k === 'activity' ? 'Activity' : hp.k === 'rewind' ? 'Rewind' : 'Export as Markdown'}</div>
+                {hp.k === 'activity' && <div className="hpop-body"><Suspense fallback={null}><Activity s={session} /></Suspense></div>}
+                {hp.k === 'rewind' && <div className="hpop-body"><Suspense fallback={null}><RewindView s={session} /></Suspense></div>}
+                {hp.k === 'export' && (
+                  <div className="hpop-body hpop-pad" data-testid="export-menu">
+                    <p className="hpop-note">The whole conversation, on the clipboard or as a file.</p>
+                    <div className="hpop-acts">
+                      <button type="button" className="btn btn-quiet" autoFocus onClick={() => { setHp(null); void exportAs('save') }} data-testid="export-save">Save as file</button>
+                      <button type="button" className="btn btn-strong" onClick={() => { setHp(null); void exportAs('copy') }} data-testid="export-copy">Copy</button>
+                    </div>
+                  </div>
+                )}
+              </Popover>
             )}
           </span>
         </div>
@@ -975,7 +987,7 @@ export function SessionView(p: Props) {
           <Btn kind="link" onClick={() => p.onBackground()} testid="chat-background-tasks" title="Move what runs to the background (Ctrl+B)">Background tasks</Btn>
         </div>
       )}
-      {needsNote(session) && <div className="needs-note" role="status" data-testid="needs-note"><b>Waiting for you</b><span>{needsNote(session)}</span></div>}
+      {needsNote(session) && <div className="needs-note" role="status" data-testid="needs-note"><b>Needs your input</b><span>{needsNote(session)}</span></div>}
       <RunningBar tabId={session.id} items={session.items} busy={session.busy} onSend={p.onSend} />
       {btws.map((b, i) => (
         <div key={i} className="btw" data-testid="btw-answer">

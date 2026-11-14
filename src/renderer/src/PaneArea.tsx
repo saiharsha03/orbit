@@ -24,7 +24,7 @@ export function tabWord(s: SessionMeta, live?: LiveRow): [string, Tone] | null {
   if (s.compacting) return ['COMPACTING', 'work']
   if (live) { const l = liveLook(live); return [l.word, l.tone] }
   if (s.busy) return ['WORKING', 'work']
-  if (s.waitingSince) return /^failed/i.test(s.waitingReason ?? '') ? ['FAILED', 'fail'] : /^finished/i.test(s.waitingReason ?? '') ? ['DONE', 'done'] : ['WAITING', 'wait']
+  if (s.waitingSince) return /^failed/i.test(s.waitingReason ?? '') ? ['FAILED', 'fail'] : /^finished/i.test(s.waitingReason ?? '') ? ['DONE', 'done'] : ['NEEDS YOUR INPUT', 'wait']
   if (s.endedRun) return ['ENDED', 'idle']
   return ['IDLE', 'idle']
 }

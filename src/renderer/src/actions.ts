@@ -61,7 +61,10 @@ export function setPreview(p: string | null, from?: string | null) {
 export function escapeShownFile(): boolean {
   const id = activeId()
   const back = id ? shownFrom.get(id) : undefined
-  if (!id || !back) return false
+  // a picture, PDF or video opened any other way (the Files panel) closes too: the tab before it comes back
+  const media = !!id && id.startsWith('file:') && /\.(png|jpe?g|gif|webp|svg|bmp|ico|pdf|mp4|webm|mov)$/i.test(id)
+  if (!id || (!back && !media)) return false
+  if (!back) { closeTabs([id]); return true }
   closeTabs([id])
   if (activeId() === id) return true // unsaved edits: the editor asks, the tab stays
   shownFrom.delete(id)

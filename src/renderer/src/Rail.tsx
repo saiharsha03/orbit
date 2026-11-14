@@ -32,7 +32,7 @@ export const liveLook = (r: LiveRow): { word: string; tone: Tone; icon: string; 
   r.state === 'working' ? { word: 'WORKING', tone: 'work', icon: 'loading', cls: 's-work spin' }
     : /^failed/i.test(r.note) ? { word: 'FAILED', tone: 'fail', icon: 'error', cls: 's-fail' }
       : r.note.startsWith('Finished') ? { word: 'DONE', tone: 'done', icon: 'pass-filled', cls: 's-done' }
-        : { word: 'WAITING', tone: 'wait', icon: 'bell-dot', cls: 's-wait' }
+        : { word: 'NEEDS YOUR INPUT', tone: 'wait', icon: 'bell-dot', cls: 's-wait' }
 // "Finished: all tests pass" reads as its sentence once the word says DONE
 const noteOf = (r: LiveRow) => r.note.replace(/^(Finished|Failed):\s*/, '')
 // the question a waiting thread asks, from its open question card (the last one)

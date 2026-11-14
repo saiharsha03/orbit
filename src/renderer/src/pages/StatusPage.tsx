@@ -253,7 +253,7 @@ function ThreadRow({ meta, slot, on }: { meta: SessionMeta; slot?: Slot; on: boo
   const ctx = v?.context ?? slot?.ctx ?? null
   const t = v?.tokens
   const model = v?.model ?? st.model
-  const word = meta.busy ? { w: 'WORKING', t: 'work' as const } : meta.waitingSince ? { w: 'WAITING', t: 'wait' as const } : { w: 'IDLE', t: 'idle' as const }
+  const word = meta.busy ? { w: 'WORKING', t: 'work' as const } : meta.waitingSince ? { w: 'NEEDS YOUR INPUT', t: 'wait' as const } : { w: 'IDLE', t: 'idle' as const }
   return (
     <tr className={on ? 'on' : ''} data-testid="token-row">
       <td className="strong stp-thread">{meta.title}</td>

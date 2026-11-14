@@ -391,7 +391,6 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 /* the header's buttons are icons (their names on hover): square, wider only for Activity's running count.
    The advisor's icon is dim while it is off, in its colour when on */
 .app .pact.pact-icon { padding: 0 5px; min-width: 26px; justify-content: center; gap: 4px; }
-.app .pact[data-testid="chat-export"] { --c: var(--hi); }
 .app .pact[data-testid="advisor-picker"]:not(.pact-on) .codicon { color: var(--dim); }
 /* selected (its panel open, the advisor on): a solid fill in its colour, so it stands out at a glance */
 .app .pact.pact-icon[aria-pressed="true"], .app .pact.pact-icon.pact-on { background: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
@@ -456,3 +455,24 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .phone-st.p-on i { background: var(--done); }
 .phone-st.p-off i { background: var(--signal); }
 .phone-st.p-none { color: var(--signal); }
+
+/* the thread header's background, split and export icons */
+.app .pact[data-testid="chat-run-background"] { --c: var(--k-shell); }
+.app .pact[data-testid="chat-split"] { --c: var(--k-loop); }
+.app .pact[data-testid="chat-export"] { --c: var(--k-monitor); }
+
+/* a header icon's card, under its button: a header strip, then the content; actions on the right, one quiet and one strong */
+.pop.hpop { width: 380px; max-height: min(520px, 70vh); display: flex; flex-direction: column; padding: 0; border-radius: 12px; border: 1px solid var(--rule2); background: var(--raised); box-shadow: 0 12px 32px var(--shadow); overflow: hidden; }
+.hpop-head { flex: none; padding: 10px 14px; font: 600 13px var(--sans); color: var(--hi); background: var(--lift2); border-bottom: 1px solid var(--rule2); }
+.hpop-body { flex: 1; min-height: 0; overflow: auto; }
+.hpop-pad { padding: 14px; }
+.hpop-note { margin: 0 0 14px; color: var(--dim); font-size: 13px; line-height: 1.5; }
+.hpop-acts { display: flex; justify-content: flex-end; gap: 8px; }
+.btn.btn-quiet, .btn.btn-strong { height: 30px; padding: 0 12px; border-radius: 8px; font: 500 13px var(--sans); border: 0; cursor: pointer; }
+.btn.btn-quiet { background: var(--lift2); color: var(--hi); }
+.btn.btn-quiet:hover { background: color-mix(in srgb, var(--hi) 16%, var(--lift2)); }
+.btn.btn-strong { background: var(--hi); color: var(--bg); }
+.btn.btn-strong:hover { background: color-mix(in srgb, var(--hi) 85%, var(--bg)); }
+/* the header cards and their buttons are rounded (the app's square reset otherwise wins) */
+.app .pop.hpop, .ovl .pop.hpop { border-radius: 12px !important; }
+.app .btn.btn-quiet, .app .btn.btn-strong, .ovl .btn.btn-quiet, .ovl .btn.btn-strong { border-radius: 8px !important; }

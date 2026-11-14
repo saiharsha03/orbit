@@ -7,7 +7,7 @@ import { WatchersToggleList } from './WatchersView'
 import { Icon } from './ui'
 
 function stateWord(w: WatcherRow): { word: string; cls: string } {
-  if (w.waiting) return { word: 'WAITING', cls: 's-wait blink' }
+  if (w.waiting) return { word: 'NEEDS YOUR INPUT', cls: 's-wait blink' }
   if (w.state === 'running') return { word: 'RUNNING', cls: 's-work' }
   if (w.state === 'failed') return { word: 'FAILED', cls: 's-fail' }
   if (!w.enabled) return { word: 'OFF', cls: 's-idle' }
