@@ -4,6 +4,27 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-11-14
+
+### Added
+
+- Phone: attach photos and files with + in a thread. Photos reach Claude as images (shrunk to 1568 px); other files
+  are saved under `phone-files` in Orbit's state folder and their path goes in the message. Up to 1 MB per message.
+- Phone: the conversation in the chat apps' shape: your messages in bubbles, Claude's replies in a serif, tool runs
+  folded to one line, a rounded message box whose round button sends, or stops Claude while it works.
+
+### Fixed
+
+- Phone: a message sent while Claude was working did not show until Claude took it in, so it looked lost. It now
+  shows at once as SENDING, then NOT READ YET while it waits in the queue.
+- The phone's usage alert repeated every five minutes: the reset time jitters by milliseconds between readings, so
+  each reading looked like a new window. It is now said once per window.
+
+### Removed
+
+- Phone: the Go ahead / Wait / Show diff / Stop row under the conversation (Stop stays in the header) and the Mic
+  buttons.
+
 ## [2.1.0] - 2026-11-14
 
 ### Added
