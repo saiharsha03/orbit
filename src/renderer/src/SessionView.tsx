@@ -28,7 +28,6 @@ import { hasUltrathink, ultrathinkParts } from '../../shared/composerCore'
 import { historyMatches, isModelKey, stashStep, tabTakes, type Stash } from '../../shared/promptKeysCore'
 import { Icon, Modal, Popover, anchorOf, type Anchor } from './ui'
 // the header cards' views, loaded on first open (Inspector pulls in the editor and git views)
-const Activity = lazy(() => import('./Inspector').then((m) => ({ default: m.Activity })))
 const RewindView = lazy(() => import('./Inspector').then((m) => ({ default: m.RewindView })))
 import { conversationMarkdown } from '../../shared/exportCore'
 import { AskCard } from './AskCard'
@@ -389,7 +388,6 @@ export type ThreadCallbacks = {
 type Props = ThreadCallbacks & { session: Session; mode: string; focused: boolean; banner?: ReactNode; panel?: PanelTab | null }
 // the header buttons that open the detail panel; in a narrow pane they rest as icons (conversation.css)
 const PANEL_ACTS: { tab: PanelTab; label: string; icon: string; title: string }[] = [
-  { tab: 'activity', label: 'Activity', icon: 'pulse', title: 'What runs for this thread: subagents, shells, workflows' },
   { tab: 'rewind', label: 'Rewind', icon: 'history', title: 'Go back to an earlier message' },
 ]
 
@@ -924,7 +922,6 @@ export function SessionView(p: Props) {
   const seen = useStore(prChecksSeen, (all) => all[session.id])
   const ci = seen && pr && seen.num === pr.num ? seen : null
   const running =session.items.filter((i) => i.kind === 'tool' && i.status === 'running').at(-1)
-  const runningTasks = status.tasks.filter((t) => t.status === 'running').length
   const stopGoal = async () => { if (session.busy) { p.onStop(); p.onSend('/goal clear', [], 'queue') } else p.onSend('/goal clear', []) }
   const pinRows: [string, ReactNode][] = [
     ...pins.map((x, i): [string, ReactNode] => ['Pinned', <span key={i}>{x} <button className="pin-x" aria-label="Unpin" onClick={() => savePins(pins.filter((_, j) => j !== i))}>×</button></span>]),
@@ -963,7 +960,7 @@ export function SessionView(p: Props) {
             <HeaderMeters id={session.id} path={session.path} busy={session.busy} />
             {PANEL_ACTS.map((a) => (
               <button key={a.tab} type="button" className="btn pact pact-icon" aria-pressed={hp?.k === a.tab} aria-haspopup="dialog" aria-label={a.label} onClick={(e) => openHp(a.tab, e.currentTarget)} title={`${a.label}: ${a.title}`} data-testid={`chat-${a.tab}`}>
-                <Icon name={a.icon} />{a.tab === 'activity' && runningTasks > 0 && <b className="num" data-testid="chat-activity-count">{runningTasks}</b>}
+                <Icon name={a.icon} />
               </button>
             ))}
             <AdvisorPicker tabId={session.id} />
@@ -973,8 +970,7 @@ export function SessionView(p: Props) {
             {/* each header icon opens its own small card right under it */}
             {hp && (
               <Popover anchor={hp.a} align="right" onClose={() => setHp(null)} className="hpop" testid={`hpop-${hp.k}`}>
-                <div className="hpop-head">{hp.k === 'activity' ? 'Activity' : hp.k === 'rewind' ? 'Rewind' : 'Export as Markdown'}</div>
-                {hp.k === 'activity' && <div className="hpop-body"><Suspense fallback={null}><Activity s={session} /></Suspense></div>}
+                <div className="hpop-head">{hp.k === 'rewind' ? 'Rewind' : 'Export as Markdown'}</div>
                 {hp.k === 'rewind' && <div className="hpop-body"><Suspense fallback={null}><RewindView s={session} /></Suspense></div>}
                 {hp.k === 'export' && (
                   <div className="hpop-body hpop-pad" data-testid="export-menu">

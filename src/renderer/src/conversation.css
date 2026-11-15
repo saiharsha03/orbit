@@ -84,6 +84,8 @@
 /* Rewind rests in view, quieter than the text; a message with no "Seen" line leaves it a line of its own */
 .msg.you:hover .rewindb, .rewindb:hover, .rewindb:focus-visible { color: var(--hi); }
 .msg.you:has(.rewindb):not(:has(.seen)) { padding-bottom: 30px; }
+/* a short message ("hi") is still wide enough to hold its Rewind */
+.msg.you:has(.rewindb) { min-width: 84px; }
 .msg.cl { color: var(--ink); }
 .msg.err { font-size: 13.5px; color: var(--fail); }
 .msg .imgs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
