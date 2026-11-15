@@ -131,12 +131,14 @@ function VersionsLine() {
   const claude = v.claude.state === 'updating' ? ', updating' : v.claude.state === 'failed' ? ', update failed' : newer(v.claude.latest, v.claude.version) ? `, ${v.claude.latest} available` : ''
   const sdk = v.sdk.state === 'updating' ? ', updating' : v.sdk.state === 'failed' ? ', update failed' : v.sdk.waiting ? `, restart for ${v.sdk.waiting}` : newer(v.sdk.latest, v.sdk.version) ? `, ${v.sdk.latest} available` : ''
   const check = () => void window.api.versionsCheck().then(setV).catch(() => {})
-  const title = 'The installed Claude Code and the Agent SDK this app runs threads with. Newer versions are installed by themselves; a new SDK is used from the next start. Click to check now'
+  const title = 'Orbit, the Agent SDK it runs threads with, and the installed Claude Code. Newer SDK and Claude Code versions are installed by themselves; a new SDK is used from the next start. Click to check now'
+  // always said, quietly; a part with something newer is in the warning colour
   return (
-    <>
-      {v.claude.version && claude && <button className="warm" onClick={check} title={title} data-testid="status-claude-version">Claude Code {v.claude.version}{claude}</button>}
-      {v.sdk.version && sdk && <button className="warm" onClick={check} title={title} data-testid="status-sdk-version">SDK {v.sdk.version}{sdk}</button>}
-    </>
+    <span className="vers" data-testid="status-versions">
+      <span>Orbit {__APP_VERSION__}</span>
+      {v.sdk.version && <button className={sdk ? 'warm' : ''} onClick={check} title={title} data-testid="status-sdk-version">SDK {v.sdk.version}{sdk}</button>}
+      {v.claude.version && <button className={claude ? 'warm' : ''} onClick={check} title={title} data-testid="status-claude-version">Claude Code {v.claude.version}{claude}</button>}
+    </span>
   )
 }
 

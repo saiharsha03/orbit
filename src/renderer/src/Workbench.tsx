@@ -78,12 +78,12 @@ sectionRoute.go = (page) => {
 }
 
 // the rail's own destinations; every other section is under More, in these groups
-const MAIN: SideView[] = ['threads', 'scheduled', 'files', 'todo', 'notes']
+const MAIN: SideView[] = ['threads', 'scheduled', 'files', 'todo', 'notes', 'board', 'scripts', 'deploy', 'pull', 'allow']
 const MORE: { group: string; ids: SideView[] }[] = [
-  { group: 'Code', ids: ['git', 'pull', 'scripts', 'dependabot'] },
-  { group: 'Automation', ids: ['running', 'watchers', 'deploy', 'env'] },
-  { group: 'Workspace', ids: ['usage', 'board'] },
-  { group: 'Tools', ids: ['codex', 'quarry', 'allow', 'accounts'] },
+  { group: 'Code', ids: ['git', 'dependabot'] },
+  { group: 'Automation', ids: ['running', 'watchers', 'env'] },
+  { group: 'Workspace', ids: ['usage'] },
+  { group: 'Tools', ids: ['codex', 'quarry', 'accounts'] },
 ]
 const viewOf = (id: SideView) => VIEWS.find((x) => x.id === id)!
 

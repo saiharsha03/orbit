@@ -541,3 +541,7 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .hm-good, .rail-cache.c-good { --cc: #6fae8c; } .hm-low, .rail-cache.c-low { --cc: #d9a441; } .hm-last, .rail-cache.c-last { --cc: #e5675b; } .hm-cold, .rail-cache.c-cold { --cc: #7d9bc4; }
 .hm.hm-good, .hm.hm-low, .hm.hm-last, .hm.hm-cold { color: var(--cc); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 40%, var(--rule2)); }
 .rail-cache.c-good, .rail-cache.c-low, .rail-cache.c-last, .rail-cache.c-cold { color: var(--cc); background: color-mix(in srgb, var(--cc) 12%, transparent); }
+/* the status bar's versions: Orbit, the SDK and Claude Code, quiet, an update in the warning colour */
+.sline .vers { display: inline-flex; align-items: center; gap: 12px; color: var(--faint); }
+.sline .vers button { color: inherit; }
+.sline .vers button.warm { color: var(--signal); }
