@@ -17,6 +17,7 @@ import {
 } from '../shared/watchersCore'
 import { blocked, dataDir, TEST_MODE, testWeeklyPct } from './testMode'
 import { SIDE } from '../shared/edition'
+import { DEFAULT_WATCHERS } from './defaultWatchers'
 import { writeFileSafe } from './safeWrite'
 import { FALLBACK_MS, markWoken, readWakeups, scheduleFile, type Wakeup } from './selfSchedule'
 import { saveReminder } from '../shared/watcherSaveCore'
@@ -99,6 +100,7 @@ export function initWatchers(env: Record<string, string>, workspaceRoot: string,
   if (TEST_MODE || SIDE) return // never on its own in test mode or in Orbit Next, and the real Watch folder is never moved
   migration = migrateLegacyWatch(env)
   if (migration.length) console.warn(`Watchers: ${migration.join('; ')}`)
+  seedDefaults()
   setTimeout(() => void tick(), 60_000).unref() // after the window has loaded (a reload stops every live thread)
   setInterval(() => void tick(), 30_000).unref()
 }
@@ -321,7 +323,7 @@ export function setWatcherEnabled(id: string, on: boolean): string {
   return ''
 }
 
-export function createWatcher(input: WatcherInput, by: string): { id: string; message: string } {
+export function createWatcher(input: WatcherInput, by: string, startNow = true): { id: string; message: string } {
   const name = (input.name ?? '').trim()
   const bad = nameProblem(name) // no [ ] or line breaks: the name goes into every run's header
   if (bad) throw new Error(bad)
@@ -343,7 +345,7 @@ export function createWatcher(input: WatcherInput, by: string): { id: string; me
   saveWatcher(id, { name, goal, enabled, schedule: sch.schedule, cwd: (input.cwd ?? '').trim(), prompt: 'prompt.md', createdBy: by, createdAt: new Date().toISOString() })
   saveState(id, emptyState())
   let message = ''
-  if (enabled) message = TEST_MODE ? 'test mode: not started' : runWatcherNow(id, 'sweep')
+  if (enabled && startNow) message = TEST_MODE ? 'test mode: not started' : runWatcherNow(id, 'sweep')
   deps.changed?.()
   return { id, message }
 }
@@ -489,4 +491,22 @@ export function watcherStopReason(tabId: string): string | null {
   let nextWake = true
   if (r.self) { try { nextWake = readWakeups(r.dir, Date.now()).next !== null } catch { nextWake = false } }
   return saveReminder({ saved, selfScheduled: r.self, nextWake })
+}
+
+// the watchers Orbit comes with (defaultWatchers.ts), each made once: not again after the user deletes or renames it,
+// and not started at once (its own schedule runs it)
+function seedDefaults(): void {
+  const mark = join(watchersRoot(), '.defaults-seeded.json')
+  let done: string[] = []
+  try { done = JSON.parse(readFileSync(mark, 'utf8')) } catch { /* none yet */ }
+  const fresh = DEFAULT_WATCHERS.filter((w) => !done.includes(w.id))
+  if (!fresh.length) return
+  for (const w of fresh) {
+    if (!existsSync(dirOf(w.id))) {
+      try { createWatcher(w, 'Orbit', false) } catch (e) { console.warn(`Watchers: could not add ${w.name}: ${(e as Error).message}`); continue }
+    }
+    done.push(w.id)
+  }
+  mkdirSync(watchersRoot(), { recursive: true })
+  writeFileSync(mark, JSON.stringify(done))
 }
