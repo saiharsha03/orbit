@@ -4,6 +4,19 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-11-14
+
+### Added
+
+- Weekly dream, a watcher Orbit comes with: Sundays 09:00 (or at the next start) it reads the week's Claude Code
+  sessions with Haiku and Sonnet helpers and keeps the auto-memory and skills accurate, short and deduplicated, and
+  reports cleanup it would suggest. Made once; deleting it keeps it gone.
+
+### Changed
+
+- Thinking rows start with a small brain.
+- Your messages: the read time and ticks inside the bubble, the sent time under it.
+
 ## [3.0.0] - 2026-11-14
 
 A new look across the app and the phone: calm greys, colour only for state, no coloured bars or glows
