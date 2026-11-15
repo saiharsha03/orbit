@@ -6,7 +6,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createStore, useStore } from './store'
 import { getPref, setPref } from './prefs'
 import { setLayout, useAppearance } from './appearance'
-import { live as liveStore, newSession, openStackLog, openFileTab, openPage, sectionRoute, showDiffBeside, talkAbout, toggleTerminal } from './actions'
+import { live as liveStore, newSession, openStackLog, openFileTab, openPage, sectionRoute, showDiffBeside, talkAbout } from './actions'
 import { Rail } from './Rail'
 import { Files, useInspected } from './Inspector'
 import { GitPanel } from './GitPanel'
@@ -78,7 +78,8 @@ sectionRoute.go = (page) => {
 }
 
 // the rail's own destinations; every other section is under More, in these groups
-const MAIN: SideView[] = ['threads', 'scheduled', 'files', 'todo', 'notes', 'board', 'scripts', 'deploy', 'pull', 'allow']
+// (Scripts, Deploy, Pull, Allow IP and the terminal are in the status bar)
+const MAIN: SideView[] = ['threads', 'scheduled', 'files', 'todo', 'notes', 'board']
 const MORE: { group: string; ids: SideView[] }[] = [
   { group: 'Code', ids: ['git', 'dependabot'] },
   { group: 'Automation', ids: ['running', 'watchers', 'env'] },
@@ -122,7 +123,6 @@ export function ActivityBar() {
       </button>
       {more && <MoreMenu anchor={more} groups={groups} align="left" view={view} mark={mark} onPick={showSide} onClose={() => setMore(null)} />}
       <div className="abar-gap" />
-      <button className={`abar-item${layout.drawer ? ' on' : ''}`} onClick={() => toggleTerminal()} title="Terminal (Ctrl+`)" aria-pressed={layout.drawer} data-testid="abar-terminal">Terminal</button>
       <button className="abar-item" onClick={() => openPage('settings')} title="Settings (Ctrl+,)" data-testid="abar-settings">Settings</button>
     </nav>
   )

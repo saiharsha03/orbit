@@ -5,7 +5,8 @@
 import { useEffect, useState } from 'react'
 import { createStore, panes as panesStore, useSessionMetas, useStore } from './store'
 import { focusedTab } from './panes'
-import { notice, openPage, runUndo, send, undo as undoStore } from './actions'
+import { notice, openPage, runUndo, send, toggleTerminal, undo as undoStore } from './actions'
+import { showSide, sideView, type SideView } from './Workbench'
 import { canCompact, contextPct, contextWarn } from '../../shared/contextCore'
 
 type KnownIp = { ip: string; at: number | null; label?: string }
@@ -142,7 +143,9 @@ function VersionsLine() {
   )
 }
 
+const TOOLS: [SideView, string][] = [['scripts', 'Scripts'], ['deploy', 'Deploy'], ['pull', 'Pull'], ['allow', 'Allow IP']]
 export function StatusLine() {
+  const view = useStore(sideView, (v) => v)
   const metas = useSessionMetas()
   const focus = useStore(panesStore, focusedTab)
   const f = metas.find((s) => s.id === focus && !s.tool && !s.file && !s.agent)
@@ -179,6 +182,11 @@ export function StatusLine() {
   const ipWord = !allow?.configured ? '' : allow.running ? 'Allowing this address' : allow.changed ? 'New address, not allowed' : allow.unreadable ? 'Address not read' : ''
   return (
     <footer className="sline" data-testid="status-bar">
+      {/* the tools that run things: scripts, deploys, pulling the repos, the IP allowlist, and the terminal */}
+      <span className="sl-tools">
+        {TOOLS.map(([v, label]) => <button key={v} className={view === v ? 'on' : ''} onClick={() => showSide(v)} data-testid={`status-${v}`}>{label}</button>)}
+        <button onClick={() => toggleTerminal()} title="Terminal (Ctrl+`)" data-testid="status-terminal">Terminal</button>
+      </span>
       {branch && <b className="branch" data-testid="status-branch">{branch}</b>}
       {/* the context meter opens what /context opens (the status page); Compact sends /compact as the CLI does */}
       {ctx && f && <button className={contextWarn(pct) ? 'warm' : ''} onClick={() => openPage('status')} data-testid="status-context"

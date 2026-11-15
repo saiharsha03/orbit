@@ -73,7 +73,7 @@ test.describe('panels', () => {
 
   test('the terminal drawer runs echo hi', async () => {
     await h.newSession()
-    await h.id('abar-terminal').click()
+    await h.id('status-terminal').click()
     await expect(h.terminal()).toBeVisible()
     await expect(h.terminal().locator('.xterm-rows')).toBeVisible({ timeout: 30_000 })
     await l.page.waitForTimeout(1500) // let the shell print its prompt
@@ -82,7 +82,7 @@ test.describe('panels', () => {
     await l.page.keyboard.press('Enter')
     await expect.poll(() => h.terminalText(), { timeout: 30_000 }).toMatch(/^\s*hi\s*$/m)
     await shot(l.page, 'terminal')
-    await h.id('abar-terminal').click()
+    await h.id('status-terminal').click()
   })
 
   test('file tree git colours show on a throwaway repo', async () => {

@@ -545,3 +545,7 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .sline .vers { display: inline-flex; align-items: center; gap: 12px; color: var(--faint); }
 .sline .vers button { color: inherit; }
 .sline .vers button.warm { color: var(--signal); }
+/* the status bar's tools (Scripts, Deploy, Pull, Allow IP, Terminal): quiet words at its left */
+.sline .sl-tools { display: inline-flex; align-items: center; gap: 2px; margin-right: 10px; }
+.sline .sl-tools button { padding: 0 7px; color: var(--dim); }
+.sline .sl-tools button:hover, .sline .sl-tools button.on { color: var(--hi); }
