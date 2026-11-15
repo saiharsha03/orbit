@@ -15,7 +15,8 @@ export const opensPr = (name: string | undefined, input: unknown): boolean => {
 // a quoted string is one word: its spaces and separators never start a command ("C:\Program Files\...\gh.exe" stays a path)
 const runsPrCreate = (line: string) => line
   .replace(/"(?:[^"\\]|\\.)*"|'[^']*'/g, (q) => q.slice(1, -1).replace(/[\s;&|]/g, '_'))
-  .split(/&&|\|\||\$\(|`|[;\n|()]/).some((part) => GH_PR_CREATE.test(part.trim()))
+  // a command can follow a shell keyword or a variable set for it ("do gh pr create" in a loop, "GH_TOKEN=x gh ...")
+  .split(/&&|\|\||\$\(|`|[;\n|()]/).some((part) => GH_PR_CREATE.test(part.trim().replace(/^(?:(?:do|then|else|time|!)\s+|[A-Za-z_]\w*=\S*\s+)+/, '')))
 // a heredoc's body is text, not commands: drop its lines up to the end marker (commands after it still count)
 function withoutHeredocs(cmd: string): string {
   const out: string[] = []

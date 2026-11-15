@@ -62,3 +62,8 @@ test('the PRs a thread opened, from the output of a gh pr create that succeeded'
   ])
   assert.deepEqual(threadPrs([]), [])
 })
+
+test('one command that opens several PRs (a loop of gh pr create) shows them all', () => {
+  const out = [23, 24, 25, 26].map((n) => `https://github.com/o/r/pull/${n}`).join('\n')
+  assert.deepEqual(threadPrs([{ kind: 'tool', name: 'Bash', input: { command: 'for i in 1 2 3 4; do gh pr create --fill; done' }, status: 'done', output: out }]).map((p) => p.num), [23, 24, 25, 26])
+})

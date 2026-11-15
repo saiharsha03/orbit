@@ -64,8 +64,10 @@ export function threadPrs(items: ToolLike[]): PrRef[] {
   const out: PrRef[] = []
   for (const it of items) {
     if (it.kind !== 'tool' || it.status !== 'done' || !opensPr(it.name, it.input)) continue
-    const m = /https?:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/i.exec(it.output ?? '')
-    if (m && !out.some((p) => p.url === m[0])) out.push({ repo: m[1], num: Number(m[2]), url: m[0] })
+    // every PR the command printed: one command can open several (a loop of gh pr create)
+    for (const m of (it.output ?? '').matchAll(/https?:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/gi)) {
+      if (!out.some((p) => p.url === m[0])) out.push({ repo: m[1], num: Number(m[2]), url: m[0] })
+    }
   }
   return out
 }
