@@ -17,6 +17,9 @@ export function learnWindows(usage: Record<string, { contextWindow?: number }> |
   if (changed) setPref('context.windows', windows)
 }
 
+// before a turn on a model has said its window: the 5.x Opus, Sonnet, Fable and Mythos models have a 1M one, Haiku 200k
+const guessWindow = (model: string): number | null => (/haiku/i.test(model) ? 200_000 : /(opus|sonnet|fable|mythos)-5/i.test(model) ? 1_000_000 : null)
+
 export type Meters = { total: number | null; max: number | null; pct: number | null; until: number | null; ttl: number }
 /** read once, and every 15 s while the thread runs (live: it has a process to ask for its exact context) */
 export function useThreadMeters(path: string | undefined, tabId: string | undefined, live: boolean): Meters {
@@ -27,7 +30,7 @@ export function useThreadMeters(path: string | undefined, tabId: string | undefi
       const [st, c] = await Promise.all([path ? window.api.sessionStats(path).catch(() => null) : null, live && tabId ? window.api.chatContext(tabId).catch(() => null) : null])
       if (c?.max && st?.model && windows[st.model] !== c.max) { windows[st.model] = c.max; setPref('context.windows', windows) }
       const total = c?.total ?? st?.contextTokens ?? null
-      const max = c?.max ?? (st?.model ? windows[st.model] : undefined) ?? null
+      const max = c?.max ?? (st?.model ? windows[st.model] ?? guessWindow(st.model) : null)
       if (alive) setM({ total, max, pct: total === null || !max ? null : contextPct(total, max), until: st?.lastReplyAt ? st.lastReplyAt + st.cacheTtlMs : null, ttl: st?.cacheTtlMs ?? 300_000 })
     }
     void load()
