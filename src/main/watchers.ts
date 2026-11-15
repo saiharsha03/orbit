@@ -100,7 +100,6 @@ export function initWatchers(env: Record<string, string>, workspaceRoot: string,
   if (TEST_MODE || SIDE) return // never on its own in test mode or in Orbit Next, and the real Watch folder is never moved
   migration = migrateLegacyWatch(env)
   if (migration.length) console.warn(`Watchers: ${migration.join('; ')}`)
-  seedDefaults()
   setTimeout(() => void tick(), 60_000).unref() // after the window has loaded (a reload stops every live thread)
   setInterval(() => void tick(), 30_000).unref()
 }
@@ -495,7 +494,8 @@ export function watcherStopReason(tabId: string): string | null {
 
 // the watchers Orbit comes with (defaultWatchers.ts), each made once: not again after the user deletes or renames it,
 // and not started at once (its own schedule runs it)
-function seedDefaults(): void {
+export function seedDefaultWatchers(): void {
+  if (TEST_MODE || SIDE) return
   const mark = join(watchersRoot(), '.defaults-seeded.json')
   let done: string[] = []
   try { done = JSON.parse(readFileSync(mark, 'utf8')) } catch { /* none yet */ }

@@ -39,7 +39,7 @@ import { editorMtime, editorRead, editorWrite, vsCodeUrl } from './editorFiles'
 import { lspChange, lspClose, lspOpen, lspRequest, lspSaved, setDiagnosticsSink, stopLanguageServers } from './lsp'
 import type { AllowStatus } from '../shared/allowCore'
 import { watcherStopReason } from './watchers'
-import { configureWatchers, createWatcher, deleteWatcher, initWatchers, listWatchersView, runWatcherNow, setWatcherEnabled, updateWatcher, watcherDetail, watcherTabFor } from './watchers'
+import { configureWatchers, createWatcher, deleteWatcher, initWatchers, seedDefaultWatchers, listWatchersView, runWatcherNow, setWatcherEnabled, updateWatcher, watcherDetail, watcherTabFor } from './watchers'
 import { gitDecorations, listDir, listFiles, searchFiles } from './files'
 import { uiLoad, uiSave } from './uiStore'
 import { phoneThreads, type ThreadMap } from '../shared/threadsCore'
@@ -177,6 +177,7 @@ initWatchers(appConfig.env, appConfig.config?.root ?? '', {
   runThread: (t) => { const w = appWindow(); if (!w) return false; try { runInThread(t, w.webContents); return true } catch { return false } },
   threadState, closeThread: closeTab, transcript: transcriptPath, usage: () => weeklyUsage(), changed: watchersChanged,
 }, [{ id: 'dependabot', summary: dependabotSummary, setEnabled: setDependabotEnabled }])
+seedDefaultWatchers() // the watchers Orbit comes with, made once
 
 // Threads' own scheduled wake-ups (schedule_wakeup): delivered like a message from another thread, which resumes a
 // thread that is not open. A window that is not ready yet leaves them pending for the next check.
