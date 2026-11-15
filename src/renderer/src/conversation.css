@@ -343,3 +343,6 @@ button.pick:hover { color: var(--hi); }
 .pr-dot { width: 8px; height: 8px; flex: none; background: currentColor; }
 .app .pr-dot { border-radius: 50% !important; }
 .phead-pr.ci-passing .pr-dot { background: var(--done); } .phead-pr.ci-failing .pr-dot { background: var(--fail); } .phead-pr.ci-pending .pr-dot { background: var(--signal); }
+/* a thinking row starts with a small brain, in the row's grey */
+.sumrow .think { display: inline-flex; align-items: center; gap: 6px; }
+.sumrow .think-ic { flex: none; opacity: .85; }
