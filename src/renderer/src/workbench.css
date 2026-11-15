@@ -285,7 +285,7 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .plan-body { max-height: 420px; overflow: auto; margin-bottom: 14px; padding: 4px 12px; background: var(--bg); border: 1px solid var(--rule); border-radius: 6px !important; }
 
 /* ---------- title bar, tabs and status line in the same code editor manner as the frame ---------- */
-.app .tb { height: 36px; grid-template-columns: 220px minmax(0, 1fr) auto; border-bottom: 1px solid var(--rule); }
+.app .tb { height: 36px; grid-template-columns: auto minmax(0, 1fr) auto; border-bottom: 1px solid var(--rule); }
 .app .tb-brand { font: 400 13px var(--sans); color: var(--ink); padding-left: 14px; gap: 8px; letter-spacing: 0; }
 .app .tb-field { width: min(600px, 100%); }
 .app .tb-field input { height: 24px; text-align: center; font-size: 12.5px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--rule); border-radius: 6px !important; padding: 0 60px; }
@@ -400,7 +400,6 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .app .limrow-g, .app .limrow-g i { border-radius: 3px !important; }
 
 /* ---- v3: the sections as words in the title bar, beside the Orbit mark, like a menu bar ---- */
-.tb { grid-template-columns: auto minmax(0, 1fr) auto; }
 .tb-brand { padding-right: 16px; white-space: nowrap; }
 .tb-sections { display: flex; align-items: center; margin-left: 8px; -webkit-app-region: no-drag; }
 .tb-sections .abar-item { position: relative; width: auto; height: 28px; padding: 0 9px; display: flex; align-items: center; color: var(--dim); font: 400 13px var(--sans); box-shadow: none; }
@@ -423,3 +422,6 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .limrow b { grid-area: b; font-weight: 500; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
 .limrow.ahead b { color: var(--fail); }
 .limrow em { grid-area: e; font-style: normal; font-size: 11px; color: var(--faint); text-align: right; white-space: nowrap; }
+/* the advisor's wise-man mark (an inline drawing, not a font icon): dim while off, its colour on, the background's when selected */
+.app .pact .wise { display: block; flex: none; color: var(--dim); }
+.app .pact.pact-on .wise { color: var(--bg); }

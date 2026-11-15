@@ -6,7 +6,7 @@ import type { DiffSpec } from './DiffPanel'
 import { counts, FILE_TOOLS, type Hunk } from '../../shared/diffCore'
 import type { Detail, Entry, FileArea } from '../../shared/gitCore'
 import { sinceLastPr } from '../../shared/changesCore'
-import { checksText, protectedBranch, shipPrompt } from '../../shared/ciCore'
+import { checksText, prWord, protectedBranch, shipPrompt } from '../../shared/ciCore'
 import { fixChecksPrompt } from '../../shared/prAutoCore'
 import type { MergeInfo, MergeInfoResult } from '../../shared/prCore'
 import { hunksOf, shortPath } from './SessionView'
@@ -22,7 +22,6 @@ const base = (p: string) => p.split('/').at(-1) ?? p
 const dirOf = (p: string) => p.split('/').slice(0, -1).join('/')
 const isPr = (r: MergeInfoResult | undefined): r is MergeInfo => !!r && 'pr' in r
 // merged / closed / draft beat the checks' own state
-const prWord = (p: { state: string; isDraft: boolean }) => (p.state === 'MERGED' ? 'merged' : p.state === 'CLOSED' ? 'closed' : p.isDraft ? 'draft' : '')
 
 // the agent's edits in this thread since it last opened a pull request (what went into the PR is done), one row per
 // file with the counts of all its edits. Uncommitted files in the working tree still show from git.

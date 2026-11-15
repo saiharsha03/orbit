@@ -275,6 +275,14 @@ export function ModelEffort({ tabId, ultra }: { tabId: string; ultra: boolean })
   )
 }
 
+// the advisor's mark: an old sage (a pointed hat, two eyes, a long beard), drawn in the button's colour
+const WiseMan = () => (
+  <svg className="wise" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M8 1 4.4 6.3h7.2Z" /><path d="M2.6 6.3h10.8" />
+    <path d="M6.3 8.2h.01M9.7 8.2h.01" strokeWidth="1.8" />
+    <path d="M4.4 6.3v1.4c0 .8.3 1.5.8 2L8 15l2.8-5.3c.5-.5.8-1.2.8-2V6.3" />
+  </svg>
+)
 // the thread header's Advisor button (beside Changes, Activity, Rewind): a second model Claude can ask for advice.
 // Lit while the thread has one; the list is Off, Default (Settings > General) and the models above the thread's own.
 export function AdvisorPicker({ tabId }: { tabId: string }) {
@@ -305,7 +313,7 @@ export function AdvisorPicker({ tabId }: { tabId: string }) {
     <>
       <button ref={ref} type="button" className={`btn pact pact-icon${word ? ' pact-on' : ''}`} aria-haspopup="listbox" aria-expanded={open} aria-label="Advisor" onClick={toggle}
         title={err ? `Advisor switch failed, kept the old one: ${err}` : `${word ? word[0].toUpperCase() + word.slice(1) : 'No advisor'}: a second model Claude can ask for advice. Click to change it`} data-testid="advisor-picker">
-        <Icon name="sparkle" />
+        <WiseMan />
       </button>
       {open && (
         <PickList anchor={anchorOf(ref.current)} isOn={(v) => v === advisorChecked(st, dflt)} loading={!models && !loadErr} testid="advisor-list" onClose={() => setOpen(false)}

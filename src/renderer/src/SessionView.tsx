@@ -43,6 +43,7 @@ import { RunningBar } from './RunningBar'
 import { needsNote } from './background'
 import { ComingBar } from './ComingBar'
 import { threadPrs } from '../../shared/prLinkCore'
+import { checksText, prWord } from '../../shared/ciCore'
 import { prChecksSeen, useStore } from './store'
 
 export type Attachment = { url: string; mediaType: string; data: string }
@@ -905,7 +906,21 @@ export function SessionView(p: Props) {
     return all
   }, [earlierPrs, session.items])
   const pr = prs.at(-1)
-  // its checks as the Changes panel last read them (only when that panel is about this same PR)
+  // its checks, read here when the PR appears and every minute while they run (the repo is the thread's worktree of
+  // that repo, else its folder); the Changes panel writes the same store when it reads them
+  const prDir = (pr && session.worktrees?.find((w) => pr.repo.endsWith(`/${w.repo}`))?.path) ?? session.worktrees?.at(-1)?.path ?? session.cwd
+  useEffect(() => {
+    if (!pr || !prDir) return
+    let alive = true
+    let t: ReturnType<typeof setTimeout> | undefined
+    const read = () => void window.api.gitPrMergeInfo(prDir).then((r) => {
+      if (!alive || !r || !('pr' in r) || r.pr.number !== pr.num) return
+      prChecksSeen.set((all) => ({ ...all, [session.id]: { num: r.pr.number, state: prWord(r.pr) || r.pr.checks.state, text: checksText(r.pr.checks) } }))
+      if (r.pr.state === 'OPEN' && r.pr.checks.state === 'pending') t = setTimeout(read, 60_000)
+    }).catch(() => {})
+    read()
+    return () => { alive = false; clearTimeout(t) }
+  }, [pr?.num, pr?.repo, prDir, session.id])
   const seen = useStore(prChecksSeen, (all) => all[session.id])
   const ci = seen && pr && seen.num === pr.num ? seen : null
   const running =session.items.filter((i) => i.kind === 'tool' && i.status === 'running').at(-1)
@@ -942,7 +957,7 @@ export function SessionView(p: Props) {
                 {i === 0 ? `PR${prs.length > 1 ? 's' : ''} ` : ''}#{x.num}
               </a>
             ))}
-            {pr && ci && ci.state !== 'none' && <span className={`phead-ci ci-${ci.state}`} title={`Checks: ${ci.text} (as last read in Changes)`} data-testid="thread-pr-checks">{ci.state}</span>}
+            {pr && ci && ci.state !== 'none' && <span className={`phead-ci ci-${ci.state}`} title={`Checks: ${ci.text}`} data-testid="thread-pr-checks">{ci.state}</span>}
           </div>
           <span className="phead-acts">
             <HeaderMeters id={session.id} path={session.path} busy={session.busy} />

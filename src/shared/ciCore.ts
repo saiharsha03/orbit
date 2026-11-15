@@ -44,6 +44,9 @@ export function failingChecks(rollup: unknown): string[] {
 }
 
 // "3 of 5 passed, 1 failed, 1 running"
+/** a PR's own state in a word when it is not simply open: merged, closed, draft */
+export const prWord = (p: { state: string; isDraft: boolean }) => (p.state === 'MERGED' ? 'merged' : p.state === 'CLOSED' ? 'closed' : p.isDraft ? 'draft' : '')
+
 export function checksText(c: Checks): string {
   if (!c.total) return 'no checks'
   return [`${c.passed} of ${c.total} passed`, c.failed ? `${c.failed} failed` : '', c.pending ? `${c.pending} running` : ''].filter(Boolean).join(', ')
