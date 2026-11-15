@@ -346,3 +346,6 @@ button.pick:hover { color: var(--hi); }
 /* a thinking row starts with a small brain, in the row's grey */
 .sumrow .think { display: inline-flex; align-items: center; gap: 6px; }
 .sumrow .think-ic { flex: none; opacity: .85; }
+/* the time a message was sent, small under its bubble (the read time sits inside, with the ticks) */
+.msg.you { position: relative; margin-bottom: 30px; }
+.msg.you .sent-at { position: absolute; right: 2px; top: calc(100% + 4px); font: 400 11px var(--sans); font-variant-numeric: tabular-nums; color: var(--faint); white-space: nowrap; }

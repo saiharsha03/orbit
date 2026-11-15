@@ -483,12 +483,14 @@ const Transcript = memo(function Transcript({ session, limit, setLimit, st, star
           {/* seen: Claude took the message in (at once for a normal send, at its next step for a steered one) */}
           {it.images.length > 0 && <div className="imgs">{it.images.map((src, j) => <button key={j} className="thumb" onClick={() => st.open(src)} data-testid="chat-image"><img src={src} alt="" /></button>)}</div>}
           {it.text && <div className="body">{it.text}</div>}
-          {/* receipts, as a chat app: the time it was sent, one tick sent, two ticks once Claude has read it */}
+          {/* receipts, as a chat app: inside, one tick sent, two ticks and the time once Claude has read it; under the
+              bubble, the time it was sent */}
           {it.failed ? <span className="seen s-fail" title={it.failed} data-testid="msg-failed">Not sent: {it.failed}</span>
             : <span className={`seen${it.seen || i < lastReply ? ' read' : ''}`} title={it.seen || i < lastReply ? `Read by Claude${it.seenAt ? ` at ${clock(it.seenAt)}` : ''}` : it.steer && session.busy ? 'Sent: Claude reads it at its next step, when the running tool call ends' : 'Sent'} data-testid={it.seen || i < lastReply ? 'msg-seen' : 'msg-unseen'}>
-              {it.at ? clock(it.at) : ''}<i className={`codicon codicon-${it.seen || i < lastReply ? 'check-all' : 'check'}`} aria-label={it.seen || i < lastReply ? 'Read' : 'Sent'} />
+              {it.seen && it.seenAt ? clock(it.seenAt) : ''}<i className={`codicon codicon-${it.seen || i < lastReply ? 'check-all' : 'check'}`} aria-label={it.seen || i < lastReply ? 'Read' : 'Sent'} />
               {!it.seen && it.steer && it.uuid && session.busy && unreadSteer(it) && <Btn kind="link" onClick={() => st.sendNow(it.uuid!)} testid="msg-send-now" title="Stops the tool call Claude is in the middle of, so it reads this message now">Send now</Btn>}
             </span>}
+          {it.at && <span className="sent-at" title="Sent" data-testid="msg-sent-at">{clock(it.at)}</span>}
           {it.uuid && session.sessionId && !session.busy && !it.steer && (
             <button className="rewindb" onClick={() => startRewind(it, i)} title="Go back to before this message: put back the files Claude changed since, and edit the message" data-testid="msg-rewind">Rewind</button>
           )}
