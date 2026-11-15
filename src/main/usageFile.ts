@@ -1,10 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 // ~/.claude/usage/latest.json: the plan-limit snapshot a usage-guard hook reads. The terminal's usage-file plugin writes
 // it, but Orbit turns that plugin off in its own sessions, so with no terminal open the hook would go quiet; Orbit writes
 // the same file, in the same shape, from every real usage reading status.ts keeps (never a placeholder, never in test
 // mode, at most once a minute). It only feeds the hook: nothing in Orbit reads it back.
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { realLimits } from '../shared/usageCore'
 import { writeFileSafe } from './safeWrite'
 import { TEST_MODE } from './testMode'
@@ -52,4 +52,20 @@ export function readUsageFile(maxAgeMs: number, now = Date.now()): { limits: any
     for (const r of snap.rateLimits ?? []) limits[r.kind] = { utilization: r.percentUsed, resets_at: r.resetsAt }
     return Object.keys(limits).length ? { limits, at } : null
   } catch { return null }
+}
+
+// ---- the usage guard's off switch: a usage-guard hook stays out of the way while ~/.claude/usage/guard-off exists ----
+// Shown in the side bar only when the user's Claude Code settings run such a hook (a usage_guard / usage_hardstop
+// command); Orbit itself only creates or removes the file.
+const guardOff = () => join(homedir(), '.claude', 'usage', 'guard-off')
+export function usageGuardState(): { available: boolean; on: boolean } {
+  let available = false
+  try { available = /usage_guard|usage_hardstop/.test(readFileSync(join(homedir(), '.claude', 'settings.json'), 'utf8')) } catch { /* no settings */ }
+  return { available, on: available && !existsSync(guardOff()) }
+}
+export function setUsageGuard(on: boolean): { available: boolean; on: boolean } {
+  if (TEST_MODE) return usageGuardState()
+  if (on) rmSync(guardOff(), { force: true })
+  else { mkdirSync(dirname(guardOff()), { recursive: true }); writeFileSync(guardOff(), `off from Orbit, ${new Date().toISOString()}\n`) }
+  return usageGuardState()
 }

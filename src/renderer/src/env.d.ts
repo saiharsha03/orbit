@@ -87,6 +87,8 @@ interface Window {
     searchStatus: () => Promise<SearchStatus>
     onSearchProgress: (cb: (s: SearchStatus) => void) => () => void
     sessionStats: (path: string) => Promise<SessionStats>
+    usageGuardGet: () => Promise<{ available: boolean; on: boolean }>
+    usageGuardSet: (on: boolean) => Promise<{ available: boolean; on: boolean }>
     getStatus: (force?: boolean) => Promise<Status>
     listDir: (dir: string) => Promise<FsEntry[]>
     listAllFiles: (dir: string) => Promise<string[]>

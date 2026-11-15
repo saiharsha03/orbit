@@ -15,6 +15,8 @@ export function LimitRows({ onOpen }: { onOpen: () => void }) {
   }, [])
   if (!rows.length) return null
   return (
+    <div className="limfoot">
+      <UsageGuardSwitch />
     <button type="button" className="limrows" onClick={onOpen} title="Usage limits: click for the Usage page" data-testid="side-limits">
       {rows.map((u) => gaugeOf(u, now)).map((g) => (
         <span key={g.key} className={`limrow${g.ahead ? ' ahead' : ''}`} data-k={g.key === 'five_hour' || g.key === 'seven_day' ? g.key : 'model'} title={g.says}>
@@ -25,5 +27,24 @@ export function LimitRows({ onOpen }: { onOpen: () => void }) {
         </span>
       ))}
     </button>
+    </div>
+  )
+}
+
+// the usage guard (a Claude Code hook that warns and then stops work near the limits), on or off from here; shown only
+// when the user's settings run one
+function UsageGuardSwitch() {
+  const [g, setG] = useState<{ available: boolean; on: boolean } | null>(null)
+  useEffect(() => { void window.api.usageGuardGet().then(setG).catch(() => {}) }, [])
+  if (!g?.available) return null
+  const flip = () => void window.api.usageGuardSet(!g.on).then(setG).catch(() => {})
+  return (
+    <div className="guard-row">
+      <span>Usage guard</span>
+      <button type="button" role="switch" aria-checked={g.on} className={g.on ? 'sw on' : 'sw'} onClick={flip} data-testid="usage-guard-switch"
+        title={g.on ? 'On: Claude Code warns and then stops work near the usage limits. Click to turn it off' : 'Off: work goes on up to the limits. Click to turn it on'}>
+        <i />
+      </button>
+    </div>
   )
 }

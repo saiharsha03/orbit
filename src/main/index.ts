@@ -61,6 +61,7 @@ import { cancelContinue, continueAt, continueNow, initAutoContinue, listContinue
 import { readTodos } from './teamTodos'
 import { addTodo, deleteTodo, editTodo, listTodos, restoreTodo, setDone, setDue, setStatus, watchTodos, type Todo, type TodoStatus } from './todos'
 import { sessionStats } from './sessionStats'
+import { setUsageGuard, usageGuardState } from './usageFile'
 import { checkLogin, closeStatus, getStatus, idle, restartStatus, setLiveUsage, weeklyUsage } from './status'
 import { loadConfig, readDotEnv } from './devConfig'
 import { currentSettings, loadSettings, saveSettings, sessionFlags, SETTINGS_FILE } from './settings'
@@ -540,6 +541,8 @@ handle('sessions:list', async () => { const l = await listSessions(); syncSearch
 handle('search:query', (_e, text: string) => searchSessions(String(text)))
 handle('search:status', () => searchStatus())
 handle('session:stats', (_e, path: string) => sessionStats(path))
+handle('usageGuard:get', () => usageGuardState())
+handle('usageGuard:set', (_e, on: boolean) => setUsageGuard(!!on))
 handle('status:get', (_e, force: unknown) => getStatus(force === true))
 handle('fs:list', (_e, dir: string) => listDir(dir))
 handle('fs:listAll', (_e, dir: string) => listFiles(String(dir)))

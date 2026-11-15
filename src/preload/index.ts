@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('search:progress', fn)
   },
   sessionStats: (path: string) => ipcRenderer.invoke('session:stats', path),
+  usageGuardGet: () => ipcRenderer.invoke('usageGuard:get'),
+  usageGuardSet: (on: boolean) => ipcRenderer.invoke('usageGuard:set', on),
   getStatus: (force?: boolean) => ipcRenderer.invoke('status:get', force === true),
   listDir: (dir: string) => ipcRenderer.invoke('fs:list', dir),
   // every file under a folder (relative, forward slashes), for the "@" mention
