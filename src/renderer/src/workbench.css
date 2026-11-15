@@ -391,7 +391,6 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .app .pact:hover { background: color-mix(in srgb, var(--c) 14%, transparent); }
 .app .pact[aria-pressed="true"], .app .pact[aria-expanded="true"] { background: color-mix(in srgb, var(--c) 22%, transparent); box-shadow: inset 0 0 0 1px var(--c); }
 .app .pact b.num { color: var(--bg); background: var(--c); padding: 0 5px; font-weight: 600; border-radius: 8px !important; }
-.phead h1 { box-shadow: inset 3px 0 0 var(--accent); padding-left: var(--s3); }
 .phead-sub b { color: var(--git-modified); }
 .coming-b { color: var(--k-loop); } .coming-b.held { color: var(--signal); }
 
