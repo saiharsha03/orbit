@@ -56,7 +56,7 @@ function ThreadLine({ icon, badge, title, path, tabId, live, end }: { icon: stri
   const m = useThreadMeters(path, tabId, live)
   // a countdown ticks only while the cache is still warm
   const now = useNow(m.until !== null && badge !== 'work' && m.until > Date.now())
-  const cache = cacheWord(m.until, now, badge === 'work')
+  const cache = cacheWord(m.until, now, badge === 'work', m.ttl)
   const ring = contextWarn(m.pct) ? ' hot' : (m.pct ?? 0) > 50 ? ' mid' : ''
   return (
     <div className="rail-l1">
@@ -64,7 +64,7 @@ function ThreadLine({ icon, badge, title, path, tabId, live, end }: { icon: stri
         <i className={`codicon codicon-${icon}`} aria-hidden />{badge && <b className={`rail-badge ${badge}`} />}
       </span>
       <span className="rail-t"><span className="tt">{title}</span></span>
-      {end ?? (cache && <span className={`rail-cache ${cache.warm ? 'warm' : 'cold'}`} title={cache.title}>{cache.word}</span>)}
+      {end ?? (cache && <span className={`rail-cache c-${cache.level}`} title={cache.title}>{cache.word}</span>)}
     </div>
   )
 }

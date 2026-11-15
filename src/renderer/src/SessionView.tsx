@@ -398,15 +398,15 @@ const PANEL_ACTS: { tab: PanelTab; label: string; icon: string; title: string }[
 function HeaderMeters({ id, path, busy }: { id: string; path?: string; busy: boolean }) {
   const m = useThreadMeters(path, id, true)
   const now = useNow(m.until !== null && !busy && m.until > Date.now())
-  const cache = cacheWord(m.until, now, busy)
+  const cache = cacheWord(m.until, now, busy, m.ttl)
   return (
     <span className="hmeters">
       {m.total !== null && (
-        <span className={`hm${contextWarn(m.pct) ? ' hm-warn' : ''}`} data-testid="head-context" title={`Context in use: ${fmtTokens(m.total)} of ${fmtTokens(m.max)}`}>
-          <i className="hm-bar"><b style={{ width: `${m.pct ?? 0}%` }} /></i>{m.pct}%
+        <span className={`hm${contextWarn(m.pct) ? ' hm-warn' : ''}`} data-testid="head-context" title={`Context in use: ${fmtTokens(m.total)}${m.max ? ` of ${fmtTokens(m.max)}` : ''}`}>
+          {m.pct !== null && <i className="hm-bar"><b style={{ width: `${m.pct}%` }} /></i>}{m.pct !== null ? `${m.pct}%` : fmtTokens(m.total)}
         </span>
       )}
-      {cache && <span className={`hm${cache.warm ? '' : ' hm-cold'}`} data-testid="head-cache" title={cache.title}><Icon name="clock" />{cache.word}</span>}
+      {cache && <span className={`hm hm-${cache.level}`} data-testid="head-cache" title={cache.title}><Icon name="clock" />{cache.word}</span>}
     </span>
   )
 }
@@ -967,7 +967,6 @@ export function SessionView(p: Props) {
               </button>
             ))}
             <AdvisorPicker tabId={session.id} />
-            <button type="button" className="btn pact pact-icon" aria-label="Terminal" onClick={p.onTerminal} title="Terminal: this thread's terminal (Ctrl+`)" data-testid="terminal-toggle"><Icon name="terminal" /></button>
             <button type="button" className="btn pact pact-icon" aria-label="Move to the background" onClick={p.onRunInBackground} title="Move to the background: the thread keeps working off screen" data-testid="chat-run-background"><Icon name="layers" /></button>
             {p.onSplit && <button type="button" className="btn pact pact-icon" aria-label="Split" onClick={p.onSplit} title="Split: a new thread beside this one (Ctrl+\)" data-testid="chat-split"><Icon name="split-horizontal" /></button>}
             <button type="button" className="btn pact pact-icon" aria-label="Export" aria-haspopup="dialog" aria-pressed={hp?.k === 'export'} onClick={(e) => openHp('export', e.currentTarget)} title="Export this conversation as Markdown" data-testid="chat-export"><Icon name="export" /></button>

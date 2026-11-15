@@ -16,6 +16,7 @@ import { setAskFix, setFileOpener } from './EditorView'
 import { insertIntoComposer } from './SessionView'
 import type { Session } from './chat'
 import { startPrAuto } from './prAuto'
+import { learnWindows } from './meters'
 
 // ---- reply text: joined and drawn once per frame, only for the tabs on screen ----
 const deltas = new Map<string, string>()
@@ -139,7 +140,7 @@ export function startEngine() {
       refreshThreadList()
       return
     }
-    if (ev.type === 'result') refreshThreadList()
+    if (ev.type === 'result') { refreshThreadList(); learnWindows(ev.modelUsage) }
     if (ev.type === 'hive_open_terminal') { activate(tabId); openTerminal(tabId); return }
     // the thread's process ended before Claude read these: what you wrote goes back in its message box
     if (ev.type === 'hive_unsent') {
