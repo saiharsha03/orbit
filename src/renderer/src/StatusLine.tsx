@@ -185,7 +185,7 @@ export function StatusLine() {
       </button>}
       {ctx && f && canCompact({ live: true, busy: f.busy, compacting: f.compacting }) && <button onClick={() => send(f.id, '/compact', [])} data-testid="status-compact"
         title="Summarise the conversation so far to free up context (/compact)">Compact</button>}
-      {/* the usage limits are the gauges at the foot of the rail (LimitGauges) */}
+      {/* the usage limits are stacked at the foot of the side bar (LimitGauges.tsx) */}
       <span className="r" />
       <VersionsLine />
       {allow && ipWord && <button className={allow.changed ? 'warm' : ''} onClick={() => setAllowOpen(true)} title={allow.ip ? `This computer's address: ${allow.ip}. Click for Allow my IP` : allow.error || 'Allow my IP'} data-testid="status-allow">{ipWord}</button>}

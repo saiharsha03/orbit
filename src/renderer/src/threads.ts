@@ -73,7 +73,7 @@ export function buildSections<T extends Item>(sessions: T[], states: ThreadMap, 
   add('pinned', 'Pinned', of('pinned').sort((a, b) => states[b.id].pinned! - states[a.id].pinned!))
   add('snoozed', 'Snoozed', of('snoozed').sort((a, b) => states[a.id].snoozedUntil! - states[b.id].snoozedUntil!), { fold: true, sub: 'snoozed' })
   add('dependabot', 'Dependabot', of('active').filter(bot), { fold: true })
-  add('returned', 'Returned', of('returned').sort((a, b) => states[b.id].snoozedUntil! - states[a.id].snoozedUntil!), { sub: 'returned' })
+  add('returned', 'Back from snooze', of('returned').sort((a, b) => states[b.id].snoozedUntil! - states[a.id].snoozedUntil!), { sub: 'returned' })
   const dated: Section<T>[] = []
   if (groupBy === 'project') {
     const by = new Map<string, Section<T>>()

@@ -4,17 +4,17 @@ export type ThreadState = { pinned?: number; snoozedUntil?: number; snoozedAt?: 
 export type ThreadMap = Record<string, ThreadState>
 export type Place = 'pinned' | 'returned' | 'active' | 'snoozed' | 'closed' | 'archived'
 
-// where a thread sits; pinned wins unless archived, and a snooze only hides a thread until it comes due
+const DAY = 86_400_000
+// where a thread sits; pinned wins unless archived, and a snooze only hides a thread until it comes due. Back from a
+// snooze it stands out for a day; not opened by then, it goes back among the others
 export function place(s: ThreadState | undefined, now: number): Place {
   if (!s) return 'active'
   if (s.archivedAt) return 'archived'
   if (s.pinned) return 'pinned'
   if (s.closedAt) return 'closed'
-  if (s.snoozedUntil) return s.snoozedUntil > now ? 'snoozed' : 'returned'
+  if (s.snoozedUntil) return s.snoozedUntil > now ? 'snoozed' : now - s.snoozedUntil < DAY ? 'returned' : 'active'
   return 'active'
 }
-
-const DAY = 86_400_000
 // "Tue 9 AM", with the date when it is more than a week out; ":30" only when needed
 export function untilLabel(t: number, now: number): string {
   const d = new Date(t)

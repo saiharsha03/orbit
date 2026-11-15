@@ -15,7 +15,8 @@ import type { ClipOffer } from '../../shared/clipboardCore'
 import { clearOffer, textHash, useClipboardOn, useClipOffer } from './clipboardOffer'
 import { CopyButton, MdBody } from './MdBody'
 import { AdvisorPicker, ModelEffort, ModePicker, useNow } from './ThreadStatus'
-import { contextPct, contextWarn } from '../../shared/contextCore'
+import { contextWarn } from '../../shared/contextCore'
+import { cacheWord, useThreadMeters } from './meters'
 import { dismissGoal, useThreadStatus } from './statusStore'
 import { SummaryRow, ThinkingRow, WarningRow } from './ChatRows'
 import { FastToggle } from './FastToggle'
@@ -391,42 +392,20 @@ const PANEL_ACTS: { tab: PanelTab; label: string; icon: string; title: string }[
   { tab: 'rewind', label: 'Rewind', icon: 'history', title: 'Go back to an earlier message' },
 ]
 
-// The header's two numbers: how much of the context window the thread uses, and how long its prompt cache stays warm
-// (from the last reply: 5 minutes or an hour, as the transcript says). A cold cache means the next message pays the
-// whole context again.
-const mmss = (ms: number) => { const sec = Math.ceil(ms / 1000); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}` }
+// The header's two numbers (meters.ts): how much of the context window the thread uses, and how long its prompt cache
+// stays warm. A cold cache means the next message pays the whole context again.
 function HeaderMeters({ id, path, busy }: { id: string; path?: string; busy: boolean }) {
-  const [ctx, setCtx] = useState<{ total: number; max: number } | null>(null)
-  const [stats, setStats] = useState<SessionStats | null>(null)
-  useEffect(() => {
-    let alive = true
-    const load = () => {
-      void window.api.chatContext(id).then((c) => { if (alive) setCtx(c) }).catch(() => {})
-      if (path) void window.api.sessionStats(path).then((s) => { if (alive) setStats(s) }).catch(() => {})
-    }
-    load()
-    const t = setInterval(load, 10_000)
-    return () => { alive = false; clearInterval(t) }
-  }, [id, path, busy])
-  const until = stats?.lastReplyAt ? stats.lastReplyAt + stats.cacheTtlMs : null
-  const now = useNow(!!until && !busy)
-  const pct = ctx ? contextPct(ctx.total, ctx.max) : null
-  const left = until ? until - now : null
-  const ttl = stats && stats.cacheTtlMs >= 3_600_000 ? '1 hour' : '5 minute'
+  const m = useThreadMeters(path, id, true)
+  const now = useNow(m.until !== null && !busy && m.until > Date.now())
+  const cache = cacheWord(m.until, now, busy)
   return (
     <span className="hmeters">
-      {ctx && (
-        <span className={`hm${contextWarn(pct) ? ' hm-warn' : ''}`} data-testid="head-context"
-          title={`Context in use: ${fmtTokens(ctx.total)}${ctx.max ? ` of ${fmtTokens(ctx.max)}` : ''}`}>
-          <i className="hm-bar"><b style={{ width: `${pct ?? 0}%` }} /></i>{pct !== null ? `${pct}%` : fmtTokens(ctx.total)}
+      {m.total !== null && (
+        <span className={`hm${contextWarn(m.pct) ? ' hm-warn' : ''}`} data-testid="head-context" title={`Context in use: ${fmtTokens(m.total)} of ${fmtTokens(m.max)}`}>
+          <i className="hm-bar"><b style={{ width: `${m.pct ?? 0}%` }} /></i>{m.pct}%
         </span>
       )}
-      {left !== null && (
-        <span className={`hm${!busy && left <= 0 ? ' hm-cold' : ''}`} data-testid="head-cache"
-          title={busy ? 'Prompt cache: this turn keeps it warm' : left > 0 ? `Prompt cache warm for ${mmss(left)} more (${ttl} cache). After that the next message re-reads the whole context` : 'Prompt cache expired: the next message re-reads the whole context'}>
-          <Icon name="clock" />{busy ? 'warm' : left > 0 ? mmss(left) : 'cold'}
-        </span>
-      )}
+      {cache && <span className={`hm${cache.warm ? '' : ' hm-cold'}`} data-testid="head-cache" title={cache.title}><Icon name="clock" />{cache.word}</span>}
     </span>
   )
 }

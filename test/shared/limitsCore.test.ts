@@ -29,7 +29,7 @@ test('a window with no reset time, or one already past, has no tick; the names r
   assert.equal(gaugeOf(row('five_hour', 20, -1), NOW).passed, null)
   assert.equal(gaugeOf(row('five_hour', 140, 1), NOW).used, 100) // never drawn past full
   assert.equal(limitName(row('five_hour', 1, 1)), '5-hour')
-  assert.deepEqual([row('five_hour', 1, 1), row('seven_day', 1, 1), row('seven_day_fable', 1, 1, 'Weekly (Fable)')].map((r) => gaugeOf(r, NOW).short), ['5h', '7d', 'Fa'])
+  assert.deepEqual([row('five_hour', 1, 1), row('seven_day', 1, 1), row('seven_day_fable', 1, 1, 'Weekly (Fable)')].map((r) => gaugeOf(r, NOW).short), ['5-hour', '7-day', 'Fable'])
   assert.equal(limitName(row('seven_day', 1, 1)), '7-day')
   assert.equal(limitName(row('seven_day_fable', 1, 1, 'Weekly (Fable)')), '7-day Fable')
 })

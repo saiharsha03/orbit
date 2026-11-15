@@ -190,8 +190,11 @@ button.rail-gh:hover { color: var(--dim); }
 .tab.on { min-width: 120px; }
 .tab .sw { font-weight: 500; }
 .tab:hover { color: var(--hi); background: var(--hover); }
-.tab.on { color: var(--hi); font-weight: 550; background: var(--bg); border-top-color: var(--accent); box-shadow: 0 1px 0 var(--bg); }
-.tab.shown:not(.on) { color: var(--hi); background: var(--bg); box-shadow: 0 1px 0 var(--bg); }
+/* as VS Code's editor tabs: the selected one takes the conversation's darker background and joins it; no accent line */
+.tab.on { color: var(--hi); background: var(--bg); box-shadow: 0 1px 0 var(--bg); }
+.tab.shown:not(.on) { color: var(--hi); }
+.tab .tab-ic { flex: none; font-size: 14px; color: var(--dim); }
+.tab.on .tab-ic { color: var(--hi); }
 .tab .tab-x { width: 20px; height: 20px; flex: none; display: grid; place-items: center; border-radius: var(--r-small); color: var(--dim); background: none; border: 0; padding: 0; cursor: pointer; font-size: 16px; line-height: 1; font-weight: 400; }
 .tab.on .tab-x { color: var(--ink); }
 .tab .tab-x:hover { color: var(--hi); background: var(--btn-quiet); }
@@ -404,6 +407,4 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--hi); }
 .ftree-jump .btn-link { padding: 8px 0 2px; font-size: 12px; color: var(--link); }
 .acct-nolim, .acct-asof { grid-column: 1 / -1; font-size: 11.5px; color: var(--dim); }
 
-/* the selected thread in the rail carries the accent */
-.rail-row.on { box-shadow: inset 3px 0 0 var(--accent); }
 .btn-link { color: var(--link); }

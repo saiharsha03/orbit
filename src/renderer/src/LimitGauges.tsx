@@ -1,10 +1,9 @@
-// The plan's usage limits at the foot of the rail: one small vertical level per window, filling upward as it is used.
-// A thin tick marks how much of the window's time has passed, so a level above its tick is spending ahead of the clock
-// (it turns the wait colour). Each level says its numbers on hover; a click opens the Usage page.
+// The plan's usage limits stacked at the foot of the side bar: one line each, its name, a bar in its own colour, the
+// share used and when it resets. Nearly out or ahead of the clock turns it the warning colour. A click opens the Usage page.
 import { useEffect, useState } from 'react'
 import { gaugeOf, type UsageRow } from '../../shared/limitsCore'
 
-export function LimitGauges({ onOpen }: { onOpen: () => void }) {
+export function LimitRows({ onOpen }: { onOpen: () => void }) {
   const [rows, setRows] = useState<UsageRow[]>([])
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -15,17 +14,14 @@ export function LimitGauges({ onOpen }: { onOpen: () => void }) {
     return () => { alive = false; clearInterval(t) }
   }, [])
   if (!rows.length) return null
-  const gauges = rows.map((u) => gaugeOf(u, now))
   return (
-    <button type="button" className="lim" onClick={onOpen} aria-label={`Usage limits. ${gauges.map((g) => g.says).join('. ')}`} data-testid="rail-limits">
-      {gauges.map((g) => (
-        <span key={g.key} className={`lim-c${g.ahead ? ' ahead' : ''}`} title={g.says} data-testid={`rail-limit-${g.key}`}>
-          <span className="lim-n">{Math.round(g.used)}</span>
-          <span className="lim-g">
-            <i style={{ height: `${g.used}%` }} />
-            {g.passed !== null && <u style={{ bottom: `${g.passed}%` }} />}
-          </span>
-          <span className="lim-k">{g.short}</span>
+    <button type="button" className="limrows" onClick={onOpen} title="Usage limits: click for the Usage page" data-testid="side-limits">
+      {rows.map((u) => gaugeOf(u, now)).map((g) => (
+        <span key={g.key} className={`limrow${g.ahead ? ' ahead' : ''}`} data-k={g.key === 'five_hour' || g.key === 'seven_day' ? g.key : 'model'} title={g.says}>
+          <span className="limrow-n">{g.short}</span>
+          <span className="limrow-g"><i style={{ width: `${g.used}%` }} /></span>
+          <b>{Math.round(g.used)}%</b>
+          <em>{g.resets}</em>
         </span>
       ))}
     </button>

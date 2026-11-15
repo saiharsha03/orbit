@@ -362,125 +362,64 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .app .sw-work { color: var(--work); } .app .sw-done { color: var(--done); } .app .sw-hold { color: var(--k-shell); }
 .app .sw-wait { color: var(--signal); font-weight: 600; } .app .sw-fail { color: var(--fail); font-weight: 600; }
 
-/* a thread row carries its state on its left edge, and a light wash of it */
-.side .rail-row { --st: transparent; box-shadow: inset 3px 0 0 var(--st); }
-.side .rail-row.busy, .side .rail-row:has(.sw-work) { --st: var(--work); }
-.side .rail-row:has(.sw-done) { --st: var(--done); }
-.side .rail-row:has(.sw-hold) { --st: var(--k-shell); }
-.side .rail-row:has(.sw-wait) { --st: var(--signal); }
-.side .rail-row:has(.sw-fail) { --st: var(--fail); }
-.side .rail-row:has(.sw-wait), .side .rail-row:has(.sw-fail), .side .rail-row.busy { background: color-mix(in srgb, var(--st) 9%, transparent); }
-.side .rail-row.on { box-shadow: inset 3px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--raised)); }
-.side .rail-row.on:has(.sw-wait), .side .rail-row.on:has(.sw-fail) { box-shadow: inset 3px 0 0 var(--st); }
 
-/* a tab's top line is its thread's state */
-.tab:has(.sw-work) { border-top-color: var(--work); }
-.tab:has(.sw-done) { border-top-color: color-mix(in srgb, var(--done) 70%, transparent); }
-.tab:has(.sw-wait) { border-top-color: var(--signal); background: color-mix(in srgb, var(--signal) 10%, transparent); }
-.tab:has(.sw-fail) { border-top-color: var(--fail); background: color-mix(in srgb, var(--fail) 10%, transparent); }
-.tab.on { background: color-mix(in srgb, var(--accent) 9%, var(--bg)); }
-.tab-new { color: var(--accent-text); }
 
-/* the thread header: each panel button in the colour of what it opens */
-.app .pact { --c: var(--dim); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, var(--rule2)); }
-.app .pact[data-testid="chat-changes"] { --c: var(--git-modified); }
-.app .pact[data-testid="chat-activity"] { --c: var(--k-agent); }
-.app .pact[data-testid="chat-rewind"] { --c: var(--k-review); }
-.app .pact[data-testid="terminal-toggle"] { --c: var(--c-terminal); }
-.app .pact[data-testid="advisor-picker"] { --c: var(--k-advisor); }
-/* the header's buttons are icons (their names on hover): square, wider only for Activity's running count.
-   The advisor's icon is dim while it is off, in its colour when on */
-.app .pact.pact-icon { padding: 0 5px; min-width: 26px; justify-content: center; gap: 4px; }
-.app .pact[data-testid="advisor-picker"]:not(.pact-on) .codicon { color: var(--dim); }
-/* selected (its panel open, the advisor on): a solid fill in its colour, so it stands out at a glance */
-.app .pact.pact-icon[aria-pressed="true"], .app .pact.pact-icon.pact-on { background: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
-.app .pact.pact-icon[aria-pressed="true"] .codicon, .app .pact.pact-icon.pact-on .codicon { color: var(--bg) !important; }
-.app .pact.pact-icon[aria-pressed="true"] b.num { color: var(--c); background: var(--bg); }
-.app .pact.pact-on { background: color-mix(in srgb, var(--c) 12%, transparent); }
-.app .pact .codicon { display: inline; color: var(--c); }
-.app .pact:hover { background: color-mix(in srgb, var(--c) 14%, transparent); }
-.app .pact[aria-pressed="true"], .app .pact[aria-expanded="true"] { background: color-mix(in srgb, var(--c) 22%, transparent); box-shadow: inset 0 0 0 1px var(--c); }
-.app .pact b.num { color: var(--bg); background: var(--c); padding: 0 5px; font-weight: 600; border-radius: 8px !important; }
-.phead h1 { box-shadow: inset 3px 0 0 var(--accent); padding-left: var(--s3); }
-.phead-sub b { color: var(--git-modified); }
-.coming-b { color: var(--k-loop); } .coming-b.held { color: var(--signal); }
+/* ---- v3 thread sidebar: one quiet line per thread (an icon with its context ring and state, the title, the prompt
+   cache); greys only, colour for a thread that needs you, works or failed ---- */
+.side .rail-row { padding: 5px 8px; width: calc(100% - 16px); margin: 0 8px; color: var(--ink); }
+.side .rail-row:hover { background: color-mix(in srgb, var(--hi) 6%, transparent); }
+.side .rail-row.on { padding: 5px 8px; background: color-mix(in srgb, var(--hi) 10%, transparent); color: var(--hi); font-weight: 400; }
+.side .rail-row.busy::after { display: none; }
+.side .rail-row.member { padding-left: 26px; }
+.side .rail-l1 { align-items: center; gap: 10px; }
+.rail-ic { position: relative; flex: none; width: 22px; height: 22px; display: grid; place-items: center; color: var(--dim); --ring: var(--done); }
+.rail-ic.mid { --ring: var(--signal); } .rail-ic.hot { --ring: var(--fail); }
+.rail-ic::before { content: ''; position: absolute; inset: 0; background: conic-gradient(var(--ring) calc(var(--p) * 1%), var(--rule2) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); }
+.rail-ic .codicon { font-size: 12px; }
+.rail-row.on .rail-ic { color: var(--hi); }
+.rail-badge { position: absolute; right: -3px; bottom: -2px; width: 8px; height: 8px; box-shadow: 0 0 0 2px var(--side); }
+.rail-badge.wait { background: var(--signal); } .rail-badge.fail { background: var(--fail); }
+.rail-badge.work { width: 10px; height: 10px; border: 1.5px solid var(--rule2); border-top-color: var(--work); background: var(--side); box-shadow: none; animation: rail-spin .9s linear infinite; }
+@keyframes rail-spin { to { transform: rotate(360deg); } }
+.rail-cache { flex: none; font: 500 11px var(--sans); font-variant-numeric: tabular-nums; padding: 1px 6px; }
+.rail-cache.warm { color: var(--k-review); background: color-mix(in srgb, var(--k-review) 12%, transparent); }
+.rail-cache.cold { color: var(--k-loop); background: color-mix(in srgb, var(--k-loop) 9%, transparent); }
+.side .rail-gh { padding: 14px 16px 4px; font-size: 11.5px; font-weight: 500; color: var(--faint); }
+.side .rail-new { margin: 4px 8px 8px; height: 32px; background: none; color: var(--hi); box-shadow: inset 0 0 0 1px var(--rule2); justify-content: space-between; padding: 0 10px; }
+.side .rail-new:hover { background: color-mix(in srgb, var(--hi) 6%, transparent); filter: none; }
+.side .rail-new .keys { color: var(--faint); opacity: 1; }
+.side .needs { margin: 2px 8px 8px; padding: 8px 10px 4px; border: 1px solid color-mix(in srgb, var(--signal) 35%, var(--rule2)); background: color-mix(in srgb, var(--signal) 7%, transparent); }
+.side .needs h2 { font: 500 11.5px var(--sans); letter-spacing: 0; margin-bottom: 2px; }
+.side .needs .ask-t { font-weight: 500; }
+/* rounded, against the app's square reset */
+.app .side .rail-row, .app .side .rail-new { border-radius: 7px !important; }
+.app .side .needs { border-radius: 9px !important; }
+.app .rail-ic::before, .app .rail-badge { border-radius: 50% !important; }
+.app .rail-cache { border-radius: 5px !important; }
+.app .limrow-g, .app .limrow-g i { border-radius: 3px !important; }
 
-/* the conversation: the first word of a tool row says what it did, in colour */
-.app .trow .tv { font-weight: 600; }
-.app .trow .tv.t-read { color: var(--tm-read); } .app .trow .tv.t-edit { color: var(--tm-edit); } .app .trow .tv.t-add { color: var(--done); }
-.app .trow .tv.t-run { color: var(--tm-bash); } .app .trow .tv.t-search { color: var(--tm-search); } .app .trow .tv.t-agent { color: var(--tm-agent); }
-.app .trow .tv.t-other { color: var(--dim); }
-.app .trow.failed { box-shadow: inset 2px 0 0 var(--fail); }
-.conv .msg.cl h1, .conv .msg.cl h2, .conv .msg.cl h3 { color: var(--label); }
-.conv .msg.cl strong { color: var(--hi); }
-.conv .msg.cl a { color: var(--accent-text); }
-.conv .msg.cl.from { border-left-color: var(--k-agent); }
+/* ---- v3: the sections as words in the title bar, beside the Orbit mark, like a menu bar ---- */
+.tb { grid-template-columns: auto minmax(0, 1fr) auto; }
+.tb-brand { padding-right: 16px; white-space: nowrap; }
+.tb-sections { display: flex; align-items: center; margin-left: 8px; -webkit-app-region: no-drag; }
+.tb-sections .abar-item { position: relative; width: auto; height: 28px; padding: 0 9px; display: flex; align-items: center; color: var(--dim); font: 400 13px var(--sans); box-shadow: none; }
+.tb-sections .abar-item:hover { color: var(--hi); background: color-mix(in srgb, var(--hi) 6%, transparent); }
+.tb-sections .abar-item.on { color: var(--hi); background: color-mix(in srgb, var(--hi) 9%, transparent); box-shadow: none; }
+.tb-sections .abar-mark { position: static; margin-left: 5px; }
+.tb-sections .abar-gap { flex: 0 0 6px; }
+.app .tb-sections .abar-item { border-radius: 7px !important; }
 
-/* what is running: the bar and each group in its kind's colour */
-.runbar { border-top: 2px solid color-mix(in srgb, var(--work) 60%, var(--rule)); }
-.runbar-b b { color: var(--work); }
-.runbar-g { --c: var(--k-agent); color: var(--c); box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--c) 35%, transparent); }
-.runbar-g[data-testid="running-group-shells"] { --c: var(--k-shell); }
-.runbar-g[data-testid="running-group-monitors"] { --c: var(--k-monitor); }
-.runbar-g .codicon { color: var(--c); }
-.runbar-gn { color: var(--c); }
-
-/* side bar and pages: a heading in its section's colour, with a bar */
-.side-head { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--sc, var(--accent)) 60%, transparent); color: var(--sc, var(--hi)); }
-.side:has(.side-threads) { --sc: var(--c-threads); } .side:has(.side-scheduled) { --sc: var(--c-scheduled); } .side:has(.side-files) { --sc: var(--c-files); }
-.side:has(.side-todo) { --sc: var(--c-todo); } .side:has(.side-notes) { --sc: var(--c-notes); }
-.full-sec { --sc: var(--c-more); }
-.full-sec.full-scheduled { --sc: var(--c-scheduled); } .full-sec.full-todo { --sc: var(--c-todo); } .full-sec.full-notes { --sc: var(--c-notes); } .full-sec.full-files { --sc: var(--c-files); }
-.full-sec.full-usage { --sc: var(--k-loop); } .full-sec.full-git, .full-sec.full-pull, .full-sec.full-dependabot { --sc: var(--git-modified); }
-.full-sec.full-running, .full-sec.full-watchers { --sc: var(--k-monitor); } .full-sec.full-deploy, .full-sec.full-env { --sc: var(--ansi-green); }
-.full-sec.full-board { --sc: var(--k-review); } .full-sec.full-codex, .full-sec.full-quarry { --sc: var(--ansi-magenta); }
-.full-sec .page-head h1 { color: var(--sc); padding-left: var(--s3); box-shadow: inset 4px 0 0 var(--sc); }
-.full-sec .page-tabs { border-bottom-color: color-mix(in srgb, var(--sc) 30%, var(--rule)); }
-.full-sec .page-tabs button.on { color: var(--sc); border-bottom-color: var(--sc); font-weight: 600; }
-.full-back { color: var(--accent-text); }
-.full-sec .sec-head, .full-sec .dstack .drow .dtitle { color: var(--label); }
-.app .td-seg button.on { color: var(--bg); background: var(--c-todo); }
-.insp .isec.isec-k { box-shadow: inset 0 -1px 0 color-mix(in srgb, currentColor 30%, transparent); }
-.panel-tab.on { color: var(--c-terminal); border-bottom-color: var(--c-terminal); }
-
-/* why the thread is marked waiting: Claude's own reason, said in the thread the moment it is marked */
-.needs-note { flex: none; display: flex; gap: var(--s3); align-items: baseline; margin: var(--s2) var(--pane-pad); padding: var(--s2) var(--s3); background: color-mix(in srgb, var(--signal) 14%, var(--bg)); box-shadow: inset 3px 0 0 var(--signal); color: var(--hi); font: var(--t-ui); }
-.app .needs-note { border-radius: var(--r-row) !important; }
-.needs-note b { color: var(--signal); font-weight: 650; flex: none; }
-.needs-note span { min-width: 0; overflow-wrap: anywhere; }
-
-/* the phone link on the status line: always shown once a relay is set up, with a dot in its state's colour */
-.phone-st { display: inline-flex; align-items: center; gap: 6px; }
-.phone-st i { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex: none; }
-.phone-st.p-on i { background: var(--done); }
-.phone-st.p-off i { background: var(--signal); }
-.phone-st.p-none { color: var(--signal); }
-
-/* the thread header's background, split and export icons */
-.app .pact[data-testid="chat-run-background"] { --c: var(--k-shell); }
-.app .pact[data-testid="chat-split"] { --c: var(--k-loop); }
-.app .pact[data-testid="chat-export"] { --c: var(--k-monitor); }
-
-/* a header icon's card, under its button: a header strip, then the content; actions on the right, one quiet and one strong */
-.pop.hpop { width: 380px; max-height: min(520px, 70vh); display: flex; flex-direction: column; padding: 0; border-radius: 12px; border: 1px solid var(--rule2); background: var(--raised); box-shadow: 0 12px 32px var(--shadow); overflow: hidden; }
-.hpop-head { flex: none; padding: 10px 14px; font: 600 13px var(--sans); color: var(--hi); background: var(--lift2); border-bottom: 1px solid var(--rule2); }
-.hpop-body { flex: 1; min-height: 0; overflow: auto; }
-.hpop-pad { padding: 14px; }
-.hpop-note { margin: 0 0 14px; color: var(--dim); font-size: 13px; line-height: 1.5; }
-.hpop-acts { display: flex; justify-content: flex-end; gap: 8px; }
-.btn.btn-quiet, .btn.btn-strong { height: 30px; padding: 0 12px; border-radius: 8px; font: 500 13px var(--sans); border: 0; cursor: pointer; }
-.btn.btn-quiet { background: var(--lift2); color: var(--hi); }
-.btn.btn-quiet:hover { background: color-mix(in srgb, var(--hi) 16%, var(--lift2)); }
-.btn.btn-strong { background: var(--hi); color: var(--bg); }
-.btn.btn-strong:hover { background: color-mix(in srgb, var(--hi) 85%, var(--bg)); }
-/* the header cards and their buttons are rounded (the app's square reset otherwise wins) */
-.app .pop.hpop, .ovl .pop.hpop { border-radius: 12px !important; }
-.app .btn.btn-quiet, .app .btn.btn-strong, .ovl .btn.btn-quiet, .ovl .btn.btn-strong { border-radius: 8px !important; }
-/* the header's context share and prompt-cache countdown, quiet beside the icons */
-.hmeters { display: inline-flex; align-items: center; gap: 10px; margin-right: 6px; font: 400 12px var(--mono); color: var(--dim); }
-.hm { display: inline-flex; align-items: center; gap: 5px; cursor: default; }
-.hm .codicon { font-size: 13px; }
-.hm-bar { display: inline-block; width: 28px; height: 4px; background: var(--rule2); overflow: hidden; }
-.hm-bar b { display: block; height: 100%; background: var(--dim); }
-.hm-warn { color: var(--signal); } .hm-warn .hm-bar b { background: var(--signal); }
-.hm-cold { color: color-mix(in srgb, var(--signal) 70%, var(--dim)); }
+/* ---- v3: the usage limits stacked at the foot of the side bar, each in its own colour: name, share and reset,
+   then a full-width bar; ahead of the clock (or nearly out) turns it red ---- */
+.limrows { flex: none; display: flex; flex-direction: column; gap: 9px; width: 100%; padding: 10px 14px 12px; background: none; border: 0; border-top: 1px solid var(--rule); cursor: pointer; text-align: left; }
+.limrows:hover { background: color-mix(in srgb, var(--hi) 3%, transparent); }
+.limrow { --c: var(--k-loop); display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: 'n b e' 'g g g'; row-gap: 4px; column-gap: 8px; font: 400 12px var(--sans); color: var(--dim); }
+/* each limit keeps its own colour: 5-hour blue, 7-day violet, a model's own (Fable) amber; nearly out reddens the share */
+.limrow[data-k='five_hour'] { --c: #7aa2f7; } .limrow[data-k='seven_day'] { --c: #bb9af7; } .limrow[data-k='model'] { --c: #e0af68; }
+.limrow-n { grid-area: n; color: var(--c); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.limrow-g { grid-area: g; height: 6px; background: color-mix(in srgb, var(--c) 14%, var(--rule)); overflow: hidden; }
+.limrow-g i { display: block; height: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 55%, transparent), var(--c)); }
+.limrow b { grid-area: b; font-weight: 500; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.limrow.ahead b { color: var(--fail); }
+.limrow em { grid-area: e; font-style: normal; font-size: 11px; color: var(--faint); text-align: right; white-space: nowrap; }

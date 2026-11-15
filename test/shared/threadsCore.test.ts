@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextRunLabel, phoneThreads, type PhoneLive, type PhoneSaved, type PhoneWatcher } from '../../src/shared/threadsCore'
+import { nextRunLabel, phoneThreads, place, type PhoneLive, type PhoneSaved, type PhoneWatcher } from '../../src/shared/threadsCore'
 
 const now = 1_000_000
 const saved = (id: string, updated: number, extra: Partial<PhoneSaved> = {}): PhoneSaved => ({ id, title: id, project: 'p', updated, ...extra })
@@ -72,4 +72,10 @@ describe('phoneThreads', () => {
     const busy: PhoneWatcher[] = [{ ...w[0], tabId: 'watcher-w-1' }]
     expect(phoneThreads([liveT('watcher-w-1', null, { waitingReason: 'approve?' })], [saved('r1', 5, { watcherRun: true })], busy, {}, today)[0].note).toBe('approve?')
   })
+})
+
+it('a thread back from a snooze stands out for a day, then goes back among the others', () => {
+  const at = 1_000_000_000_000
+  expect(place({ snoozedUntil: at }, at + 60_000)).toBe('returned')
+  expect(place({ snoozedUntil: at }, at + 86_400_000)).toBe('active')
 })

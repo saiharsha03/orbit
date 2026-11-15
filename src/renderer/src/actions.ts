@@ -178,7 +178,7 @@ export function newSession(): string {
 export function newBeside(beside = panes.get().focus): string {
   const s = makeSession()
   setSessions((all) => [...all, s])
-  panes.set((p) => addPaneFor(p, s.id, beside) ?? activateIn(p, s.id))
+  panes.set((p) => splitWith(p, s.id, beside) ?? activateIn(p, s.id))
   return s.id
 }
 
@@ -229,7 +229,7 @@ export function openSession(info: SessionInfo, opts: { beside?: boolean } = {}) 
   keepVisible(info.id) // a thread open as a tab is not a closed one: opening it brings it back to the list
   const liveOne = findSession(getSessions(), info.id)
   if (liveOne) {
-    if (opts.beside) { setSessions((all) => activateSession(all, liveOne.id)); panes.set((p) => addPaneFor(p, liveOne.id, p.focus) ?? activateIn(p, liveOne.id)) }
+    if (opts.beside) { setSessions((all) => activateSession(all, liveOne.id)); panes.set((p) => splitWith(p, liveOne.id, p.focus) ?? activateIn(p, liveOne.id)) }
     return activate(liveOne.id)
   }
   if (!opts.beside) replaceUntouched()
@@ -237,7 +237,7 @@ export function openSession(info: SessionInfo, opts: { beside?: boolean } = {}) 
     id: info.id, title: info.title, path: info.path, cwd: info.cwd, sessionId: info.id,
     items: [], streaming: '', busy: false, loaded: false, background: false, ...(info.watcherRun ? { endedRun: true } : {}),
   }])
-  panes.set((p) => (opts.beside ? addPaneFor(p, info.id, p.focus) ?? activateIn(p, info.id) : activateIn(p, info.id)))
+  panes.set((p) => (opts.beside ? splitWith(p, info.id, p.focus) ?? activateIn(p, info.id) : activateIn(p, info.id)))
   window.api.worktreeLinks(info.id).then((links) => { if (links.length) withLinks(info.id, links) }).catch(() => {})
   window.api.loadRecentHistory(info.path).then(({ items, more }) =>
     setSessions((all) => all.map((s) => (s.id === info.id ? { ...s, items: [...items, ...s.items], loaded: true, history: { count: items.length, more } } : s)))).catch(() =>

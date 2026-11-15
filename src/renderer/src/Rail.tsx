@@ -21,6 +21,9 @@ import { onWakeupsChanged, wakeupsList } from './api/next'
 import { buildAnswers, parseQuestions } from '../../shared/askCore'
 import { focusedTab } from './panes'
 import { age, clock, State, type Tone } from './kit'
+import { useNow } from './ThreadStatus'
+import { contextWarn } from '../../shared/contextCore'
+import { cacheWord, useThreadMeters } from './meters'
 import type { ToolTab } from './chat'
 import { AgentRows } from './AgentView'
 
@@ -46,6 +49,30 @@ const askOf = (tabId: string) => {
 }
 // no longer waiting (answered from the rail, or dismissed): the same as opening it does
 const clearWaiting = (id: string) => { setSessions((all) => all.map((s) => (s.id === id ? { ...s, waitingReason: undefined, waitingSince: undefined } : s))); recomputeLive() }
+
+// ---- a thread row's line: its icon (what it is, a ring with its context use, its state on it), title and cache ----
+type Badge = 'work' | 'wait' | 'fail' | ''
+function ThreadLine({ icon, badge, title, path, tabId, live, end }: { icon: string; badge: Badge; title: string; path?: string; tabId?: string; live: boolean; end?: ReactNode }) {
+  const m = useThreadMeters(path, tabId, live)
+  // a countdown ticks only while the cache is still warm
+  const now = useNow(m.until !== null && badge !== 'work' && m.until > Date.now())
+  const cache = cacheWord(m.until, now, badge === 'work')
+  const ring = contextWarn(m.pct) ? ' hot' : (m.pct ?? 0) > 50 ? ' mid' : ''
+  return (
+    <div className="rail-l1">
+      <span className={`rail-ic${ring}`} style={{ '--p': m.pct ?? 0 } as React.CSSProperties} title={m.pct === null ? undefined : `Context ${m.pct}%`}>
+        <i className={`codicon codicon-${icon}`} aria-hidden />{badge && <b className={`rail-badge ${badge}`} />}
+      </span>
+      <span className="rail-t"><span className="tt">{title}</span></span>
+      {end ?? (cache && <span className={`rail-cache ${cache.warm ? 'warm' : 'cold'}`} title={cache.title}>{cache.word}</span>)}
+    </div>
+  )
+}
+// what a thread is, as its icon
+const KIND_ICON: Record<string, string> = { watcher: 'eye', dependabot: 'package', deploy: 'rocket', script: 'play', background: 'layers' }
+const iconOf = (kind: string, team: boolean, worktree: boolean) => (team ? 'organization' : KIND_ICON[kind] ?? (worktree ? 'git-branch' : 'comment'))
+const hasWorktree = (id: string) => !!sessionStore.get().find((s) => s.id === id || s.sessionId === id)?.worktrees?.length
+const pathOf = (id: string) => sessionStore.get().find((s) => s.id === id || s.sessionId === id)?.path
 
 type TeamNeed = { id: string; title: string; waiting: number; open: () => void }
 // "2 need you": each thread that waits, its question in one line, and its answers right there
@@ -284,8 +311,8 @@ const RailList = memo(function RailList({ live, focus, shown }: { live: { waitin
         onClick={() => activate(r.id)}
         onKeyDown={(e) => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter') { e.preventDefault(); activate(r.id) } else if (e.key === ' ' && !r.kind) { e.preventDefault(); openBeside(r.id) } }}
         data-testid="live-row" data-id={r.id}>
-        <div className="rail-l1"><span className="rail-t"><span className="tt">{title}</span></span>{loud(look.tone) ? <State word={look.word} tone={look.tone} /> : note && <em>{note}</em>}</div>
-        <div className="rail-l2"><span className="rail-now">{noteOf(r) || kind}{r.since && r.state === 'working' ? `, ${age(r.since, now) === 'now' ? 'just started' : age(r.since, now)}` : ''}</span></div>
+        <ThreadLine icon={iconOf(kind, !!opts.who, hasWorktree(r.id))} badge={r.state === 'working' ? 'work' : look.tone === 'fail' ? 'fail' : look.tone === 'wait' ? 'wait' : ''}
+          title={title} path={pathOf(r.id)} tabId={r.id} live end={note ? <em>{note}</em> : undefined} />
         {!r.kind && <button className="more" aria-label="Close thread" title="Close (stops it)" onClick={(e) => { e.stopPropagation(); closeSession(r.id) }} data-testid={`thread-live-close-${r.id}`}>×</button>}
       </div>
     )
@@ -304,7 +331,7 @@ const RailList = memo(function RailList({ live, focus, shown }: { live: { waitin
             : ['IDLE', 'idle', s.project]
     const kind = who ? who.role : w ? 'watcher' : s.dependabot ? 'dependabot' : st?.pinned ? 'pinned' : ''
     return (
-      <div key={`s:${s.id}`} className={`rail-row${isOn(s.id, s.id) ? ' on' : ''}${isShown(s.id) ? ' vis' : ''}${picked.has(s.id) ? ' picked' : ''}${member ? ' member' : ''}`} role="button" tabIndex={0} title={s.title}
+      <div key={`s:${s.id}`} className={`rail-row${isOn(s.id, s.id) ? ' on' : ''}${isShown(s.id) ? ' vis' : ''}${picked.has(s.id) ? ' picked' : ''}${member ? ' member' : ''}`} role="button" tabIndex={0} title={[s.title, [kind, second[2], age(s.updated, now)].filter(Boolean).join(', ')].join('\n')}
         onClick={(e) => onSavedClick(e, s)}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget) return
@@ -314,8 +341,8 @@ const RailList = memo(function RailList({ live, focus, shown }: { live: { waitin
         }}
         onContextMenu={(e) => { e.preventDefault(); openMenu(s.id, e.clientX, e.clientY) }}
         data-testid="thread-row" data-id={s.id}>
-        <div className="rail-l1"><span className="rail-t"><span className="tt">{s.title}</span></span>{loud(second[1]) ? <State word={second[0]} tone={second[1]} /> : quietNote(s, resumeAt, w) && <em>{quietNote(s, resumeAt, w)}</em>}</div>
-        <div className="rail-l2"><span className="rail-now">{[kind, second[2]].filter(Boolean).join(', ')}, {age(s.updated, now)}</span></div>
+        <ThreadLine icon={iconOf(w ? 'watcher' : s.dependabot ? 'dependabot' : '', !!who, hasWorktree(s.id))} badge={second[1] === 'wait' ? 'wait' : ''} title={s.title} path={s.path} live={false}
+          end={loud(second[1]) && second[1] !== 'wait' ? <State word={second[0]} tone={second[1]} /> : quietNote(s, resumeAt, w) ? <em>{quietNote(s, resumeAt, w)}</em> : undefined} />
         <button className="more" aria-label="Thread actions" onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); openMenu(s.id, r.left, r.bottom) }} data-testid="thread-actions">⋯</button>
       </div>
     )

@@ -27,8 +27,8 @@ export function gaugeOf(u: UsageRow, now: number): Gauge {
   // ahead of the clock by more than a sliver, or simply nearly out
   const ahead = used >= 90 || (passed !== null && used > passed + 5)
   const name = limitName(u)
-  // under the gauge: 5h, 7d, or the model's first two letters for a per-model window
-  const short = u.key === 'five_hour' ? '5h' : u.key === 'seven_day' ? '7d' : name.replace(/^7-day /, '').slice(0, 2)
+  // its name in the side bar's limits: 5-hour, 7-day, or the model for a per-model window
+  const short = u.key === 'five_hour' ? '5-hour' : u.key === 'seven_day' ? '7-day' : name.replace(/^7-day /, '')
   const resets = at ? resetWord(at, new Date(now)) : ''
   const pace = passed === null ? '' : `, ${Math.round(passed)}% of the window gone: ${ahead ? 'ahead of pace' : 'under pace'}`
   return { key: u.key, name, short, used, passed, ahead, resets, says: `${name}: ${Math.round(used)}% used${resets ? `, resets ${resets}` : ''}${pace}` }

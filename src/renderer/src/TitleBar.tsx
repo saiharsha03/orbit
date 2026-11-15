@@ -9,6 +9,7 @@ import { matchRank } from '../../shared/paletteRank'
 import { filterCommands, type Command as EngineCommand } from '../../shared/composerCore'
 import { openSession } from './actions'
 import { AccountSwitcher, useAccountSummary } from './AccountSwitcher'
+import { ActivityBar } from './Workbench'
 
 export type Command = { id: string; group: 'Threads' | 'Files' | 'Views' | 'Actions' | 'Claude commands' | 'Your skills' | 'Notes'; label: string; hint?: string; run: () => void }
 
@@ -131,7 +132,7 @@ export function TitleBar({ src, paletteN, accountsOpen, setAccountsOpen }: { src
   const [open, setOpen] = useState(false)
   return (
     <header className="tb" data-testid="titlebar">
-      <span className="tb-brand" data-testid="brand"><OrbitMark size={20} />{name}</span>
+      <span className="tb-brand" data-testid="brand" title={name} aria-label={name}><OrbitMark size={20} /><ActivityBar /></span>
       <CommandField src={src} open={open} setOpen={setOpen} focusN={paletteN} />
       <AccountButton open={accountsOpen} setOpen={setAccountsOpen} />
     </header>

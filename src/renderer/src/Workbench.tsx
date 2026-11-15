@@ -30,7 +30,7 @@ import { Boundary, Btn, Keys } from './kit'
 import { Popover, useMenuKeys, type Anchor } from './ui'
 import { BrandIcon } from './brandIcons'
 import { AccountSwitcher } from './AccountSwitcher'
-import { LimitGauges } from './LimitGauges'
+import { LimitRows } from './LimitGauges'
 import { CodexOutput, CodexSide } from './CodexView'
 import './pages/workspace.css'
 import './workbench.css'
@@ -87,6 +87,7 @@ const MORE: { group: string; ids: SideView[] }[] = [
 ]
 const viewOf = (id: SideView) => VIEWS.find((x) => x.id === id)!
 
+// the sections as words in the title bar, beside the Orbit mark, like a menu bar
 export function ActivityBar() {
   const quarry = useQuarry() // Quarry is listed only when it is installed and usable
   const { layout } = useAppearance()
@@ -104,28 +105,25 @@ export function ActivityBar() {
   const groups = MORE.map((g) => ({ ...g, ids: g.ids.filter((id) => id !== 'quarry' || quarry?.available) }))
   const inMore = groups.some((g) => g.ids.includes(view))
   // the menu opens beside the rail, level with its button
-  const openMore = (el: HTMLElement) => { const r = el.getBoundingClientRect(); const x = layout.railRight ? r.left - 4 : r.right + 4; setMore({ left: x, right: x, top: r.bottom, bottom: r.top - 2 }) }
+  const openMore = (el: HTMLElement) => { const r = el.getBoundingClientRect(); setMore({ left: r.left, right: r.right, top: r.top, bottom: r.bottom }) }
   return (
-    <nav className="abar" aria-label="Sections" data-testid="activity-bar">
+    <nav className="tb-sections" aria-label="Sections" data-testid="activity-bar">
       {MAIN.map(viewOf).map((v) => (
         <button key={v.id} className={`abar-item${on(v.id) ? ' on' : ''}`} onClick={() => pick(v.id)} title={v.label} aria-pressed={on(v.id)} data-testid={`abar-${v.id}`}>
-          {v.brand ? <BrandIcon name={v.brand} size={20} /> : <i className={`codicon codicon-${v.icon}`} aria-hidden />}
-          <span className="abar-label">{v.label}</span>
+          {v.label}
           {mark(v.id) && <span className="abar-mark">{mark(v.id)}</span>}
         </button>
       ))}
       {/* its own mousedown is kept from the open menu's click-outside, so a second click closes the menu and does not reopen it */}
       <button className={`abar-item${inMore || more ? ' on' : ''}`} onMouseDown={(e) => { if (more) e.stopPropagation() }} onClick={(e) => (more ? setMore(null) : openMore(e.currentTarget))}
         title={inMore ? `More: ${labelOf(view)}` : 'More: every other section'} aria-haspopup="menu" aria-expanded={!!more} data-testid="abar-more">
-        <i className="codicon codicon-ellipsis" aria-hidden />
-        <span className="abar-label">More</span>
+        More
         {mark('allow') && <span className="abar-mark">{mark('allow')}</span>}
       </button>
-      {more && <MoreMenu anchor={more} groups={groups} align={layout.railRight ? 'right' : 'left'} view={view} mark={mark} onPick={showSide} onClose={() => setMore(null)} />}
+      {more && <MoreMenu anchor={more} groups={groups} align="left" view={view} mark={mark} onPick={showSide} onClose={() => setMore(null)} />}
       <div className="abar-gap" />
-      <LimitGauges onOpen={() => showSide('usage')} />
-      <button className={`abar-item${layout.drawer ? ' on' : ''}`} onClick={() => toggleTerminal()} title="Terminal (Ctrl+`)" aria-pressed={layout.drawer} data-testid="abar-terminal"><i className="codicon codicon-terminal" aria-hidden /><span className="abar-label">Terminal</span></button>
-      <button className="abar-item" onClick={() => openPage('settings')} title="Settings (Ctrl+,)" data-testid="abar-settings"><i className="codicon codicon-settings-gear" aria-hidden /><span className="abar-label">Settings</span></button>
+      <button className={`abar-item${layout.drawer ? ' on' : ''}`} onClick={() => toggleTerminal()} title="Terminal (Ctrl+`)" aria-pressed={layout.drawer} data-testid="abar-terminal">Terminal</button>
+      <button className="abar-item" onClick={() => openPage('settings')} title="Settings (Ctrl+,)" data-testid="abar-settings">Settings</button>
     </nav>
   )
 }
@@ -185,6 +183,7 @@ export function SideBar({ currentPage }: { currentPage: ToolTab | null }) {
           {view === 'files' ? <FilesView /> : view === 'threads' ? <Rail currentPage={currentPage} /> : <div className="ws-page side-pad"><GitPanel onDiff={showDiffBeside} /></div>}
         </Boundary>
       </div>
+      <LimitRows onOpen={() => showSide('usage')} />
       <div className="side-grip" onMouseDown={(e) => { drag.current = { x: e.clientX, w: width }; document.body.classList.add('side-drag'); e.preventDefault() }} onDoubleClick={() => { setWidth(DEFAULT_W); setPref('side.width', DEFAULT_W) }} title="Drag to resize. Double-click for the usual width" />
     </aside>
   )
