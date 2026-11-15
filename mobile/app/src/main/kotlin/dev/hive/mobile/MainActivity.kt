@@ -299,6 +299,7 @@ private fun App(openThread: MutableState<String?>, openPane: MutableState<String
 
     val lists: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize()) {
+            UpdateCard() // a newer phone app on the latest release, when there is one
             Box(Modifier.weight(1f)) {
                 when (tab) {
                     0 -> InboxRoute(box, boxLoaded, listOf(notice, boxError).filter { it.isNotEmpty() }.joinToString(" "), open, reloadBox)
