@@ -831,6 +831,7 @@ handle('git:push', (_e, dir: string) => gitPanel.gitPush(String(dir)))
 handle('git:fetch', (_e, dir: string) => gitPanel.gitFetch(String(dir)))
 handle('git:locate', (_e, file: string) => gitPanel.gitLocate(String(file)))
 handle('git:prChecks', (_e, dir: string) => gitPanel.prChecks(String(dir)))
+handle('git:prStateByUrl', (_e, url: string) => gitPanel.prStateByUrl(String(url)))
 // the PR chip's merge, "Merge when ready" and the info they show; only on the user's click in a confirm
 handle('git:prMergeInfo', (_e, dir: string) => gitPanel.prMergeInfo(String(dir)).catch((e) => ({ unavailable: String((e as Error).message ?? e).split(/\r?\n/)[0] })))
 handle('git:prMerge', (_e, dir: string, headSha: string) => gitPanel.prMerge(String(dir), String(headSha)))

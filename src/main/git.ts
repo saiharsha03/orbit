@@ -12,7 +12,7 @@ import { scanRepos } from './pull'
 import { appName } from '../shared/appName'
 import { blocked, TEST_MODE } from './testMode'
 import { gh, ghWrite } from './gh'
-import { parsePrView, prViewError, type PrChecksResult } from '../shared/ciCore'
+import { parsePrView, prViewError, type PrChecksResult, prWord, summarizeChecks } from '../shared/ciCore'
 import { capDiff, numstatFiles, parseMergeInfo, runAutoMerge, runMerge, safeBranch, type MergeInfoResult, type MergeResult } from '../shared/prCore'
 
 
@@ -190,6 +190,17 @@ export async function prChecks(dir: string): Promise<PrChecksResult> {
   } catch (e) {
     return prViewError((e as Error).message)
   }
+}
+
+// read-only: one PR's state in a word (merged, closed, draft, or its checks: passing, failing, pending, none), by its
+// URL, for the thread header's pills. The second-review gate is a rule, not a build, so it does not count.
+export async function prStateByUrl(url: string): Promise<string> {
+  if (TEST_MODE || !/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/.test(url)) return 'none'
+  try {
+    const p = JSON.parse(await gh(['pr', 'view', url, '--json', 'state,isDraft,statusCheckRollup'], { timeout: 15_000 }))
+    const rollup = (p.statusCheckRollup ?? []).filter((c: { name?: string; context?: string }) => !/second.?review|review.?gate/i.test(String(c?.name ?? c?.context ?? '')))
+    return prWord(p) || summarizeChecks(rollup).state
+  } catch { return 'none' }
 }
 
 // ---- the phone's review and merge of a thread's branch ----

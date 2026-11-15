@@ -201,6 +201,7 @@ contextBridge.exposeInMainWorld('api', {
   gitFetch: (dir: string) => ipcRenderer.invoke('git:fetch', dir),
   gitLocate: (file: string) => ipcRenderer.invoke('git:locate', file),
   gitPrChecks: (dir: string) => ipcRenderer.invoke('git:prChecks', dir),
+  gitPrStateByUrl: (url: string) => ipcRenderer.invoke('git:prStateByUrl', url),
   gitPrMergeInfo: (dir: string) => ipcRenderer.invoke('git:prMergeInfo', dir),
   gitPrMerge: (dir: string, headSha: string) => ipcRenderer.invoke('git:prMerge', dir, headSha),
   gitPrAutoMerge: (dir: string, headSha: string, on: boolean) => ipcRenderer.invoke('git:prAutoMerge', dir, headSha, on),

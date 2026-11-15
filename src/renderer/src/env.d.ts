@@ -200,6 +200,7 @@ interface Window {
     gitFetch: (dir: string) => Promise<string>
     gitLocate: (file: string) => Promise<{ dir: string; name: string; path: string } | null>
     gitPrChecks: (dir: string) => Promise<import('../../shared/ciCore').PrChecksResult>
+    gitPrStateByUrl: (url: string) => Promise<string>
     gitPrMergeInfo: (dir: string) => Promise<import('../../shared/prCore').MergeInfoResult>
     gitPrMerge: (dir: string, headSha: string) => Promise<import('../../shared/prCore').MergeResult>
     gitPrAutoMerge: (dir: string, headSha: string, on: boolean) => Promise<import('../../shared/prCore').MergeResult>

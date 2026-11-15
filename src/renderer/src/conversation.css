@@ -12,9 +12,12 @@
 .phead-t { display: flex; justify-content: space-between; align-items: center; gap: var(--s4); margin-top: var(--s2); }
 .phead-sub { color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .phead-sub b { color: var(--ink); font-weight: 500; }
-.phead-pr { color: var(--accent-text); white-space: nowrap; flex: none; text-decoration: none; }
-.phead-pr:hover { text-decoration: underline; }
-.phead-ci { white-space: nowrap; flex: none; font-size: 12px; }
+/* a PR in the header: a small pill (icon, number, and for the latest its checks in their colour) */
+.phead-pr { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; flex: none; white-space: nowrap; text-decoration: none; font: 500 12px var(--sans); font-variant-numeric: tabular-nums; color: var(--ink); box-shadow: inset 0 0 0 1px var(--rule2); }
+.phead-pr .codicon { font-size: 13px; color: var(--dim); }
+.phead-pr:hover { color: var(--hi); background: color-mix(in srgb, var(--hi) 6%, transparent); }
+.phead-ci { font-weight: 400; opacity: .9; }
+.app .phead-pr { border-radius: 6px !important; }
 .phead-l { display: flex; align-items: baseline; gap: var(--s3); min-width: 0; flex: 1 1 auto; }
 /* what is coming up for this thread (loops, wake-ups, an automatic continue): one quiet link beside the folder; its list
    opens over the conversation, so nothing below moves */
@@ -337,3 +340,7 @@ button.pick:hover { color: var(--hi); }
 .errcard { background: color-mix(in srgb, var(--hi) 3%, var(--bg)); }
 .errcard-h { background: color-mix(in srgb, var(--hi) 6%, var(--bg)); font-weight: 400; }
 .errcard-b { color: var(--dim); padding-top: 14px; }
+/* a PR's checks as a circle in its pill: green passing, red failing, amber running (the second-review gate does not count) */
+.pr-dot { width: 8px; height: 8px; flex: none; background: currentColor; }
+.app .pr-dot { border-radius: 50% !important; }
+.phead-pr.ci-passing .pr-dot { background: var(--done); } .phead-pr.ci-failing .pr-dot { background: var(--fail); } .phead-pr.ci-pending .pr-dot { background: var(--signal); }

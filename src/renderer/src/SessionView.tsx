@@ -42,8 +42,6 @@ import { RunningBar } from './RunningBar'
 import { needsNote } from './background'
 import { ComingBar } from './ComingBar'
 import { threadPrs } from '../../shared/prLinkCore'
-import { checksText, prWord } from '../../shared/ciCore'
-import { prChecksSeen, useStore } from './store'
 
 export type Attachment = { url: string; mediaType: string; data: string }
 export type SendMode = 'steer' | 'queue' | 'interrupt'
@@ -930,24 +928,22 @@ export function SessionView(p: Props) {
     for (const p of threadPrs(session.items)) if (!all.some((x) => x.url === p.url)) all.push(p)
     return all
   }, [earlierPrs, session.items])
-  const pr = prs.at(-1)
-  // its checks, read here when the PR appears and every minute while they run (the repo is the thread's worktree of
-  // that repo, else its folder); the Changes panel writes the same store when it reads them
-  const prDir = (pr && session.worktrees?.find((w) => pr.repo.endsWith(`/${w.repo}`))?.path) ?? session.worktrees?.at(-1)?.path ?? session.cwd
+  // each PR's state (its checks, or merged / closed / draft), read when it appears and every minute while any runs
+  const [prState, setPrState] = useState<Record<string, string>>({})
+  const prUrls = prs.map((x) => x.url).join(' ')
   useEffect(() => {
-    if (!pr || !prDir) return
+    const urls = prUrls.split(' ').filter(Boolean)
+    if (!urls.length) return
     let alive = true
     let t: ReturnType<typeof setTimeout> | undefined
-    const read = () => void window.api.gitPrMergeInfo(prDir).then((r) => {
-      if (!alive || !r || !('pr' in r) || r.pr.number !== pr.num) return
-      prChecksSeen.set((all) => ({ ...all, [session.id]: { num: r.pr.number, state: prWord(r.pr) || r.pr.checks.state, text: checksText(r.pr.checks) } }))
-      if (r.pr.state === 'OPEN' && r.pr.checks.state === 'pending') t = setTimeout(read, 60_000)
+    const read = () => void Promise.all(urls.map((u) => window.api.gitPrStateByUrl(u).then((st) => [u, st] as const))).then((rows) => {
+      if (!alive) return
+      setPrState(Object.fromEntries(rows))
+      if (rows.some(([, st]) => st === 'pending')) t = setTimeout(read, 60_000)
     }).catch(() => {})
     read()
     return () => { alive = false; clearTimeout(t) }
-  }, [pr?.num, pr?.repo, prDir, session.id])
-  const seen = useStore(prChecksSeen, (all) => all[session.id])
-  const ci = seen && pr && seen.num === pr.num ? seen : null
+  }, [prUrls])
   const running =session.items.filter((i) => i.kind === 'tool' && i.status === 'running').at(-1)
   const stopGoal = async () => { if (session.busy) { p.onStop(); p.onSend('/goal clear', [], 'queue') } else p.onSend('/goal clear', []) }
   const pinRows: [string, ReactNode][] = [
@@ -976,12 +972,17 @@ export function SessionView(p: Props) {
         <div className="phead-t">
           <div className="phead-l">
             {folder && <div className="phead-sub" title={session.cwd} data-testid="folder-picker">{wt ? <>{wt.repo} on <b>{wt.branch}</b></> : folder}</div>}
-            {prs.map((x, i) => (
-              <a key={x.url} className="phead-pr" href={x.url} target="_blank" rel="noreferrer" data-testid="thread-pr" title={`${x.repo} #${x.num}`}>
-                {i === 0 ? `PR${prs.length > 1 ? 's' : ''} ` : ''}#{x.num}
-              </a>
-            ))}
-            {pr && ci && ci.state !== 'none' && <span className={`phead-ci ci-${ci.state}`} title={`Checks: ${ci.text}`} data-testid="thread-pr-checks">{ci.state}</span>}
+            {/* each PR as a pill: its icon, number and a circle for its checks (green passing, red failing, amber running);
+                merged, closed or draft said in a word */}
+            {prs.map((x) => {
+              const c = prState[x.url]
+              const dot = c === 'passing' || c === 'failing' || c === 'pending'
+              return (
+                <a key={x.url} className={`phead-pr${c && c !== 'none' ? ` ci-${c}` : ''}`} href={x.url} target="_blank" rel="noreferrer" data-testid="thread-pr" title={`${x.repo} #${x.num}${c && c !== 'none' ? `: ${c}` : ''}`}>
+                  <Icon name="git-pull-request" />#{x.num}{dot ? <i className="pr-dot" aria-label={c} data-testid="thread-pr-checks" /> : c && c !== 'none' && <span className="phead-ci">{c}</span>}
+                </a>
+              )
+            })}
           </div>
           <span className="phead-acts">
             <HeaderMeters id={session.id} path={session.path} busy={session.busy} />
