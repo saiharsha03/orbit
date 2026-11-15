@@ -234,6 +234,9 @@ export function applyEvent(s: Session, ev: any): Session {
       // What Claude says goes above any message of yours it has not read yet (one you sent while it was still writing):
       // the conversation reads in the order things happened for Claude, and your message moves down to where it is read.
       const mid: string | undefined = typeof ev.uuid === 'string' ? ev.uuid : undefined
+      // Claude Code's own answer to a slash command (model "<synthetic>": "/x isn't available ...") answers your last
+      // message: that message is read, and the answer goes below it
+      if (model === '<synthetic>') for (let j = items.length - 1; j >= 0; j--) { const u = items[j]; if (u.kind === 'user' && !u.seen && !u.queue) { items[j] = { ...u, seen: true, seenAt: Date.now() }; break } }
       const put = (it: Item) => {
         let at = items.length
         while (at > 0) { const prev = items[at - 1]; if (prev.kind === 'user' && prev.uuid && !prev.seen && !prev.queue) at--; else break }

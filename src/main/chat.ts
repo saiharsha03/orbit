@@ -1233,8 +1233,10 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
         send(m)
         // a command only the interactive CLI runs (/design-login, /login, /mcp, ...): run it there, in this
         // thread's terminal, instead of leaving "isn't available in this environment" (not for watchers)
-        if (m.type === 'system' && !watcher) {
-          const cmd = cliOnlyCommand((m as any).content)
+        // (the engine says it as a system local_command, or, live, as a short assistant reply)
+        if ((m.type === 'system' || (m.type === 'assistant' && !m.parent_tool_use_id)) && !watcher) {
+          const said = m.type === 'system' ? (m as any).content : ((m.message?.content ?? []) as any[]).filter((b) => b.type === 'text').map((b) => b.text).join('\n')
+          const cmd = cliOnlyCommand(said)
           if (cmd) { typeInTerminal(tabId, cliLine(cmd)); send({ type: 'hive_open_terminal', command: cmd }) }
         }
         observe(tabId, m, (id) => transcriptPath(cwd, id), q)
