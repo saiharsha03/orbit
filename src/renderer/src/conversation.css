@@ -74,18 +74,19 @@
 .msg { margin: 0 var(--pane-pad) 14px; position: relative; content-visibility: auto; contain-intrinsic-size: auto 80px; }
 .msg.you { background: var(--raised); color: var(--hi); padding: 11px 14px; margin-bottom: 16px; }
 .msg.you .body { white-space: pre-wrap; overflow-wrap: anywhere; }
-.msg.you .seen { display: block; font: 400 11.5px/1.4 var(--sans); color: var(--faint); margin-top: 4px; }
+.msg.you .seen { display: flex; justify-content: flex-end; align-items: center; gap: 4px; font: 400 11px/1.4 var(--sans); font-variant-numeric: tabular-nums; color: var(--faint); margin-top: 4px; }
+.msg.you .seen .codicon { font-size: 14px; }
+.msg.you .seen.read .codicon { color: var(--accent-text); }
 .msg.you .seen.s-fail { color: var(--fail); }
 .msg.you .seen .btn-link { font: inherit; margin-left: var(--s2); }
 .msg-note { font: 400 12px/1.5 var(--sans); color: var(--dim); margin-top: 4px; }
 .msg.from .msg-note { margin: 0 0 4px; }
 .msg.cl.from { padding-left: 14px; border-left: 2px solid var(--rule2); }
-.rewindb { position: absolute; right: 12px; bottom: 9px; background: none; border: 0; color: var(--faint); font: 12px var(--sans); cursor: pointer; }
+/* Rewind sits outside the bubble, on its left, shown on hover: it never meets the time or the ticks */
+.rewindb { position: absolute; right: calc(100% + 8px); bottom: 6px; background: none; border: 0; color: var(--faint); font: 12px var(--sans); cursor: pointer; opacity: 0; white-space: nowrap; }
+.msg.you:hover .rewindb, .rewindb:focus-visible { opacity: 1; }
 /* Rewind rests in view, quieter than the text; a message with no "Seen" line leaves it a line of its own */
 .msg.you:hover .rewindb, .rewindb:hover, .rewindb:focus-visible { color: var(--hi); }
-.msg.you:has(.rewindb):not(:has(.seen)) { padding-bottom: 30px; }
-/* a short message ("hi") is still wide enough to hold its Rewind */
-.msg.you:has(.rewindb) { min-width: 84px; }
 .msg.cl { color: var(--ink); }
 .msg.err { font-size: 13.5px; color: var(--fail); }
 .msg .imgs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -323,3 +324,16 @@ button.pick:hover { color: var(--hi); }
 .msg .mdmsg { display: flow-root; }
 .msg .mdcopy.msgcopy { position: relative; top: auto; right: auto; float: right; margin: 0 0 4px 12px; }
 .msg .mdmsg > .body > .mdtable:first-child, .msg .mdmsg > .body > .mdpre:first-child { clear: right; }
+
+/* a failed turn as a card: icon and title in a header strip, the message, the actions on the right (quiet, then strong) */
+.errcard { margin: 8px 28px 14px; border: 1px solid var(--rule2); background: var(--raised); overflow: hidden; max-width: 640px; }
+.errcard-h { display: flex; align-items: center; gap: 10px; padding: 10px 14px; font: 500 13.5px var(--sans); color: var(--hi); background: color-mix(in srgb, var(--hi) 4%, var(--raised)); }
+.errcard-h .codicon { color: var(--fail); font-size: 15px; }
+.errcard-b { padding: 12px 14px 4px; color: var(--ink); font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.errcard-a { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px 12px; }
+.errcard-a .btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.app .errcard { border-radius: 12px !important; }
+/* matched to the Claude app's card: a dark body, the header a shade lighter, the reset line in grey */
+.errcard { background: color-mix(in srgb, var(--hi) 3%, var(--bg)); }
+.errcard-h { background: color-mix(in srgb, var(--hi) 6%, var(--bg)); font-weight: 400; }
+.errcard-b { color: var(--dim); padding-top: 14px; }

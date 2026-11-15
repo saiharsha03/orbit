@@ -409,10 +409,31 @@ function HeaderMeters({ id, path, busy }: { id: string; path?: string; busy: boo
   )
 }
 
+// A failed turn as a card: what happened in its header, the message, and what can be done about it. A usage limit
+// ("You've hit your Fable limit · resets Nov 18, 3pm (America/New_York). ...") reads as the Claude app says it.
+const LIMIT = /You've hit your (.+?) limit\s*·\s*resets ([^.(]+?)\s*(?:\([^)]*\))?\s*\./
+function ErrorCard({ text, tabId, onRetry }: { text: string; tabId: string; onRetry: () => void }) {
+  const lim = LIMIT.exec(text)
+  const url = /https:\/\/claude\.ai\/settings\/usage[^\s,)]*/.exec(text)?.[0] ?? 'https://claude.ai/settings/usage'
+  const title = lim ? `${lim[1][0].toUpperCase()}${lim[1].slice(1)} limit reached` : 'The turn failed'
+  const body = lim ? `Turn on usage credits to keep working past your plan limit. Your plan usage resets ${lim[2].trim()}.` : text
+  return (
+    <div className="errcard" role="alert" data-testid="msg-error">
+      <div className="errcard-h"><Icon name={lim ? 'dashboard' : 'error'} />{title}</div>
+      <div className="errcard-b">{body}</div>
+      <div className="errcard-a">
+        <button type="button" className="btn btn-quiet" onClick={onRetry} data-testid="error-retry">Try again</button>
+        {lim && !/opus/i.test(lim[1]) && <button type="button" className="btn btn-quiet" onClick={() => void window.api.chatSetModel(tabId, 'opus').then(onRetry).catch(() => {})} title="This thread goes on Opus, and the turn is tried again" data-testid="error-opus">Switch to Opus</button>}
+        {lim && <a className="btn btn-strong" href={url} target="_blank" rel="noreferrer" data-testid="error-usage"><Icon name="dashboard" />Open usage settings</a>}
+      </div>
+    </div>
+  )
+}
+
 // the conversation, built only when it changes: typing in the box re-renders the view on every key
 const Transcript = memo(function Transcript({ session, limit, setLimit, st, startRewind }: {
   session: Session; limit: number; setLimit: (f: (n: number) => number) => void
-  st: { loadEarlier: () => void; open: (p: string) => void; diff: ThreadCallbacks['onDiff']; background: (id: string) => void; sendNow: (id: string) => void }
+  st: { loadEarlier: () => void; open: (p: string) => void; diff: ThreadCallbacks['onDiff']; background: (id: string) => void; sendNow: (id: string) => void; retry: () => void }
   startRewind: (it: UserItem, i: number) => void
 }) {
   const tasks = useThreadStatus(session.id).tasks
@@ -424,6 +445,8 @@ const Transcript = memo(function Transcript({ session, limit, setLimit, st, star
   // the repo of the last pull request this thread opened: a bare #123 in a reply links to it
   const repo = useMemo(() => threadPrs(session.items).at(-1)?.repo, [session.items])
   const base = session.history?.count ?? 0
+  // a message from history has no read receipt of its own: Claude has read it once anything of its came after it
+  const lastReply = useMemo(() => { for (let j = session.items.length - 1; j >= 0; j--) { const k = session.items[j].kind; if (k === 'assistant' || k === 'tool' || k === 'thinking') return j } return -1 }, [session.items])
   const used = new Set<string>()
   const keyOf = (it: Item, i: number): string => {
     const k = it.kind === 'user' && it.uuid ? `u:${it.uuid}` : it.kind === 'tool' ? `t:${it.id}` : it.kind === 'codex' ? `c:${it.id}` : `${it.kind}:${i - base}`
@@ -462,9 +485,12 @@ const Transcript = memo(function Transcript({ session, limit, setLimit, st, star
           {/* seen: Claude took the message in (at once for a normal send, at its next step for a steered one) */}
           {it.images.length > 0 && <div className="imgs">{it.images.map((src, j) => <button key={j} className="thumb" onClick={() => st.open(src)} data-testid="chat-image"><img src={src} alt="" /></button>)}</div>}
           {it.text && <div className="body">{it.text}</div>}
-          {it.seen ? <span className="seen" title="Claude has read this message" data-testid="msg-seen">Seen by Claude{it.seenAt ? ` ${clock(it.seenAt)}` : ''}</span>
-            : it.steer && it.uuid && session.busy && <span className="seen" title="Claude reads it at its next step, when the running tool call ends" data-testid="msg-unseen">Not read yet{unreadSteer(it) && <Btn kind="link" onClick={() => st.sendNow(it.uuid!)} testid="msg-send-now" title="Stops the tool call Claude is in the middle of, so it reads this message now">Send now</Btn>}</span>}
-          {it.failed && <span className="seen s-fail" title={it.failed} data-testid="msg-failed">Not sent: {it.failed}</span>}
+          {/* receipts, as a chat app: the time it was sent, one tick sent, two ticks once Claude has read it */}
+          {it.failed ? <span className="seen s-fail" title={it.failed} data-testid="msg-failed">Not sent: {it.failed}</span>
+            : <span className={`seen${it.seen || i < lastReply ? ' read' : ''}`} title={it.seen || i < lastReply ? `Read by Claude${it.seenAt ? ` at ${clock(it.seenAt)}` : ''}` : it.steer && session.busy ? 'Sent: Claude reads it at its next step, when the running tool call ends' : 'Sent'} data-testid={it.seen || i < lastReply ? 'msg-seen' : 'msg-unseen'}>
+              {it.at ? clock(it.at) : ''}<i className={`codicon codicon-${it.seen || i < lastReply ? 'check-all' : 'check'}`} aria-label={it.seen || i < lastReply ? 'Read' : 'Sent'} />
+              {!it.seen && it.steer && it.uuid && session.busy && unreadSteer(it) && <Btn kind="link" onClick={() => st.sendNow(it.uuid!)} testid="msg-send-now" title="Stops the tool call Claude is in the middle of, so it reads this message now">Send now</Btn>}
+            </span>}
           {it.uuid && session.sessionId && !session.busy && !it.steer && (
             <button className="rewindb" onClick={() => startRewind(it, i)} title="Go back to before this message: put back the files Claude changed since, and edit the message" data-testid="msg-rewind">Rewind</button>
           )}
@@ -492,7 +518,7 @@ const Transcript = memo(function Transcript({ session, limit, setLimit, st, star
       return
     }
     if (it.kind === 'agent') { out.push(<div key={key} className="msg cl from"><div className="msg-note">{it.from}</div><MdBody text={it.text} repo={repo} /></div>); return }
-    if (it.kind === 'error') { out.push(<div key={key} className="msg err" data-testid="msg-error"><span>Failed: {it.text}</span></div>) }
+    if (it.kind === 'error') { out.push(<ErrorCard key={key} text={it.text} tabId={session.id} onRetry={st.retry} />) }
   })
   flush()
   return (
@@ -522,6 +548,7 @@ export function SessionView(p: Props) {
     diff: (x: import('./DiffPanel').DiffSpec) => latest.current.onDiff(x),
     background: (id: string) => latest.current.onBackground(id),
     sendNow: (id: string) => latest.current.onSendNow(id),
+    retry: () => latest.current.onSend('Try that again from where it stopped.', []),
   }), [])
   const status = useThreadStatus(session.id)
   // after a usage limit: when this thread continues by itself
