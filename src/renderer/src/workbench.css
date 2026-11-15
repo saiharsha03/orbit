@@ -423,7 +423,7 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .full-sec.full-usage { --sc: var(--k-loop); } .full-sec.full-git, .full-sec.full-pull, .full-sec.full-dependabot { --sc: var(--git-modified); }
 .full-sec.full-running, .full-sec.full-watchers { --sc: var(--k-monitor); } .full-sec.full-deploy, .full-sec.full-env { --sc: var(--ansi-green); }
 .full-sec.full-board { --sc: var(--k-review); } .full-sec.full-codex, .full-sec.full-quarry { --sc: var(--ansi-magenta); }
-.full-sec .page-head h1 { color: var(--sc); padding-left: var(--s3); box-shadow: inset 4px 0 0 var(--sc); }
+.full-sec .page-head h1 { color: var(--sc); }
 .full-sec .page-tabs { border-bottom-color: color-mix(in srgb, var(--sc) 30%, var(--rule)); }
 .full-sec .page-tabs button.on { color: var(--sc); border-bottom-color: var(--sc); font-weight: 600; }
 .full-back { color: var(--accent-text); }
