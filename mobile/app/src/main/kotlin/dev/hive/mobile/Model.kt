@@ -29,7 +29,7 @@ data class Member(val open: String, val name: String, val role: String, val stat
 data class Post(val from: String, val text: String)
 data class Team(val id: String, val name: String, val goal: String, val word: String, val members: List<Member>, val posts: List<Post>)
 // seen: on your own message, whether Claude has taken it in; null when Orbit does not say
-data class Item(val k: String, val t: String, val seen: Boolean? = null)
+data class Item(val k: String, val t: String, val seen: Boolean? = null, val at: Long = 0)
 data class Choice(val label: String, val description: String)
 data class Question(val question: String, val header: String, val options: List<Choice>, val multi: Boolean)
 data class Ask(val id: String, val questions: List<Question>)
@@ -79,7 +79,7 @@ object Read {
 
     fun thread(t: JSONObject): ThreadView = ThreadView(
         t.optString("title"),
-        objs(t.optJSONArray("items")).map { Item(it.optString("k"), it.optString("t"), if (it.has("seen") && !it.isNull("seen")) it.optBoolean("seen") else null) },
+        objs(t.optJSONArray("items")).map { Item(it.optString("k"), it.optString("t"), if (it.has("seen") && !it.isNull("seen")) it.optBoolean("seen") else null, it.optLong("at")) },
         t.optBoolean("working"),
         objs(t.optJSONArray("asks")).map { a ->
             Ask(a.optString("id"), objs(a.optJSONArray("questions")).map { q ->

@@ -594,17 +594,20 @@ export function SessionView(p: Props) {
   }, [focused, session.id])
   const away = since && openedAt !== null ? session.items.slice(0, openedAt) : null
   const sinceLine = since && away && away.length > since.n ? sinceSummary(away, since.n, session.busy, workingOn(session.items)) : ''
-  // the session recap, as the terminal shows it when you come back: once per return, for a thread with at least three
-  // replies that is idle now, from a throwaway fork (nothing goes into the thread)
-  const [recap, setRecap] = useState<string | null>(null)
-  const recapAsked = useRef(false)
+  // the session recap: once a thread with at least three replies has been idle 30 minutes, a short "the goal is X; next:
+  // Y" at the end of the conversation, written by a separate Sonnet call in a throwaway fork (nothing goes into the
+  // thread). Once per idle stretch: a new turn starts the next one.
+  const [recap, setRecap] = useState<{ for: number; text: string } | null>(null)
   const replyCount = session.items.filter((it) => it.kind === 'assistant').length
+  const lastAt = session.items.reduce((m, it) => Math.max(m, 'at' in it && typeof it.at === 'number' ? it.at : 0), 0)
+  const idleNow = useNow(!session.busy && lastAt > 0)
+  const idle = !session.busy && lastAt > 0 && idleNow - lastAt >= 30 * 60_000
   useEffect(() => {
-    if (recapAsked.current || !sinceLine || session.busy || !session.sessionId || !session.cwd || replyCount < 3) return
-    recapAsked.current = true
-    setRecap('')
-    window.api.askRecap(session.cwd, session.sessionId).then((t) => setRecap(t.trim() || null)).catch(() => setRecap(null))
-  }, [sinceLine, session.busy, session.sessionId, session.cwd, replyCount])
+    if (!idle || recap?.for === lastAt || !session.sessionId || !session.cwd || replyCount < 3) return
+    setRecap({ for: lastAt, text: '' })
+    window.api.askRecap(session.cwd, session.sessionId).then((t) => setRecap({ for: lastAt, text: t.trim() })).catch(() => setRecap(null))
+  }, [idle, lastAt, session.sessionId, session.cwd, replyCount, recap?.for])
+  const showRecap = !!recap && recap.for === lastAt && !session.busy && (recap.text !== '' || idle)
 
   // Export: the conversation as Markdown, to the clipboard or a file (earlier history loaded first)
   const exportAs = useCallback(async (to: 'copy' | 'save') => {
@@ -1021,7 +1024,6 @@ export function SessionView(p: Props) {
       </header>
       {sinceLine && (
         <div className="since" data-testid="since-line"><b>Since you looked at {clock(since!.at)}</b>{sinceLine}
-          {recap !== null && <span className="since-recap" data-testid="since-recap">{recap || 'Writing a recap…'}</span>}
         </div>
       )}
       {wakeAt && (
@@ -1037,6 +1039,8 @@ export function SessionView(p: Props) {
       <div className="thread conv" ref={thread} onScroll={onScroll}>
         <Transcript session={session} limit={limit} setLimit={setLimit} st={st} startRewind={startRewind} />
         {session.streaming && <div className="msg cl streaming"><MdBody text={session.streaming} copy={false} /></div>}
+        {/* drawn as the ★ Insight callouts are, so it reads as a note beside the conversation, not a reply */}
+        {showRecap && <div className="msg cl" data-testid="since-recap"><div className="body md"><blockquote className="insight"><p>★ Recap</p><p>{recap!.text || 'Writing a recap…'}</p></blockquote></div></div>}
       </div>
 
       {session.busy && (

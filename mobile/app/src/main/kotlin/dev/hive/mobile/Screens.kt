@@ -18,7 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -47,16 +47,23 @@ fun InboxScreen(
         Head("Needs me", count = if (box.needs.isEmpty()) "" else box.needs.size.toString(), right = right)
         Notice(notice)
         LazyColumn(Modifier.fillMaxSize()) {
-            if (box.needs.isEmpty() && loaded) item { Empty("Nothing needs you right now."); Rule() }
+            if (box.needs.isEmpty() && loaded) item { Empty("Nothing needs you right now.") }
             itemsIndexed(box.needs, key = { _, n -> n.kind + ":" + n.thread }) { i, n ->
                 val failed = n.kind == "failed"
-                ListRow(n.title, meta = Words.age(n.at, now), word = if (failed) "FAILED" else "WAITING", note = n.note, on = i == 0, onClick = { onOpen(n.thread) }) {
-                    val free = busy != n.thread
+                val free = busy != n.thread
+                // a card: the state in its header strip, the title and note, the actions right-aligned
+                Card(if (failed) "Failed" else "Needs your input", if (failed) C.fail else C.wait, Modifier.clickable { onOpen(n.thread) }, actions = {
                     // a question one tap can answer: its first two choices, then Open for the rest
-                    n.options.take(2).forEach { o -> Act(o, enabled = free) { onAnswer(n, o) } }
-                    if (failed) Act("Retry", enabled = free) { onRetry(n) }
-                    Act("Open", C.dim) { onOpen(n.thread) }
                     if (failed) Act("Dismiss", C.dim, enabled = free) { onDismiss(n) }
+                    Act("Open", C.dim) { onOpen(n.thread) }
+                    n.options.take(2).forEach { o -> Act(o, enabled = free) { onAnswer(n, o) } }
+                    if (failed) Act("Try again", enabled = free) { onRetry(n) }
+                }) {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text(n.title, Modifier.weight(1f), style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(Words.age(n.at, now), Modifier.padding(start = 10.dp, top = 2.dp), style = T.mono, maxLines = 1)
+                    }
+                    if (n.note.isNotEmpty()) Text(n.note, Modifier.padding(top = 4.dp), style = T.note.copy(fontSize = 13.5.sp, lineHeight = 20.sp), maxLines = 4, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (box.coming.isNotEmpty()) item { Group("Coming up", box.counts.scheduled.takeIf { it > 0 }?.toString() ?: "") }
@@ -70,7 +77,7 @@ fun InboxScreen(
 // ---------------------------------------------------------------- Threads
 
 private val sectionOrder = listOf("waiting", "working", "watchers", "pinned", "dependabot", "recent")
-private val sectionNames = mapOf("watchers" to "Watchers", "pinned" to "Pinned", "waiting" to "Needs you", "working" to "Working", "dependabot" to "Dependabot", "recent" to "Recent")
+private val sectionNames = mapOf("watchers" to "Watchers", "pinned" to "Pinned", "waiting" to "Needs your input", "working" to "Working", "dependabot" to "Dependabot", "recent" to "Recent")
 
 @Composable
 fun ThreadsScreen(
@@ -82,20 +89,20 @@ fun ThreadsScreen(
     // Orbit sends each thread's section; an older Orbit sends none, so the list stays flat
     val groups = shown.groupBy { it.section }.toList().sortedBy { (k, _) -> sectionOrder.indexOf(k).let { if (it < 0) sectionOrder.size else it } }
     Column(Modifier.fillMaxSize()) {
-        Head("Threads", count = rows.size.takeIf { it > 0 }?.toString() ?: "", right = "New thread", rightColor = if (canNew) C.link else C.faint, onRight = if (canNew) onNew else null)
+        Head("Threads", count = rows.size.takeIf { it > 0 }?.toString() ?: "", right = "New thread", rightColor = if (canNew) C.hi else C.faint, onRight = if (canNew) onNew else null)
         Notice(notice)
         UnderlineInput(query, onQuery, "Search threads", Modifier.padding(horizontal = Pad), maxLines = 1, rule = C.rule2)
         LazyColumn(Modifier.fillMaxSize()) {
             groups.forEach { (section, group) ->
-                if (section.isNotEmpty()) item(key = "section:$section") { Group(sectionNames[section] ?: section, group.size.toString(), if (section == "waiting") C.wait else C.dim) }
+                if (section.isNotEmpty()) item(key = "section:$section") { Group(sectionNames[section] ?: section, group.size.toString(), C.faint) }
                 items(group, key = { "thread:" + it.id }) { t ->
-                    // a thread stopped by a usage limit is PAUSED until its auto-continue; that is not a failure
-                    val word = when { t.state == "working" -> "WORKING"; t.state == "waiting" -> "WAITING"; t.continues > 0 -> "PAUSED"; else -> "" }
+                    // a thread stopped by a usage limit is paused until its auto-continue; that is not a failure
+                    val badge = when { t.state == "working" -> C.work; t.state == "waiting" -> C.wait; t.state == "failed" -> C.fail; t.continues > 0 -> C.hold; else -> null }
                     // a pending wake-up or auto-continue takes the place of the age
                     val due = when { t.continues > 0 -> "CONTINUES " + Words.clock(t.continues, now); t.wakes > 0 -> "WAKES " + Words.clock(t.wakes, now); else -> "" }
-                    // what it is doing now, else where it lives; a thread with unsent text says so
-                    val about = listOf(if (t.id in drafts) "Draft kept" else "", t.note.ifEmpty { t.folder }).filter { it.isNotEmpty() }.joinToString(", ")
-                    ListRow(t.title, meta = Words.age(t.updated, now), word = word, note = about, on = t.id == open, metaWord = due, metaColor = if (t.continues > 0) C.hold else C.hi, onClick = { onOpen(t.id) })
+                    // one line: the title and its age; a thread with unsent text says so
+                    ListRow(t.title, meta = if (t.id in drafts) "Draft" else Words.age(t.updated, now), on = t.id == open, metaWord = due, metaColor = if (t.continues > 0) C.hold else C.dim,
+                        icon = "\u203A", badge = badge, oneLine = true, onClick = { onOpen(t.id) })
                 }
             }
             if (shown.isEmpty()) item { Empty(if (rows.isEmpty()) "No threads yet." else "No thread matches.") }
@@ -110,10 +117,16 @@ private fun ItemRow(it: Item) {
     when (it.k) {
         // your own message: a band across the pane, a little heavier; whether Claude has taken it in, when Orbit says
         "you", "sending" -> Box(Modifier.fillMaxWidth().padding(start = 56.dp, end = 14.dp, top = 8.dp, bottom = 8.dp), contentAlignment = Alignment.CenterEnd) {
-            Column(Modifier.background(C.band, androidx.compose.foundation.shape.RoundedCornerShape(20.dp)).padding(horizontal = 16.dp, vertical = 10.dp), horizontalAlignment = Alignment.End) {
+            Column(Modifier.background(C.band, androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).padding(start = 14.dp, end = 12.dp, top = 9.dp, bottom = 6.dp), horizontalAlignment = Alignment.End) {
                 SelectionContainer { Text(it.t, style = T.conv.copy(color = C.hi)) }
-                if (it.k == "sending") StateWord("SENDING", Modifier.padding(top = 4.dp))
-                else if (it.seen != null) StateWord(if (it.seen) "SEEN BY CLAUDE" else "NOT READ YET", Modifier.padding(top = 4.dp))
+                // time, then one tick when sent, two when Claude has read it (in the blue of the limits)
+                val time = if (it.at > 0) Words.clock(it.at, it.at) else ""
+                val ticks = when { it.k == "sending" -> ""; it.seen == true -> "\u2713\u2713"; else -> "\u2713" }
+                Row(Modifier.padding(top = 3.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (it.k == "sending") Text("Sending", style = T.label.copy(color = C.faint, fontSize = 11.sp))
+                    if (time.isNotEmpty()) Text(time, style = T.label.copy(color = C.faint, fontSize = 11.sp))
+                    if (ticks.isNotEmpty()) Text(ticks, style = T.label.copy(color = if (it.seen == true) C.work else C.faint, fontSize = 11.sp))
+                }
             }
         }
         "claude" -> SelectionContainer {
@@ -150,17 +163,17 @@ fun AskCard(ask: Ask, sent: Boolean = false, onAnswer: (JSONObject) -> Unit = {}
         }
         return out
     }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp).background(C.raised).drawBehind { drawRect(C.wait, Offset.Zero, Size(size.width, 2.dp.toPx())) }) {
+    val a = answers()
+    Card("Needs your input", C.wait, actions = { Btn(if (sent) "Sent" else "Send answer", primary = true, enabled = a != null && !sent) { a?.let(onAnswer) } }) {
         ask.questions.forEachIndexed { i, q ->
-            if (q.header.isNotEmpty()) Text(q.header, Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = T.label)
-            Text(q.question, Modifier.padding(start = 16.dp, end = 16.dp, top = if (q.header.isEmpty()) 12.dp else 2.dp, bottom = 10.dp), style = T.title.copy(fontWeight = FontWeight.SemiBold))
+            if (q.header.isNotEmpty()) Text(q.header, style = T.label)
+            Text(q.question, Modifier.padding(top = if (q.header.isEmpty()) 0.dp else 2.dp, bottom = 8.dp), style = T.title.copy(fontWeight = FontWeight.SemiBold))
             q.options.forEachIndexed { j, o ->
                 val on = o.label in picks[i] && (q.multi || other[i].isBlank())
-                Rule()
                 Row(Modifier.fillMaxWidth().clickable(enabled = !sent) {
                     picks[i] = if (q.multi) (if (o.label in picks[i]) picks[i] - o.label else picks[i] + o.label) else setOf(o.label)
                     if (!q.multi) other[i] = ""
-                }.selected(on).padding(horizontal = 16.dp, vertical = 9.dp)) {
+                }.clip(Sh.row).selected(on).padding(horizontal = 8.dp, vertical = 8.dp)) {
                     Text((j + 1).toString(), Modifier.width(26.dp).padding(top = 2.dp), style = T.mono)
                     Column {
                         Text(o.label, style = T.body.copy(color = if (on) C.hi else C.ink, fontWeight = if (on) FontWeight.Medium else FontWeight.Normal))
@@ -168,14 +181,9 @@ fun AskCard(ask: Ask, sent: Boolean = false, onAnswer: (JSONObject) -> Unit = {}
                     }
                 }
             }
-            Rule()
-            UnderlineInput(other[i], { other[i] = it }, if (q.multi) "And something else" else "Something else", Modifier.padding(horizontal = 16.dp), maxLines = 3, rule = C.rule2)
+            UnderlineInput(other[i], { other[i] = it }, if (q.multi) "And something else" else "Something else", maxLines = 3, rule = C.rule2)
         }
-        val a = answers()
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (sent) "Sent to Claude" else "or reply below", Modifier.weight(1f), style = T.label)
-            Btn(if (sent) "Sent" else "Send answer", primary = true, enabled = a != null && !sent) { a?.let(onAnswer) }
-        }
+        Text(if (sent) "Sent to Claude" else "or reply below", Modifier.padding(top = 2.dp), style = T.label)
     }
 }
 
@@ -211,11 +219,11 @@ fun Composer(
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences))
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (onAttach != null) RoundIcon("+", C.rule, C.hi, contentDescription = "Attach a photo or file", onClick = onAttach)
+                if (onAttach != null) RoundIcon("+", C.lift, C.hi, contentDescription = "Attach a photo or file", onClick = onAttach)
                 Spacer(Modifier.weight(1f))
                 // stop while Claude works and nothing waits to be sent; otherwise send (it steers a working Claude)
-                if (working && !ok && onStop != null) RoundIcon("■", C.fail, Color.White, contentDescription = "Stop Claude", onClick = onStop)
-                else RoundIcon("↑", if (ok) C.hi else C.rule2, if (ok) C.bg else C.faint, contentDescription = if (working) "Steer Claude" else "Send", enabled = ok, onClick = onSend)
+                if (working && !ok && onStop != null) RoundIcon("■", C.fail, C.bg, contentDescription = "Stop Claude", onClick = onStop)
+                else RoundIcon("↑", if (ok) C.hi else C.lift, if (ok) C.bg else C.faint, contentDescription = if (working) "Steer Claude" else "Send", enabled = ok, onClick = onSend)
             }
         }
     }
@@ -253,18 +261,17 @@ fun ThreadScreen(
             v.tasks.forEach { t ->
                 Row(Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Row { StateWord("WORKING", Modifier.padding(end = 6.dp, top = 3.dp)); Text("${t.kind}, ${t.title}", style = T.note, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        Row(verticalAlignment = Alignment.CenterVertically) { StateWord("WORKING", Modifier.padding(end = 8.dp)); Text("${t.kind}, ${t.title}", style = T.note, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         if (t.now.isNotEmpty()) Text(t.now, style = T.mono.copy(color = C.dim), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Act("Stop", C.fail) { onStopTask(t) }
                 }
             }
-            Rule()
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
             items(v.items) { ItemRow(it) }
             items(v.asks, key = { "ask:" + it.id }) { a -> AskCard(a, sent = a.id in sentAsks) { onAnswer(a, it) } }
-            if (v.working && v.asks.isEmpty()) item { Row(Modifier.padding(horizontal = Pad, vertical = 10.dp)) { StateWord("WORKING", Modifier.padding(end = 6.dp, top = 3.dp)); Text("Claude is on it", style = T.note) } }
+            if (v.working && v.asks.isEmpty()) item { Row(Modifier.padding(horizontal = Pad, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) { StateWord("WORKING", Modifier.padding(end = 8.dp)); Text("Claude is on it", style = T.note) } }
             if (v.items.isEmpty() && v.asks.isEmpty() && loaded && !v.working) item { Empty("Nothing in this thread yet.") }
         }
         if (settings != null) { Rule(); ThreadSettingsBar(settings, settingsOpen, onSettingsOpen, onSetting) }
@@ -288,7 +295,7 @@ fun RunningScreen(
             if (rows.isEmpty() && loaded) item { Empty("No background work is running.") }
             items(rows, key = { it.thread + ":" + it.id }) { r ->
                 val failed = r.state == "failed"
-                ListRow(r.title, word = if (failed) "FAILED" else "WORKING", note = listOf(r.kind, r.threadTitle).filter { it.isNotEmpty() }.joinToString(", "), detail = r.now, onClick = { onOpen(r.thread) }) {
+                ListRow(r.title, word = if (failed) "FAILED" else "WORKING", note = listOf(r.kind, r.threadTitle).filter { it.isNotEmpty() }.joinToString(", "), detail = r.now, icon = "\u203A", badge = if (failed) C.fail else C.work, onClick = { onOpen(r.thread) }) {
                     if (!failed && r.id.isNotEmpty()) Act("Stop", C.fail, enabled = (r.thread + ":" + r.id) !in busy) { onStop(r) }
                     Act("Open thread", C.dim) { onOpen(r.thread) }
                 }
@@ -331,19 +338,18 @@ fun ScheduledScreen(
             if (wakes.isEmpty() && loaded) item { Empty("Nothing is scheduled.") }
             items(wakes, key = { it.kind + ":" + it.id }) { w ->
                 val free = (w.kind + ":" + w.id) !in busy
-                Column(Modifier.fillMaxWidth().clickable { onOpen(w.open) }.padding(horizontal = Pad, vertical = 10.dp)) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(Sh.row).clickable { onOpen(w.open) }.padding(horizontal = 10.dp, vertical = 9.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(Words.clock(w.at, now), Modifier.weight(1f), style = T.title.copy(fontWeight = FontWeight.SemiBold, fontSize = 16.sp))
                         StateWord(Words.wakeWord(w))
                     }
                     Text(w.prompt.ifEmpty { "Continue" }, Modifier.padding(top = 2.dp), style = T.body.copy(fontSize = 13.5.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(w.title + ", " + (if (w.every != null) "every ${w.every} min" else "once") + ", in ${Words.until(w.at, now)}", Modifier.padding(top = 2.dp), style = T.note.copy(color = C.faint), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Row(Modifier.padding(top = 7.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                        if (canRun) Act("Run now", enabled = free) { onRun(w) }
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                         Act("Cancel", C.fail, enabled = free) { onCancel(w) }
+                        if (canRun) Act("Run now", enabled = free) { onRun(w) }
                     }
                 }
-                Rule()
             }
         }
     }
@@ -353,11 +359,10 @@ fun ScheduledScreen(
 
 @Composable
 private fun MoreRow(name: String, color: Color = C.hi, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = Pad, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(Sh.row).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(name, Modifier.weight(1f), style = T.title, color = color)
         Text("›", style = T.mono)
     }
-    Rule()
 }
 
 @Composable
@@ -397,41 +402,36 @@ fun UsageScreen(
         Notice(notice)
         Notice(error)
         if (limits != null && limits.isEmpty()) { Empty("No reading yet."); Rule() }
-        // the usage guard: a calm band with an amber rule at the left when a window is close to its limit
+        // the usage guard: a card with an amber dot when a window is close to its limit
         Usage.guard(limits ?: emptyList(), now)?.let { g ->
-            Column(Modifier.fillMaxWidth().background(C.raised).drawBehind { drawRect(C.wait, Offset.Zero, Size(3.dp.toPx(), size.height)) }.padding(horizontal = Pad, vertical = 10.dp)) {
-                StateWord("USAGE GUARD", color = C.wait)
-                Text(Usage.guardWords(g, now, working, wakes), Modifier.padding(top = 4.dp), style = T.note.copy(color = C.hi))
-            }
-            Rule()
+            Card("Usage guard", C.wait) { Text(Usage.guardWords(g, now, working, wakes), style = T.note.copy(color = C.dim, fontSize = 13.5.sp, lineHeight = 20.sp)) }
         }
         limits?.forEach { l ->
-            val warn = l.pct >= 60
+            // nearly out turns the number red; the bar keeps the limit's own colour
+            val warn = l.pct >= 90
             Column(Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 10.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(l.label, Modifier.weight(1f).alignByBaseline(), style = T.body.copy(color = C.hi))
-                    Text("${l.pct.toInt()}%", Modifier.alignByBaseline(), style = T.page.copy(fontSize = 22.sp, fontWeight = FontWeight.SemiBold), color = if (warn) C.wait else C.hi)
+                    Text("${l.pct.toInt()}%", Modifier.alignByBaseline(), style = T.page.copy(fontSize = 22.sp, fontWeight = FontWeight.SemiBold), color = if (warn) C.fail else C.hi)
                 }
-                Box(Modifier.padding(top = 6.dp, bottom = 4.dp)) { Meter((l.pct / 100).toFloat(), if (warn) C.wait else C.ink) }
+                Box(Modifier.padding(top = 6.dp, bottom = 4.dp)) { Meter((l.pct / 100).toFloat(), limitColor(l)) }
                 val resets = Usage.resets(l, now)
                 if (resets.isNotEmpty()) Text(resets, style = T.note.copy(fontSize = 12.5.sp))
                 val ahead = Usage.forecast(l, now)
                 if (ahead.isNotEmpty()) Text(ahead, style = T.note.copy(fontSize = 12.5.sp), color = C.wait)
             }
-            Rule()
         }
         if (accounts != null) {
             Group("Accounts", if (accounts.size > 1) "tap to switch" else "")
             if (switching != null) ConfirmBar("Switch to ${switching.name}?", "Orbit signs in as ${switching.detail.ifEmpty { switching.name }}. Threads that are working keep the account they started with.", if (busy) "Switching" else "Switch", onCancel = onCancelSwitch, onConfirm = { if (!busy) onSwitch(switching) })
             accounts.forEach { a ->
-                Column(Modifier.fillMaxWidth().clickable(enabled = !a.inUse && !busy) { onPick(a) }.selected(a.inUse).padding(horizontal = Pad, vertical = 10.dp)) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(Sh.row).clickable(enabled = !a.inUse && !busy) { onPick(a) }.selected(a.inUse).padding(horizontal = 10.dp, vertical = 9.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(a.name, Modifier.weight(1f), style = T.title)
                         if (a.inUse) StateWord("IN USE") else if (a.note.isNotEmpty()) Text(a.note, style = T.mono)
                     }
                     if (a.detail.isNotEmpty()) Text(a.detail, Modifier.padding(top = 2.dp), style = T.note)
                 }
-                Rule()
             }
         }
     }
@@ -449,23 +449,21 @@ fun TeamsScreen(teams: List<Team>?, notice: String = "", error: String = "", bus
             if (teams != null && teams.isEmpty()) item { Empty("No team is running.") }
             (teams ?: emptyList()).forEach { t ->
                 item(key = "team:" + t.id) {
-                    Row(Modifier.fillMaxWidth().padding(start = Pad, end = Pad, top = 12.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(start = Pad, end = Pad, top = 14.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(t.name, Modifier.weight(1f), style = T.sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         StateWord(t.word, Modifier.padding(horizontal = 12.dp))
                         Act(if (t.word == "PAUSED") "Resume" else "Pause", enabled = busy != t.id) { onPause(t) }
                     }
                     if (t.goal.isNotEmpty()) Text(t.goal, Modifier.padding(horizontal = Pad).padding(bottom = 8.dp), style = T.note, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Rule()
                 }
                 items(t.members, key = { "member:" + t.id + ":" + it.name + ":" + it.open }) { m ->
-                    Column(Modifier.fillMaxWidth().clickable(enabled = m.open.isNotEmpty()) { onOpen(m.open) }.padding(horizontal = Pad, vertical = 9.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(Sh.row).clickable(enabled = m.open.isNotEmpty()) { onOpen(m.open) }.padding(horizontal = 10.dp, vertical = 8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(m.role.uppercase(), Modifier.weight(1f), style = T.mono.copy(color = C.ink, fontSize = 11.sp), maxLines = 1)
                             StateWord(m.state)
                         }
                         Text(m.name, Modifier.padding(top = 2.dp), style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Rule()
                 }
                 if (t.posts.isNotEmpty()) {
                     item(key = "posts:" + t.id) {
@@ -477,7 +475,6 @@ fun TeamsScreen(teams: List<Team>?, notice: String = "", error: String = "", bus
                             }
                         }
                         Spacer(Modifier.height(10.dp))
-                        Rule()
                     }
                 }
             }
@@ -501,12 +498,11 @@ fun NewThreadScreen(
         Group("Repo", if (folders == null) "asking Orbit" else "")
         // the folders Orbit can start a thread in: the picked one takes the selection fill and bar
         (folders ?: emptyList()).forEach { f ->
-            Row(Modifier.fillMaxWidth().clickable { onFolder(f) }.selected(f == folder).padding(horizontal = Pad, vertical = 9.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(Sh.row).clickable { onFolder(f) }.selected(f == folder).padding(horizontal = 10.dp, vertical = 9.dp)) {
                 Text(Words.folderName(f), style = T.title.copy(fontWeight = if (f == folder) FontWeight.Medium else FontWeight.Normal, color = if (f == folder) C.hi else C.ink), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Rule()
         }
-        if (folders != null && folders.isEmpty()) { Empty("Orbit has no workspace folder set, so the thread starts in its default folder."); Rule() }
+        if (folders != null && folders.isEmpty()) Empty("Orbit has no workspace folder set, so the thread starts in its default folder.")
         Column(Modifier.padding(start = Pad, end = Pad, top = 12.dp)) {
             Text("What should Claude do?", style = T.label)
             UnderlineInput(text, onText, "Say what you want done", minLines = 4, maxLines = 10, style = T.title.copy(fontWeight = FontWeight.Normal))
@@ -552,7 +548,7 @@ fun SettingsScreen(
 fun PairScreen(note: String = "", error: String = "", text: String = "", paste: Boolean = false, onScan: () -> Unit = {}, onPasteMode: () -> Unit = {}, onText: (String) -> Unit = {}, onPair: () -> Unit = {}) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Head("Pair with Orbit", mark = true)
-        Notice(note, C.wait)
+        Notice(note, C.dim)
         val steps = listOf(
             "In Orbit on your computer open Settings, General, Phone app and press Pair.",
             "Point this phone's camera at the code Orbit shows.",
@@ -565,7 +561,6 @@ fun PairScreen(note: String = "", error: String = "", text: String = "", paste: 
                     Text((i + 1).toString(), Modifier.width(22.dp).padding(top = 1.dp), style = T.mono.copy(color = C.dim))
                     Text(s, style = T.body.copy(fontSize = 13.5.sp))
                 }
-                Rule()
             }
         }
         Btn("Scan the code", Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 12.dp), primary = true, onClick = onScan)
@@ -601,4 +596,14 @@ fun LockedScreen(note: String = "", broken: Boolean = false, onUnlock: () -> Uni
 fun Tabs(counts: Counts, open: Int, onOpen: (Int) -> Unit) {
     fun n(v: Int) = if (v > 0) v.toString() else "0"
     TabBar(listOf(NavTab("Needs me", n(counts.needs), warn = counts.needs > 0), NavTab("Threads", n(counts.threads)), NavTab("Running", n(counts.running)), NavTab("Scheduled", n(counts.scheduled)), NavTab("More", "")), open, onOpen)
+}
+
+// each limit in its own colour, as the desktop's gauges: 5-hour blue, 7-day violet, a model's amber
+private fun limitColor(l: Limit): Color {
+    val k = (l.key + " " + l.label).lowercase()
+    return when {
+        "5" in k || "five" in k || "hour" in k || "session" in k -> C.limit5h
+        "7" in k || "seven" in k || "week" in k || "day" in k -> C.limit7d
+        else -> C.limitModel
+    }
 }

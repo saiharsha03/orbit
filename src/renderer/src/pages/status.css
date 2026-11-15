@@ -37,8 +37,8 @@
 
 /* account switcher */
 .acct-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 150px 76px 120px; gap: 14px; align-items: center; padding: 10px 14px; outline: none; }
-.acct-row:hover, .acct-row:focus-visible { background: var(--raised); }
-.acct-row.on { background: var(--raised); }
+.acct-row:hover, .acct-row:focus-visible { background: color-mix(in srgb, var(--hi) 6%, transparent); }
+.acct-row.on { background: color-mix(in srgb, var(--hi) 10%, transparent); }
 .acct-name b { display: block; color: var(--hi); font-size: 14px; font-weight: 600; }
 .acct-name span { font-size: 12px; color: var(--faint); }
 .acct-plan { color: var(--ink); }

@@ -17,7 +17,8 @@ import type { UsageRow } from '../shared/usageCore'
 import type { AskQuestion } from '../shared/askCore'
 import { guardNote, guardStep, splitPhoneFiles, phoneFileName, type PhoneImage, limitedAnswer, noteActions, noteKind, phoneInbox, usageGuard, withWakes, type NoteActions, type NoteKind, type PhoneAccount, type PhoneAsk, type PhoneFail, type PhonePeek, type PhoneRunning, type PhoneTeam, type PhoneWakeup, type QuietHours } from '../shared/phoneCore'
 // seen: on your own message, whether Claude has taken it in (true) or not yet (false); absent when Orbit cannot tell
-export type PhoneItem = { k: 'you' | 'claude' | 'tool' | 'note'; t: string; seen?: boolean }
+// at: when it was sent or said (ms), for the time beside the ticks; an older app ignores it
+export type PhoneItem = { k: 'you' | 'claude' | 'tool' | 'note'; t: string; seen?: boolean; at?: number }
 export type MobileStatus = { configured: boolean; paired: boolean; connected: boolean; error: string }
 export type Deps = {
   threads: () => Promise<PhoneThread[]>

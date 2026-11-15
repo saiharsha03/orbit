@@ -66,7 +66,7 @@
 .pin-in { width: 100%; margin-top: 8px; font-size: 13px; }
 .since { display: block; padding: 18px var(--pane-pad) 0; font-size: 12.5px; color: var(--dim); flex: none; }
 .since b { color: var(--hi); font-weight: 550; margin-right: 8px; }
-.since-recap { display: block; margin-top: 4px; color: var(--ink); }
+
 .hold-line { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin: 14px var(--pane-pad) 0; padding: 10px 14px; font-size: 13px; color: var(--ink); background: var(--raised); flex: none; border-radius: var(--r-block); }
 .findbar { display: flex; gap: 14px; align-items: baseline; margin: 12px var(--pane-pad) 0; flex: none; }
 .findbar .uline { flex: 1; font-size: 13px; }
@@ -137,7 +137,6 @@
 .trow.failed .tp, .trow.failed .tv { color: var(--fail); }
 /* the advisor: a second model was asked. Its own colour and a bar at the left, so it is not read as one more tool call */
 .trow .tv.t-advisor { color: color-mix(in srgb, var(--k-advisor) 75%, var(--hi)); font-weight: 600; }
-.toolbox:has(.t-advisor) { box-shadow: inset 2px 0 0 var(--k-advisor); padding-left: var(--s2); background: color-mix(in srgb, var(--k-advisor) 7%, transparent); }
 .toolbox:has(.t-advisor) .trow .tp { color: var(--ink); }
 .tchev { display: none; }
 .toolout { margin: 4px 0 10px 76px; display: flex; flex-direction: column; gap: 6px; position: relative; }
@@ -155,8 +154,8 @@
 
 /* the question card: a washed block with a bar, options as rows, the picked one lifted, one primary button */
 .qwrap { margin: 4px var(--pane-pad) 14px; }
-.askcard { background: var(--signal-wash); border-left: 2px solid var(--signal); padding: 14px 16px 12px; font-size: 13.5px; }
-.askcard.done { border-left-color: var(--rule2); background: var(--raised); opacity: .8; }
+.askcard { background: var(--raised); box-shadow: inset 0 0 0 1px var(--rule2); padding: 14px 16px 12px; font-size: 13.5px; }
+.askcard.done { opacity: .8; }
 .askq { counter-reset: opt; }
 .askq + .askq { margin-top: 12px; }
 .askhead { display: none; }
@@ -172,13 +171,13 @@
 .askother::placeholder { color: var(--faint); }
 .askother:focus { box-shadow: inset 0 0 0 1px var(--rule2); }
 .askfoot { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 10px; font-size: 12px; color: var(--faint); }
-.askfoot button.primary { background: var(--accent); color: var(--on-accent); border: 0; font: 600 12.5px var(--sans); height: 28px; padding: 0 14px; border-radius: var(--r-row) !important; cursor: pointer; order: 2; }
+.askfoot button.primary { background: var(--hi); color: var(--bg); border: 0; font: 500 12.5px var(--sans); height: 28px; padding: 0 14px; border-radius: 8px !important; cursor: pointer; order: 2; }
 .askfoot button.primary:disabled { background: var(--btn-quiet); color: var(--dim); cursor: default; }
 .askfoot .hint { padding: 0; order: 1; margin-right: auto; }
 .askcard > .hint { font-size: 12px; color: var(--faint); margin-top: 6px; }
 
 /* warnings and summaries */
-.warnrow { margin: 0 var(--pane-pad) 14px; padding: 8px 14px; border-left: 2px solid var(--fail); background: var(--fail-bg); font-size: 13px; color: var(--ink); display: flex; gap: 10px; align-items: baseline; border-radius: 0 var(--r-row) var(--r-row) 0; }
+.warnrow { margin: 0 var(--pane-pad) 14px; padding: 8px 14px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fail) 35%, var(--rule2)); font-size: 13px; color: var(--ink); display: flex; gap: 10px; align-items: baseline; border-radius: 8px !important; }
 .wr-tag { font: 500 12px var(--sans); color: var(--fail); white-space: nowrap; }
 .wr-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wr-text.full { white-space: pre-wrap; }
@@ -187,7 +186,7 @@
 
 /* what Claude is doing now: one faint line with the moving line above it, no word */
 .working { display: flex; gap: 12px; align-items: baseline; padding: 6px var(--pane-pad) 8px; font-size: 12.5px; color: var(--dim); flex: none; position: relative; }
-.working .sweep { position: absolute; left: var(--pane-pad); right: var(--pane-pad); top: 0; height: 1.5px; opacity: .7;
+.working .sweep { display: none; position: absolute; left: var(--pane-pad); right: var(--pane-pad); top: 0; height: 1.5px; opacity: .7;
   background: linear-gradient(90deg, transparent, var(--dim) 30%, var(--hi) 50%, var(--dim) 70%, transparent) no-repeat; background-size: 30% 100%; animation: sweep 3.2s linear infinite; }
 .working .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 12px; }
 .working .btn-link { font-size: 12px; color: var(--faint); }

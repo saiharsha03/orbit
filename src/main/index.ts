@@ -190,8 +190,8 @@ initThreadWakeups((sessionId, text) => {
 const mobileChanged = () => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.isDestroyed()) w.webContents.send('mobile:status', mobileStatus()) }
 // seen: a message of yours in the transcript is one Claude has taken in (the CLI writes it then)
 const phoneItems = (items: Awaited<ReturnType<typeof loadRecentHistory>>['items']): PhoneItem[] => items.flatMap((it): PhoneItem[] => {
-  if (it.kind === 'user') return [{ k: 'you', t: it.text, seen: true }]
-  if (it.kind === 'assistant') return [{ k: 'claude', t: it.text }]
+  if (it.kind === 'user') return [{ k: 'you', t: it.text, seen: true, ...(it.at ? { at: it.at } : {}) }]
+  if (it.kind === 'assistant') return [{ k: 'claude', t: it.text, ...(it.at ? { at: it.at } : {}) }]
   if (it.kind === 'thread' || it.kind === 'agent') return [{ k: 'you', t: it.text }]
   if (it.kind === 'tool') { const i = it.input ?? {}; return [{ k: 'tool', t: `${it.name.replace(/^mcp__\w+?__/, '')} ${i.description ?? i.file_path ?? i.pattern ?? i.command ?? i.url ?? ''}`.trim().slice(0, 200) }] }
   if (it.kind === 'note' || it.kind === 'summary') return [{ k: 'note', t: it.kind === 'summary' ? 'Earlier conversation compacted' : it.text }]
