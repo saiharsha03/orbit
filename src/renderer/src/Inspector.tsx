@@ -119,13 +119,13 @@ export function Activity({ s }: { s?: SessionMeta }) {
   // Claude asked its advisor and the answer has not come back yet
   const advising = (session?.items ?? []).some((it) => it.kind === 'tool' && it.name === 'advisor' && it.status === 'running')
   const advisorModel = st?.advisor ? modelLabel(st.advisor) : ''
-  // what the thread is held up by right now, said in one line with a moving bar
+  // what the thread is held up by right now (an advisor, a review, a subagent, a shell), in one line with a moving bar;
+  // Claude simply working is not said here: the conversation shows it
   const waitingOn: { tone: string; text: string } | null = !s ? null
     : advising ? { tone: 'advisor', text: `Asking the advisor${advisorModel ? ` (${advisorModel})` : ''}` }
       : reviews.length ? { tone: 'review', text: `${s.busy ? 'Waiting on' : 'Running'} ${reviews.length === 1 ? `a review: ${taskHeading(reviews[0])}` : `${reviews.length} reviews`}` }
         : agents.length ? { tone: 'agent', text: `${s.busy ? 'Waiting on' : 'Running'} ${agents.length === 1 ? `a subagent: ${taskHeading(agents[0])}` : `${agents.length} subagents`}` }
-          : shells.length ? { tone: 'shell', text: `${shells.length === 1 ? 'A shell command is' : `${shells.length} shell commands are`} running in the background` }
-            : s.busy ? { tone: 'work', text: 'Claude is working' } : null
+          : shells.length ? { tone: 'shell', text: `${shells.length === 1 ? 'A shell command is' : `${shells.length} shell commands are`} running in the background` } : null
   const sec = (label: string, n: number, tone = '', shown = n > 0) => shown && <div className={`isec isec-k${n > 0 ? ` on k-${tone}` : ''}`}><span>{label}</span><span className="n">{n}</span></div>
   const due = (x: Due, i: number) => (
     <div key={i} className="item" tabIndex={0}><div className="tm">{x.at}</div>
