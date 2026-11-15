@@ -4,6 +4,42 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-11-14
+
+A new look across the app and the phone: calm greys, colour only for state, no coloured bars or glows
+(`design/v3-design-language.md`).
+
+### Changed
+
+- The title bar is a menu of words: Threads, Scheduled, Files, To do, Notes, Board, More and Settings. Scripts, Deploy,
+  Pull, Allow IP and Terminal are in the status bar, which also shows the Orbit, SDK and Claude Code versions, an update
+  in the warning colour.
+- The thread list: one line per thread, with an icon for what it is, a ring for its context use, its state on the icon
+  (working, needs your input, failed) and its prompt cache (time left, green to red, or cold). What needs you sits in
+  one card on top. The usage limits are stacked at the foot, each in its own colour.
+- The thread header: icons for Rewind, Advisor (a sage), Background, Split and Export, each opening a small card under
+  it; context use and the prompt-cache countdown as pills; every PR the thread opened as a pill with a circle for its
+  checks (the second-review gate left out).
+- Tabs as VS Code's; your messages show the time and one tick when sent, two when Claude has read them; Rewind sits
+  beside the bubble.
+- Failed turns are cards; a usage limit reads as the Claude app shows it, with Try again, Switch to Opus and Open
+  usage settings. "Waiting" reads "Needs your input".
+- Every page, panel, dialog and the phone app in the same look.
+
+### Added
+
+- A recap ("the goal is X; next: Y") at the end of a thread idle for 30 minutes, written by a separate Sonnet call.
+- `npm run next`: Orbit Next, run from source beside Orbit with hot reload.
+
+### Fixed
+
+- Esc stops a turn from anywhere in the thread, and closes a shown picture.
+- A command moved to the background shows how it ended and its real output.
+- Split opened the same new thread in both panes.
+- A thread back from snooze stands out for a day, then goes back among the others.
+- Commands only the terminal Claude Code runs (/design-login) open in the thread's terminal again, and their answer
+  shows below them.
+
 ## [2.1.2] - 2026-11-14
 
 ### Fixed
