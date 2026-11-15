@@ -275,12 +275,11 @@ export function ModelEffort({ tabId, ultra }: { tabId: string; ultra: boolean })
   )
 }
 
-// the advisor's mark: an old sage (a pointed hat, two eyes, a long beard), drawn in the button's colour
+// the advisor's mark: an old sage with a long beard and a staff, drawn in the button's colour
 const WiseMan = () => (
   <svg className="wise" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M8 1 4.4 6.3h7.2Z" /><path d="M2.6 6.3h10.8" />
-    <path d="M6.3 8.2h.01M9.7 8.2h.01" strokeWidth="1.8" />
-    <path d="M4.4 6.3v1.4c0 .8.3 1.5.8 2L8 15l2.8-5.3c.5-.5.8-1.2.8-2V6.3" />
+    <circle cx="8" cy="5" r="3" /><path d="M5.2 6.2C5 9 6 12.6 8 14.5c2-1.9 3-5.5 2.8-8.3" /><path d="M6.6 9.2c.9.5 1.9.5 2.8 0" />
+    <path d="M13.5 15V2.5" /><circle cx="13.5" cy="2" r=".6" />
   </svg>
 )
 // the thread header's Advisor button (beside Changes, Activity, Rewind): a second model Claude can ask for advice.
