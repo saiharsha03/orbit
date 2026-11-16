@@ -11,7 +11,7 @@ import { pruneDrafts, saveTabs, savedTabs } from './restore'
 import { reconcile, activate as activateIn, focusedTab } from './panes'
 import { createStore, getSessions, panes, sessions, setSessions } from './store'
 import { activate, activeId, lastThreadId, setLastThread, notice, openFileTab, openSession, openTerminal, place, recomputeLive, send, sendFailed, setClosedTabHook, setPreview, visibleNow } from './actions'
-import { onStatusChange } from './statusStore'
+import { onStatusChange, seedTasks } from './statusStore'
 import { setAskFix, setFileOpener } from './EditorView'
 import { insertIntoComposer } from './SessionView'
 import type { Session } from './chat'
@@ -124,6 +124,17 @@ export function startEngine() {
   // Needs you / Working rows follow threads and their background tasks
   sessions.subscribe(recomputeLive)
   onStatusChange(recomputeLive)
+  // a thread's subagents may have started before this window loaded: take main's list once per thread
+  const seeded = new Set<string>()
+  const seed = () => {
+    for (const s of getSessions()) {
+      if (seeded.has(s.id) || s.file || s.tool || s.agent) continue
+      seeded.add(s.id)
+      void window.api.chatTasks(s.id).then((ts) => seedTasks(s.id, ts)).catch(() => {})
+    }
+  }
+  sessions.subscribe(seed)
+  seed()
 
   // every live session's events land here (backgrounded ones too); Claude's "show" opens the file
   window.api.onChatEvent((tabId, ev) => {

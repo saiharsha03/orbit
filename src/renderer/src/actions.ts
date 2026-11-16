@@ -276,16 +276,21 @@ export function closeTabs(closing: string[]) {
 // a thread still working (a turn running, or a subagent / shell / workflow of its own) asks first: keep it going in
 // the background, or close it (stops it). An idle one just closes. Several at once (Close all) queue up.
 export const closeAsks = createStore<string[]>([])
+// a thread in the background asks too: closing it from the sidebar stops its subagents just the same
 const isWorking = (id: string) => {
   const s = getSessions().find((x) => x.id === id)
-  if (!s || s.file || s.tool || s.background) return false
+  if (!s || s.file || s.tool) return false
   return s.busy || (getAllStatus().get(id)?.tasks ?? []).some((t) => t.status === 'running')
 }
+const askClose = (id: string) => closeAsks.set((q) => (q.includes(id) ? q : [...q, id]))
 export function closeSession(id: string) {
   if (id.startsWith('script:')) { void window.api.scriptsStop(id.slice(7)); return }
   if (id === 'deploy') { openPage('deploys'); return }
-  if (isWorking(id)) { closeAsks.set((q) => (q.includes(id) ? q : [...q, id])); return }
-  closeTabs([id])
+  if (isWorking(id)) { askClose(id); return }
+  const s = getSessions().find((x) => x.id === id)
+  if (!s || s.file || s.tool || s.agent) { closeTabs([id]); return }
+  // main has the last word on running work (this window may have missed it): ask if it still has any
+  void window.api.chatTasks(id).then((ts) => (ts.some((t) => t.status === 'running') ? askClose(id) : closeTabs([id]))).catch(() => closeTabs([id]))
 }
 export function answerCloseAsk(id: string, how: 'background' | 'close' | 'cancel') {
   closeAsks.set((q) => q.filter((x) => x !== id))

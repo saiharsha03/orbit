@@ -41,7 +41,7 @@ function UsageGuardSwitch() {
   return (
     <div className="guard-row">
       <span>Usage guard</span>
-      <button type="button" role="switch" aria-checked={g.on} className={g.on ? 'sw on' : 'sw'} onClick={flip} data-testid="usage-guard-switch"
+      <button type="button" role="switch" aria-checked={g.on} className={g.on ? 'guard-sw on' : 'guard-sw'} onClick={flip} data-testid="usage-guard-switch"
         title={g.on ? 'On: Claude Code warns and then stops work near the usage limits. Click to turn it off' : 'Off: work goes on up to the limits. Click to turn it on'}>
         <i />
       </button>

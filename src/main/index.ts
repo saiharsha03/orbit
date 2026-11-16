@@ -685,6 +685,8 @@ handle('settings:save', (_e, d: unknown) => saveFromPanel(d))
 registerStatusIpc(handle, { liveQuery, stopCodex })
 // Orbit's own /mcp, /agents, /permissions, /hooks, /memory, /branch and /add-dir screens (claudeConfig.ts)
 registerClaudeConfigIpc(handle, { liveQuery, idle, transcriptPath })
+// one thread's background work as main knows it (the window's own copy is empty after a reload)
+handle('chat:tasks', (_e, tabId: string) => threadTasks(String(tabId ?? '')))
 // /status and /usage for one thread, live (statusView.ts): the tab's folder and session for a thread with no process yet
 handle('chat:statusView', (_e, tabId: string, known?: { cwd?: string; sessionId?: string }) =>
   threadStatusView({ liveQuery, facts: threadFacts, transcript: transcriptPath, defaultAdvisor: () => sessionFlags().advisorModel ?? null }, String(tabId ?? ''), {

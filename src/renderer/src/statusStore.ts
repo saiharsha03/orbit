@@ -33,6 +33,10 @@ function patch(tabId: string, fn: (s: ThreadStatus) => ThreadStatus) {
 
 // the tab was closed: its status goes with it
 export function forgetStatus(tabId: string) { if (store.delete(tabId)) notify() }
+// main's task list for a tab this window has heard nothing about yet (after a reload): its running subagents count
+export function seedTasks(tabId: string, tasks: ThreadStatus['tasks']) {
+  if (tasks.length && !(store.get(tabId)?.tasks.length)) patch(tabId, (s) => ({ ...s, tasks }))
+}
 // hide a met goal
 export const dismissGoal = (tabId: string) => patch(tabId, (s) => ({ ...s, goal: null }))
 

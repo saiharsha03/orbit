@@ -523,8 +523,8 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .limfoot { flex: none; border-top: 1px solid var(--rule); }
 .limfoot .limrows { border-top: 0; padding-top: 6px; }
 .guard-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px 0; font: 500 12px var(--sans); color: var(--dim); }
-.guard-row .sw { width: 28px; height: 16px; padding: 2px; border: 0; cursor: pointer; background: var(--rule2); display: flex; transition: background .15s; }
-.guard-row .sw i { width: 12px; height: 12px; background: var(--hi); transition: transform .15s; }
-.guard-row .sw.on { background: var(--done); }
-.guard-row .sw.on i { transform: translateX(12px); }
-.app .guard-row .sw { border-radius: 8px !important; } .app .guard-row .sw i { border-radius: 50% !important; }
+.guard-row .guard-sw { width: 28px; height: 16px; padding: 2px; border: 0; cursor: pointer; background: var(--rule2); display: flex; transition: background .15s; }
+.guard-row .guard-sw i { width: 12px; height: 12px; background: var(--hi); transition: transform .15s; }
+.guard-row .guard-sw.on { background: var(--done); }
+.guard-row .guard-sw.on i { transform: translateX(12px); }
+.app .guard-row .guard-sw { border-radius: 8px !important; } .app .guard-row .guard-sw i { border-radius: 50% !important; }

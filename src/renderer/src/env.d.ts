@@ -304,5 +304,6 @@ interface Window {
     chatModels: (tabId?: string) => Promise<{ value: string; displayName: string; description: string; supportsFastMode?: boolean }[]>
     chatMcp: (tabId?: string) => Promise<McpServerRow[]>
     chatStopTask: (tabId: string, taskId: string) => Promise<boolean>
+    chatTasks: (tabId: string) => Promise<import('../../shared/taskCore').Task[]>
   }
 }
