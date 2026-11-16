@@ -4,6 +4,20 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.2] - 2026-11-16
+
+### Added
+
+- The phone app offers its own update when a newer Orbit release has a phone APK (checked on open, at most daily).
+- A usage guard switch above the limits, shown when a usage-guard hook is set up.
+
+### Fixed
+
+- A thread whose subagents are still running stays marked working, also after the window reloads.
+- Closing a thread that still has subagents running asks first, also from the background list; it used to stop
+  them without a word.
+- The usage guard switch's knob sat outside its track.
+
 ## [3.0.1] - 2026-11-14
 
 ### Added
