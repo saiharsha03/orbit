@@ -35,8 +35,8 @@ android {
         applicationId = "dev.hive.mobile"
         minSdk = 29
         targetSdk = 35
-        versionCode = 16
-        versionName = "3.0.7"
+        versionCode = 17
+        versionName = "4.5.1"
     }
     buildFeatures { compose = true }
     // the screenshot tests draw the real screens on the JVM (Robolectric), so they need the app's resources (fonts)

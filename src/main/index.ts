@@ -19,7 +19,7 @@ import type { PhoneAsk, QuietHours } from '../shared/phoneCore'
 import { phoneTasks, phoneTeams, phoneWakeups } from '../shared/phoneCore'
 import { pendingResent, resendGroups, takePending } from './pending'
 import { initDesktopNotify } from './desktopNotify'
-import { dismissFail, failsNow, initMobile, mobileStatus, notifyPhone, pairPhone, unpairPhone, type PhoneItem, type PhoneThread } from './mobile'
+import { clearPhone, dismissFail, failsNow, initMobile, setAtDesk, mobileStatus, notifyPhone, pairPhone, unpairPhone, type PhoneItem, type PhoneThread } from './mobile'
 import { companionBounds, companionState, type CompanionPr } from '../shared/companionCore'
 import { greet, happenedSince, initVoice, voiceEvent } from './companionVoice'
 import { registerStatusIpc, setAdvisor, setEffort, setModel } from './liveStatus'
@@ -581,7 +581,8 @@ handle('todos:restore', (_e, todo: Todo, index: number) => restoreTodo(todo, Num
 watchTodos(() => {
   for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.isDestroyed()) w.webContents.send('todos:changed')
 })
-handle('chat:send', (e, tabId: string, cwd: string, resume: string | undefined, msg: Outgoing) => sendMessage(tabId, cwd, resume, msg, e.sender))
+// a message or an answer from the window: the phone's notifications for that thread are done with
+handle('chat:send', (e, tabId: string, cwd: string, resume: string | undefined, msg: Outgoing) => { clearPhone(String(tabId)); return sendMessage(tabId, cwd, resume, msg, e.sender) })
 // Rewind a turn: the files Claude changed since a message of yours, then the conversation back to before it
 handle('chat:rewindPreview', (_e, tabId: string, cwd: string, sessionId: string, uuid: string) => rewindPreview(String(tabId), String(cwd), String(sessionId), String(uuid)))
 handle('chat:rewindApply', (_e, tabId: string, cwd: string, sessionId: string, uuid: string, files: unknown) =>
@@ -592,7 +593,7 @@ handle('chat:sendNow', (_e, tabId: string, id?: string) => sendNow(tabId, id))
 handle('chat:interrupt', (_e, tabId: string) => interrupt(tabId))
 handle('chat:continueAt', (_e, id: string) => continueAt(String(id)))
 handle('chat:cancelContinue', (_e, id: string) => cancelContinue(String(id)))
-handle('chat:answer', (_e, tabId: string, id: string, answers: unknown) => answerAsk(String(tabId), String(id), answers))
+handle('chat:answer', (_e, tabId: string, id: string, answers: unknown) => { clearPhone(String(tabId)); return answerAsk(String(tabId), String(id), answers) })
 handle('chat:background', (_e, tabId: string, toolUseId?: string) => background(tabId, toolUseId))
 handle('chat:close', (_e, tabId: string) => { killTerminal(String(tabId)); return closeTab(tabId) })
 // the tab moved to the background or back on screen: switch its live session's permission mode
@@ -1042,8 +1043,8 @@ handle('companion:state', async () => {
 handle('companion:stopTask', (_e, thread: string, task: string) => companionDeps().stopTask(String(thread), String(task)))
 // a choice of a thread's open question; you are at the computer, so every choice is allowed (the phone's lock-screen
 // buttons are limited, the companion is not)
-handle('companion:answer', (_e, thread: string, ask: string, question: string, label: string) => companionDeps().answer(String(thread), String(ask), { [String(question)]: String(label) }))
-handle('companion:reply', async (_e, thread: string, text: string) => { const t = String(text ?? '').trim(); if (!t) return 'empty'; dismissFail(String(thread)); return sendTo(String(thread), t, true) })
+handle('companion:answer', (_e, thread: string, ask: string, question: string, label: string) => clearPhone(String(thread)) ?? companionDeps().answer(String(thread), String(ask), { [String(question)]: String(label) }))
+handle('companion:reply', async (_e, thread: string, text: string) => { const t = String(text ?? '').trim(); if (!t) return 'empty'; dismissFail(String(thread)); clearPhone(String(thread)); return sendTo(String(thread), t, true) })
 handle('companion:open', (_e, thread: string) => { showWindow(); if (thread) mainWeb()?.send('hive:activate', String(thread)) })
 handle('companion:dismiss', (_e, thread: string) => { dismissFail(String(thread)) })
 handle('companion:size', (_e, w: number, h: number) => { if (Number.isFinite(w) && Number.isFinite(h)) placeCompanion(w, h) })
@@ -1086,6 +1087,12 @@ initVoice({
 // evening wrap (first time you are around after 6 PM). Haiku writes them from the facts gathered here. What was
 // still running when Windows shut down or Orbit quit is kept for the next morning.
 const AWAY_GREET_MS = 20 * 60_000
+// active in Orbit: its window is the focused one and there was keyboard or mouse input in the last AT_DESK_IDLE_S
+// seconds (focused but walked away counts as away). Then the phone gets no notifications, as Claude Code's own push
+// notifications hold back while you are active in it.
+const AT_DESK_IDLE_S = 180
+let screenLocked = false
+setAtDesk(() => !TEST_MODE && !screenLocked && !!mainWin && !mainWin.isDestroyed() && mainWin.isFocused() && powerMonitor.getSystemIdleTime() < AT_DESK_IDLE_S)
 let awayAt = 0
 const today = () => new Date().toLocaleDateString('en-CA')
 const voiceOn = () => companionOn() && companionPrefs().voice !== false && !TEST_MODE
@@ -1371,10 +1378,11 @@ app.whenReady().then(() => {
   // the laptop slept through wake-ups: fire them once it is back (after the network has had a moment)
   powerMonitor.on('resume', () => { setTimeout(() => void wakeupsTick(), 15_000); setTimeout(() => void maybeGreet('back'), 8_000) })
   // Orbie's greetings: away from the lock or sleep, back at the unlock (resume above), every leave remembered
-  powerMonitor.on('lock-screen', leaving)
+  powerMonitor.on('lock-screen', () => { screenLocked = true; leaving() })
   powerMonitor.on('suspend', leaving)
   powerMonitor.on('shutdown', leaving)
-  powerMonitor.on('unlock-screen', () => { setTimeout(() => void maybeGreet('back'), 3_000) })
+  powerMonitor.on('unlock-screen', () => {
+    screenLocked = false; setTimeout(() => void maybeGreet('back'), 3_000) })
   setInterval(eveningCheck, 5 * 60_000).unref?.()
   // Windows toasts need it; same as appId in electron-builder.yml.
   if (app.isPackaged) app.setAppUserModelId(APP_ID)

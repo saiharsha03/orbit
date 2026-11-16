@@ -75,13 +75,21 @@ object Notes {
             if (Build.VERSION.SDK_INT >= 31) a.setAuthenticationRequired(true)
             n.addAction(a.build())
         }
-        ctx.getSystemService(NotificationManager::class.java).notify(id, n.build())
+        // tagged with its thread, so a reply on the computer clears every notification of that thread (clear)
+        ctx.getSystemService(NotificationManager::class.java).notify(thread.ifEmpty { null }, id, n.build())
+    }
+
+    // the thread was answered or replied to on the computer: its notifications are done with
+    fun clear(ctx: Context, thread: String) {
+        if (thread.isEmpty()) return
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        for (s in nm.activeNotifications) if (s.tag == thread) nm.cancel(s.tag, s.id)
     }
 
     // what became of a pressed button, in place of the notification it was on (quietly: the user is looking at it)
     fun result(ctx: Context, id: Int, thread: String, title: String, text: String) {
         val n = base(ctx, QUIET).setContentTitle(title.ifEmpty { "Orbit" }).setContentText(text).setContentIntent(openApp(ctx, thread, thread.hashCode())).setTimeoutAfter(60_000)
-        ctx.getSystemService(NotificationManager::class.java).notify(id, n.build())
+        ctx.getSystemService(NotificationManager::class.java).notify(thread.ifEmpty { null }, id, n.build())
     }
 }
 
@@ -127,5 +135,6 @@ class Push : FirebaseMessagingService() {
             ?: return
         if (!Vault.takeSeq(this, m.optLong("seq"))) return
         if (m.optString("op") == "notify") Notes.show(this, m)
+        if (m.optString("op") == "clear") Notes.clear(this, m.optString("thread"))
     }
 }

@@ -147,7 +147,7 @@ object Relay {
         val c = app ?: return null
         // the notification key opens notifications and nothing else: never a reply to a request
         val m = Seal.open(p.key, p.pair, "d2p", blob)
-            ?: Seal.open(p.notifyKey, p.pair, "d2n", blob)?.takeIf { it.optString("op") == "notify" && !it.has("re") }
+            ?: Seal.open(p.notifyKey, p.pair, "d2n", blob)?.takeIf { (it.optString("op") == "notify" || it.optString("op") == "clear") && !it.has("re") }
         if (m != null && !Vault.takeSeq(c, m.optLong("seq"))) return null // a repeat
         return Frame("", true, m)
     }
@@ -171,6 +171,7 @@ object Relay {
         state.value = State.Online
         if (m.has("re")) { waiting.remove(m.optLong("re"))?.complete(m); return }
         if (m.optString("op") == "notify") app?.let { Notes.show(it, m) }
+        if (m.optString("op") == "clear") app?.let { Notes.clear(it, m.optString("thread")) }
         changed.value += 1
     }
 

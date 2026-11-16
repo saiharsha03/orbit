@@ -103,6 +103,11 @@ const wsOf = (u: string) => httpOf(u).replace(/^http/, 'ws')
 
 export const mobileStatus = (): MobileStatus => ({ configured: !!relay && !!admin, paired: !!pairing?.pair, connected, error })
 
+// whether you are active in Orbit now (index.ts: its window is focused and there was input in the last few minutes);
+// while you are, notifications stay off the phone
+let atDesk: () => boolean = () => false
+export const setAtDesk = (f: () => boolean): void => { atDesk = f }
+
 export function initMobile(env: Record<string, string>, d: Deps): void {
   relay = (env.HIVE_MOBILE_RELAY ?? '').trim()
   admin = (env.HIVE_MOBILE_ADMIN_TOKEN ?? '').trim()
@@ -534,6 +539,16 @@ export async function phoneRequest(deps: Deps, m: Record<string, unknown>, limit
 }
 
 // ---- notifications: shown on the phone even when the app is closed (the relay pushes the sealed blob) ----
+// You answered or replied to a thread on the computer: the phone drops that thread's notifications (an app from before
+// 4.5.1 ignores it). Pushed, so it reaches a closed app; sealed with the notification key, like a notification.
+const cleared = new Map<string, number>()
+export function clearPhone(thread: string): void {
+  if (TEST_MODE || !pairing || !thread) return
+  const now = Date.now()
+  if (now - (cleared.get(thread) ?? 0) < 10_000) return // one is enough
+  cleared.set(thread, now)
+  sendToPhone({ op: 'clear', thread }, true, true)
+}
 export function notifyPhone(title: string, body: string, thread?: string): string {
   if (TEST_MODE) return blocked('phone notifications')
   // the failures are kept with or without a phone: the companion lists them too
@@ -542,6 +557,7 @@ export function notifyPhone(title: string, body: string, thread?: string): strin
   if (kind === 'fail' && id) fails.set(id, { thread: id, title: title.replace(/^Failed:\s*/, ''), note: body, at: Date.now() })
   else if (id) fails.delete(id) // it went on (a question, a finish): no longer a failure to look at
   if (!pairing) return 'No phone is paired with Orbit (Settings > General > Phone app).'
+  if (atDesk()) return 'The user is active in Orbit right now, so the phone was not notified.'
   if (!connected) return 'Orbit is not connected to the relay right now, so the phone was not notified.'
   const d = deps
   // the buttons (a question's choices, Stop) need the thread's state now; only an app with the notification key can

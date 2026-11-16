@@ -4,6 +4,16 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.1] - 2026-11-16
+
+### Changed
+
+- No phone notifications while you are active in Orbit (its window focused, with input in the last 3 minutes), as
+  Claude Code's own push notifications hold back while you are active in it.
+- Answering or replying to a thread on the computer (the window or the companion) clears that thread's notifications
+  from the phone.
+- The phone app now carries the same version number as Orbit: phone app 4.5.1.
+
 ## [4.5.0] - 2026-11-16
 
 ### Added
