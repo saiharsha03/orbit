@@ -19,6 +19,11 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
   one short line in a speech bubble. Mute it from the companion.
 - A failed turn is listed (companion, phone inbox) for every thread, not only background ones, with or without a phone.
 
+### Changed
+
+- The recap is written in the background 15 minutes after a live thread's last turn (was 30, and only while the thread
+  was on screen), and shows only once it is written: no more "Writing a recap…".
+
 ## [3.0.7] - 2026-11-16
 
 ### Fixed
