@@ -10,7 +10,7 @@ import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import icon from '../../build/icon.png?asset'
 import trayIco from '../../build/icon.ico?asset'
-import { background, closeAll, closeTab, contextUsage, dequeue, interrupt, liveUsage, promote, PERMISSION_MODE, setThreadMode, THREAD_MODES, recycleThreads, rewindApply, rewindPreview, runInThread, sendMessage, sendNow, setBackground, startBackgroundThread, threadState, transcriptPath, type BackgroundThread, type Outgoing } from './chat'
+import { background, closeAll, closeTab, contextUsage, dequeue, interrupt, liveUsage, promote, PERMISSION_MODE, setThreadMode, THREAD_MODES, recycleThreads, rewindApply, rewindPreview, runInThread, sendMessage, sendNow, setBackground, startBackgroundThread, threadRecap, threadState, transcriptPath, type BackgroundThread, type Outgoing } from './chat'
 import { busyTranscript, configureChat, liveQuery, resumeEverything, runningEverywhere, stopEverything, stoppedQueues, threadFacts, unreadOf, liveTabOf, liveThreads, messageThread, pauseTeam, resumeTeam, setWatcherStop, stopCodex, teamStates, threadTasks } from './chat'
 import { getTeam, listTeams, onTeamChange, readLog, readTeamFile } from './teams'
 import { cancelWakeup, initThreadWakeups, listWakeups, onWakeupsChanged, pauseWakeups, runWakeupNow, setWakeupsOff, tick as wakeupsTick, wakeupsPaused } from './threadWakeups'
@@ -35,7 +35,7 @@ import { setWatcherPosts } from './readOnly'
 import { initTracker, trackerBoard } from './tracker'
 import { cancelSwitch, switchAccount } from './account'
 import { currentEmail, listAccounts, otherClaudeProcesses, realAccountPaths, removeAccount, saveCurrent, switchAccount as switchProfile } from './accounts'
-import { askBtw, askRecap } from './btw'
+import { askBtw } from './btw'
 import { deleteNote, listNotes, saveNote, watchNotes } from './notes'
 import { editorMtime, editorRead, editorWrite, vsCodeUrl } from './editorFiles'
 import { lspChange, lspClose, lspOpen, lspRequest, lspSaved, setDiagnosticsSink, stopLanguageServers } from './lsp'
@@ -863,7 +863,8 @@ handle('history:prs', async (_e, path: string) => threadPrs(await loadHistory(St
 // /btw: a side question about a thread, answered by a throwaway fork (nothing goes into the thread)
 handle('chat:btw', (_e, cwd: string, sessionId: string | null, question: string) => askBtw(String(cwd ?? ''), sessionId ? String(sessionId) : null, String(question)))
 // the session recap shown when you come back to a thread, from the same kind of throwaway fork
-handle('chat:recap', (_e, cwd: string, sessionId: string) => askRecap(String(cwd ?? ''), String(sessionId)))
+// the thread's recap, once main has written it (chat.ts idleRecap)
+handle('chat:recap', (_e, tabId: string) => threadRecap(String(tabId)))
 // a reopened thread: its recent end first (more = there is earlier conversation to load)
 handle('history:recent', (_e, path: string) => loadRecentHistory(path))
 handle('fs:readText', (_e, path: string) => readText(path))

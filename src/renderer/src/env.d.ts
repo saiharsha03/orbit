@@ -183,7 +183,7 @@ interface Window {
     loadHistory: (path: string) => Promise<Item[]>
     threadPrs: (path: string) => Promise<{ repo: string; num: number; url: string }[]>
     askBtw: (cwd: string, sessionId: string | null, question: string) => Promise<string>
-    askRecap: (cwd: string, sessionId: string) => Promise<string>
+    threadRecap: (tabId: string) => Promise<{ at: number; text: string } | null>
     loadRecentHistory: (path: string) => Promise<{ items: Item[]; more: boolean }>
     onChatEvent: (cb: (tabId: string, event: any) => void) => () => void
     gitList: () => Promise<import('../../shared/gitCore').GitRow[]>

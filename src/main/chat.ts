@@ -38,6 +38,7 @@ import { createWatcher, deleteWatcher, formatWatchers, runWatcherNow, setWatcher
 import { notifyPhone, turnEnded } from './mobile'
 import { notifyDesktop } from './desktopNotify'
 import { voiceEvent } from './companionVoice'
+import { askRecap } from './btw'
 import { autoBackground } from '../shared/autoBackgroundCore'
 import { realLimits } from '../shared/usageCore'
 import { parseQuestions, type AskQuestion } from '../shared/askCore'
@@ -176,6 +177,9 @@ type Live = {
   lastReply: string | null // the final text of the last finished turn
   lastReplyAt?: number // when that turn finished
   idleTimer?: ReturnType<typeof setTimeout> // idle compaction, due a while after the last turn (idleCompact)
+  recapTimer?: ReturnType<typeof setTimeout> // the recap, due a while after the last turn (idleRecap)
+  recap?: { at: number; text: string } // the recap of this idle stretch, once written
+  compacting?: boolean // the running turn is the idle compaction
   // the message that started the current turn, until Claude starts answering it: an interrupt that lands while its
   // prompt hooks still run ends the turn with "prompt_check" and the message never reaches Claude, so it goes again
   unchecked?: SDKUserMessage | null
@@ -226,12 +230,25 @@ async function idleCompact(tabId: string, s: Live, send: (ev: unknown) => void):
   const u = await contextUsage(tabId).catch(() => null)
   if (!u || u.total < IDLE_COMPACT_MIN || live.get(tabId) !== s || s.turns.isBusy()) return
   send({ type: 'hive_idle_compact' })
+  s.compacting = true // its own end keeps the recap and starts no new one
   const m = userMsg('/compact')
   s.turns.markBusy()
   s.unchecked = m
   track(s, m, 'hive')
   s.push(m)
 }
+// The recap ("the goal is X; next: Y"): IDLE_RECAP_MS after a live thread's last turn, a separate Sonnet call in a
+// throwaway fork writes it (btw.ts), in the background whether or not the thread is on screen. The thread shows it
+// once it is written (threadRecap); a new turn drops it and starts the wait again.
+const IDLE_RECAP_MS = 15 * 60_000
+async function idleRecap(tabId: string, s: Live): Promise<void> {
+  if (live.get(tabId) !== s || s.turns.isBusy() || !s.sessionId) return
+  const at = s.lastReplyAt
+  const text = (await askRecap(s.cwd, s.sessionId).catch(() => '')).trim()
+  if (!text || live.get(tabId) !== s || s.turns.isBusy() || s.lastReplyAt !== at) return
+  s.recap = { at: Date.now(), text }
+}
+export const threadRecap = (tabId: string): { at: number; text: string } | null => live.get(tabId)?.recap ?? null
 // a message on its way to Claude: kept until Claude takes it in, so a process that ends first gives it back
 const track = (s: Live, m: SDKUserMessage, source: Unsent['source'], queueId?: string) => {
   if (m.uuid) s.outbox.set(m.uuid, { uuid: m.uuid, ...(queueId ? { queueId } : {}), ...messageParts(m.message.content), source })
@@ -1279,6 +1296,11 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
           // idle compaction: a long conversation left alone is compacted before its prompt cache expires
           clearTimeout(s.idleTimer)
           if (!watcher) s.idleTimer = setTimeout(() => void idleCompact(tabId, s, send), IDLE_COMPACT_MS)
+          // the recap: written in the background once the thread has sat idle a while (not after the idle compaction)
+          clearTimeout(s.recapTimer)
+          if (!s.compacting) s.recap = undefined
+          s.compacting = false
+          if (!watcher && !s.recap) s.recapTimer = setTimeout(() => void idleRecap(tabId, s), IDLE_RECAP_MS)
           // the sidebar's list and the search index read this transcript again (it is not re-checked otherwise)
           if (s.sessionId) sessionTouched(transcriptPath(cwd, s.sessionId))
           // a usage limit: the thread continues by itself a minute after the reset (not a watcher: its schedule does)
