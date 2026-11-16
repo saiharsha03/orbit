@@ -21,6 +21,7 @@ import { pendingResent, resendGroups, takePending } from './pending'
 import { initDesktopNotify } from './desktopNotify'
 import { dismissFail, failsNow, initMobile, mobileStatus, notifyPhone, pairPhone, unpairPhone, type PhoneItem, type PhoneThread } from './mobile'
 import { companionBounds, companionState, type CompanionPr } from '../shared/companionCore'
+import { initVoice, voiceEvent } from './companionVoice'
 import { registerStatusIpc, setAdvisor, setEffort, setModel } from './liveStatus'
 import { registerClaudeConfigIpc } from './claudeConfig'
 import { modeLabel } from '../shared/modeCore'
@@ -961,7 +962,7 @@ function openTeamWindow(teamId: string | null): void {
 // Its own page (?view=companion) on the same preload. It keeps its right edge and bottom where you dragged it, and
 // grows upward as it opens. Tray menu and Ctrl+Alt+O show and hide it; it is on unless you hide it.
 let companionWin: BrowserWindow | null = null
-type CompanionPrefs = { on?: boolean; right?: number; bottom?: number }
+type CompanionPrefs = { on?: boolean; right?: number; bottom?: number; voice?: boolean }
 const companionPrefs = (): CompanionPrefs => (uiLoad('companion') ?? {}) as CompanionPrefs
 let companionDepsKept: ReturnType<typeof mobileDeps> | null = null
 const companionDeps = () => (companionDepsKept ??= mobileDeps())
@@ -977,7 +978,7 @@ function openCompanion(): void {
   if (TEST_MODE) return
   if (companionWin && !companionWin.isDestroyed()) { companionWin.showInactive(); return }
   const win = new BrowserWindow({
-    show: false, width: 300, height: 44, frame: false, resizable: false, maximizable: false, minimizable: false, fullscreenable: false,
+    show: false, width: 300, height: 54, frame: false, resizable: false, maximizable: false, minimizable: false, fullscreenable: false,
     alwaysOnTop: true, skipTaskbar: true, backgroundColor: '#121314', title: `${appName()} companion`, icon,
     webPreferences: { preload: join(__dirname, '../preload/index.js') },
   })
@@ -986,7 +987,7 @@ function openCompanion(): void {
   win.on('closed', () => { if (companionWin === win) companionWin = null })
   // dragged: the new right edge and bottom are where it stays (and where it grows from)
   win.on('moved', () => { const b = win.getBounds(); uiSave('companion', { ...companionPrefs(), right: b.x + b.width, bottom: b.y + b.height }) })
-  win.once('ready-to-show', () => { placeCompanion(300, 44); win.showInactive() })
+  win.once('ready-to-show', () => { placeCompanion(300, 54); win.showInactive() })
   guardWindow(win.webContents)
   if (DEV_URL) { const u = new URL(DEV_URL); u.search = 'view=companion'; void win.loadURL(u.href) }
   else void win.loadFile(APP_HTML, { search: 'view=companion' })
@@ -1027,6 +1028,44 @@ handle('companion:open', (_e, thread: string) => { showWindow(); if (thread) mai
 handle('companion:dismiss', (_e, thread: string) => { dismissFail(String(thread)) })
 handle('companion:size', (_e, w: number, h: number) => { if (Number.isFinite(w) && Number.isFinite(h)) placeCompanion(w, h) })
 handle('companion:hide', () => setCompanion(false))
+// A deploy landed: a rocket goes up the side of the screen, from just above the taskbar, beside the companion. Its own
+// see-through window that clicks pass through and that never takes the focus; it closes itself when the rocket is gone.
+let rocketWin: BrowserWindow | null = null
+function launchRocket(label: string): void {
+  if (TEST_MODE || (rocketWin && !rocketWin.isDestroyed())) return
+  const a = companionAnchor()
+  const area = (a ? screen.getDisplayNearestPoint({ x: a.right - 1, y: a.bottom - 1 }) : screen.getPrimaryDisplay()).workArea
+  const width = 160
+  const right = a ? Math.min(a.right, area.x + area.width) : area.x + area.width - 16
+  const win = new BrowserWindow({
+    x: Math.max(area.x, right - width - (companionOn() ? 310 : 0)), y: area.y, width, height: area.height,
+    transparent: true, backgroundColor: '#00000000', frame: false, resizable: false, movable: false, focusable: false,
+    alwaysOnTop: true, skipTaskbar: true, hasShadow: false, show: false, webPreferences: { preload: join(__dirname, '../preload/index.js') },
+  })
+  rocketWin = win
+  win.setIgnoreMouseEvents(true)
+  win.setAlwaysOnTop(true, 'screen-saver')
+  win.on('closed', () => { if (rocketWin === win) rocketWin = null })
+  win.once('ready-to-show', () => win.showInactive())
+  guardWindow(win.webContents)
+  const search = `view=rocket&label=${encodeURIComponent(label.slice(0, 80))}`
+  if (DEV_URL) { const u = new URL(DEV_URL); u.search = search; void win.loadURL(u.href) }
+  else void win.loadFile(APP_HTML, { search })
+  setTimeout(() => { if (!win.isDestroyed()) win.close() }, 7_000)
+}
+handle('companion:launch', (_e, label: string, test?: boolean) => {
+  launchRocket(String(label ?? ''))
+  if (!test) voiceEvent({ kind: 'deploy', title: String(label ?? '').replace(/ landed$/, ''), text: 'the deploy is live' })
+})
+// Orbie's voice (companionVoice.ts): only while you are away from Orbit's window, and not when you muted it
+initVoice({
+  away: () => companionOn() && companionPrefs().voice !== false && !(mainWin && !mainWin.isDestroyed() && mainWin.isFocused()),
+  say: (line, kind) => { if (companionWin && !companionWin.isDestroyed()) companionWin.webContents.send('companion:say', line, kind) },
+})
+handle('companion:voice', (_e, on?: boolean) => {
+  if (typeof on === 'boolean') uiSave('companion', { ...companionPrefs(), voice: on })
+  return companionPrefs().voice !== false
+})
 
 // messages that had not reached Claude when Orbit last closed go to their threads again (chat:reset, once)
 function resendPending(web: Electron.WebContents): void {

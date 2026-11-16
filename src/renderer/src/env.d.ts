@@ -221,6 +221,9 @@ interface Window {
     companionSize: (w: number, h: number) => Promise<void>
     companionHide: () => Promise<void>
     companionStopTask: (thread: string, task: string) => Promise<boolean>
+    companionLaunch: (label: string, test?: boolean) => Promise<void>
+    companionVoice: (on?: boolean) => Promise<boolean>
+    onCompanionSay: (cb: (line: string, kind: string) => void) => () => void
     deployDismiss: (id: string) => Promise<void>
     onDeployOut: (cb: (runId: string, text: string) => void) => () => void
     onDeployEnd: (cb: (runId: string, code: number, message: string, sha: string, watchId: string) => void) => () => void

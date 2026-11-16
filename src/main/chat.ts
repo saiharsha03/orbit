@@ -37,6 +37,7 @@ import { isWatcherTab, isWatcherTranscript } from '../shared/readOnlyCore'
 import { createWatcher, deleteWatcher, formatWatchers, runWatcherNow, setWatcherEnabled, updateWatcher } from './watchers'
 import { notifyPhone, turnEnded } from './mobile'
 import { notifyDesktop } from './desktopNotify'
+import { voiceEvent } from './companionVoice'
 import { autoBackground } from '../shared/autoBackgroundCore'
 import { realLimits } from '../shared/usageCore'
 import { parseQuestions, type AskQuestion } from '../shared/askCore'
@@ -73,7 +74,13 @@ import { confirmByCard, quarryConnections, quarryExplain, quarryQuery, quarrySch
 import { addPending, pendingDelivered, pendingIsSteer, pendingReturned, pendingSeen, pendingSession, steersDelivered, threadClosed } from './pending'
 
 // the events the user should hear about: the phone and the desktop get the same ones
-const notifyUser = (title: string, body: string, thread: string): void => { notifyPhone(title, body, thread); notifyDesktop(title, body, thread) }
+const notifyUser = (title: string, body: string, thread: string): void => {
+  notifyPhone(title, body, thread)
+  notifyDesktop(title, body, thread)
+  // Orbie says what needs you (a finished or failed turn it hears from the turn's end itself)
+  const ask = /^(Question|Waiting|Permission|Plan ready):\s*/.exec(title)
+  if (ask) voiceEvent({ kind: 'ask', title: title.slice(ask[0].length), text: `${ask[1]}: ${body}` })
+}
 
 // a watcher's thread gets only these Orbit tools: none starts, steers or reconfigures other threads, edits code (Codex,
 // worktrees) or runs services, so nothing it reaches through Orbit escapes read-only
@@ -1264,7 +1271,11 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
           s.lastOk = r.subtype === 'success' && !r.is_error
           s.lastReply = r.subtype === 'success' ? (r.result || lastText) : `The turn ended with an error (${r.subtype}). ${(r.errors ?? []).join('; ')}`.trim()
           s.lastReplyAt = Date.now()
-          if (!watcher && !s.stopped) turnEnded(tabId, titleOf(tabId), s.lastOk, s.lastOk ? '' : (s.lastReply ?? '').split('\n').find((l) => l.trim()) ?? 'The turn failed')
+          if (!watcher && !s.stopped) {
+            const first = (s.lastReply ?? '').split('\n').find((l) => l.trim()) ?? ''
+            turnEnded(tabId, titleOf(tabId), s.lastOk, s.lastOk ? '' : first || 'The turn failed')
+            voiceEvent({ kind: s.lastOk ? 'done' : 'fail', title: titleOf(tabId), text: first })
+          }
           // idle compaction: a long conversation left alone is compacted before its prompt cache expires
           clearTimeout(s.idleTimer)
           if (!watcher) s.idleTimer = setTimeout(() => void idleCompact(tabId, s, send), IDLE_COMPACT_MS)

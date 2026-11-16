@@ -348,6 +348,26 @@ Push, merge and deploy decisions go back to you; the Lead does not make them.
   threads, tools and files, and a full-window preview for what Claude shows you.
 - **Keys**: see Keyboard shortcuts below.
 
+### Companion and Orbie
+
+A small always-on-top window in the corner of the screen, for when you are in another app. Ctrl+Alt+O or the tray
+menu shows and hides it; drag it anywhere.
+
+- **What needs you**: threads waiting for you, with their question's choices as buttons (permission prompts too) or a
+  reply box; failed turns; every background task in every thread, with Stop; the pull requests your threads opened and
+  their checks; deploys being watched; working threads; your plan limits; the next wake-ups. It opens by itself when
+  something new needs you.
+- **Orbie**, its face: a little planet that floats and blinks, looks around while work runs, hops with a "?" when you
+  are needed, goes dizzy on a failure and jumps when something finishes. Its moons are your working threads, its weather
+  is your usage (clear, cloud, rain, storm), its stars your wake-ups, a rocket waits on its pad while a deploy is
+  checked, and late at night it gets sleepy.
+- **Liftoff**: when a deploy lands, a rocket counts down and launches from the taskbar up the side of the screen.
+- **Orbie talks**: while you are away from Orbit, a separate Haiku call (outside your threads, no tools) turns what
+  happened into one short line in Orbie's speech bubble. The speech button mutes it.
+
+The companion was inspired by [coucou](https://github.com/louis-cfm/coucou) by louis-cfm, the floating island that
+watches your coding agents. Thank you!
+
 ### Phone app
 
 An Android app (`mobile/`) for when you're away from the computer:

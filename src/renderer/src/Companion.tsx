@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { companionSummary, needKey, type CompanionView } from '../../shared/companionCore'
 import type { PhoneNeed } from '../../shared/phoneCore'
-import { Orbie, type Mood } from './Orbie'
+import { Orbie, weatherOf, type Mood, type Rocket } from './Orbie'
 import './companion.css'
 
 const EMPTY: CompanionView = { needs: [], working: [], coming: [], running: [], prs: [], usage: [] }
@@ -58,6 +58,15 @@ export function Companion() {
   const seen = useRef<Set<string> | null>(null)
   const root = useRef<HTMLDivElement>(null)
 
+  // Orbie's speech bubble: a line from main (companionVoice.ts) while you are away from Orbit, shown for a while
+  const [said, setSaid] = useState<{ line: string; kind: string; at: number } | null>(null)
+  const [voice, setVoice] = useState(true)
+  useEffect(() => {
+    void window.api.companionVoice().then(setVoice)
+    return window.api.onCompanionSay((line, kind) => setSaid({ line, kind, at: Date.now() }))
+  }, [])
+  useEffect(() => { if (!said) return; const t = setTimeout(() => setSaid(null), 15_000); return () => clearTimeout(t) }, [said])
+
   const refresh = () => { void window.api.companionState().then(setS).catch(() => {}) }
   useEffect(() => {
     refresh()
@@ -95,23 +104,42 @@ export function Companion() {
   const [happy, setHappy] = useState(0)
   const was = useRef({ busy: 0, landed: 0 })
   const landed = deploys.filter((d) => d.landed).length
+  // a deploy that landed since the last look: Orbie jumps and a rocket goes up the side of the screen
+  const launched = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    const done = deploys.filter((d) => d.landed)
+    if (!launched.current) { launched.current = new Set(done.map((d) => d.id)); return } // landed before the window opened
+    for (const d of done) if (!launched.current.has(d.id)) { launched.current.add(d.id); void window.api.companionLaunch(`${d.repo}${d.target ? ` → ${d.target}` : ''} landed`) }
+  }, [deploys])
   useEffect(() => {
     if ((busy < was.current.busy && !failed) || landed > was.current.landed) setHappy(Date.now())
     was.current = { busy, landed }
   }, [busy, landed, failed])
   useEffect(() => { if (!happy) return; const t = setTimeout(() => setHappy(0), 2_400); return () => clearTimeout(t) }, [happy])
-  const mood: Mood = failed ? 'fail' : waiting ? 'wait' : happy ? 'happy' : busy ? 'work' : 'idle'
+  const hour = new Date().getHours()
+  const mood: Mood = failed ? 'fail' : waiting ? 'wait' : happy ? 'happy' : busy ? 'work' : hour >= 23 || hour < 7 ? 'sleepy' : 'idle'
+  const weather = weatherOf(Math.max(0, ...s.usage.map((u) => u.pct)))
+  const rocket: Rocket = running.length ? 'pad' : happy && landed ? 'launch' : 'none'
   const summary = companionSummary(s, running.length)
   const limits = s.usage.slice(0, 3)
 
   return (
     <div className={`cp ${open ? 'open' : ''}`} ref={root}>
+      {said && (
+        <div className={`cp-say k-${said.kind}`} onClick={() => { setSaid(null); void window.api.companionOpen('') }} title="Open Orbit">
+          <span>{said.line}</span>
+        </div>
+      )}
       <div className="cp-bar">
         <button className="cp-head" onClick={() => setOpen(!open)} title={open ? 'Fold' : 'Open'}>
-          <Orbie mood={mood} />
+          {/* a poke: Orbie jumps and a test rocket goes up */}
+          <span className="cp-orbie" onClick={(e) => { e.stopPropagation(); setHappy(Date.now()); void window.api.companionLaunch('Test launch', true) }} title="Poke Orbie">
+            <Orbie mood={mood} moons={s.working.length} weather={weather} rocket={rocket} stars={s.coming.length} />
+          </span>
           <span className="cp-sum">{summary}</span>
         </button>
         <span className="cp-drag" />
+        <button className="cp-ib" onClick={() => void window.api.companionVoice(!voice).then(setVoice)} title={voice ? 'Orbie tells you what happened while you are away from Orbit (Haiku writes the line). Click to mute' : 'Orbie is muted. Click to let it talk'}><i className={`codicon codicon-${voice ? 'comment' : 'comment-unresolved'} sm ${voice ? '' : 'cp-faint'}`} /></button>
         <button className="cp-ib" onClick={() => void window.api.companionOpen('')} title="Open Orbit"><i className="codicon codicon-link-external sm" /></button>
         <button className="cp-ib" onClick={() => setOpen(!open)} title={open ? 'Fold' : 'Open'}><i className={`codicon codicon-chevron-${open ? 'down' : 'up'} sm`} /></button>
         <button className="cp-ib" onClick={() => void window.api.companionHide()} title="Hide the companion (Ctrl+Alt+O or the tray brings it back)"><i className="codicon codicon-close sm" /></button>

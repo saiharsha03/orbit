@@ -4,6 +4,21 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- The companion: a small always-on-top window with what needs you while you work in other apps. It lists waiting
+  threads (answer their question or permission with one tap, or reply), failed turns, background tasks with Stop, the
+  threads' pull requests and checks, deploys, working threads, plan limits and wake-ups. Ctrl+Alt+O or the tray menu.
+  Inspired by [coucou](https://github.com/louis-cfm/coucou) by louis-cfm.
+- Orbie, the companion's face: moods for idle, working, waiting, failed, finished and late at night; a moon per working
+  thread, weather from the plan usage, a star per wake-up, a rocket on the pad while a deploy is checked.
+- A rocket launches up the side of the screen when a deploy lands (poke Orbie for a test launch).
+- Orbie talks: while you are away from Orbit, Haiku turns finished, failed and waiting threads and landed deploys into
+  one short line in a speech bubble. Mute it from the companion.
+- A failed turn is listed (companion, phone inbox) for every thread, not only background ones, with or without a phone.
+
 ## [3.0.7] - 2026-11-16
 
 ### Fixed
