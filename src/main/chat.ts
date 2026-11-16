@@ -48,7 +48,7 @@ import { cancelContinue, limitBack, scheduleContinue } from './autoContinue'
 import { addWakeup, cancelWakeup, formatWakeups, listWakeups } from './threadWakeups'
 import { resetFromText, wakeLabel } from '../shared/continueCore'
 import { emptyStatus, reduceStatus, type ThreadStatus } from '../shared/statusCore'
-import { formatAgentStatus, recentActions } from '../shared/agentStatusCore'
+import { formatAgentStatus, recentActions, waitingOn } from '../shared/agentStatusCore'
 // the last `bytes` of a file (its first, cut-off line is skipped by the JSONL readers)
 function readTail(path: string, bytes: number): string {
   const fd = openSync(path, 'r')
@@ -1758,7 +1758,7 @@ export function teamStates(team: Team): Record<string, MemberStatus> {
   return out
 }
 
-const threadInfo = (id: string, t: Live) => ({ sessionId: t.sessionId, title: titleOf(id), cwd: t.cwd, busy: t.turns.isBusy(), waitingReason: t.waitingReason, background: t.background })
+const threadInfo = (id: string, t: Live) => ({ sessionId: t.sessionId, title: titleOf(id), cwd: t.cwd, busy: t.turns.isBusy(), waitingReason: t.waitingReason, waitingOn: waitingOn(t.status), background: t.background })
 // every live thread, for the phone app's list
 export const liveThreads = () => [...live.entries()].map(([id, t]) => ({ tabId: id, ...threadInfo(id, t) }))
 

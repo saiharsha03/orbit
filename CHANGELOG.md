@@ -4,6 +4,14 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.1] - 2026-11-16
+
+### Fixed
+
+- A thread whose turn has ended but which still waits on something shows as working, saying what: background shells,
+  monitors, subagents, workflows, Codex runs, loops or a wake-up ("Waiting on 1 shell"). Shells, monitors, loops and
+  wake-ups used to leave it looking idle. Same in the companion and the phone app.
+
 ## [4.1.0] - 2026-11-16
 
 ### Added

@@ -19,6 +19,19 @@ export function runCounts(st: ThreadStatus) {
   }
 }
 
+// What a thread whose turn has ended is still waiting on, in words ("1 shell, 1 monitor, 2 loops"); '' for nothing.
+// Everything it will come back to counts: its background work (shells, monitors, subagents, workflows, Codex) and its
+// schedule (loops, a wake-up). The sidebar and the companion list such a thread as working, not idle.
+export function waitingOn(st: ThreadStatus): string {
+  const c = runCounts(st)
+  const n = (k: number, one: string, many = `${one}s`) => (k ? `${k} ${k === 1 ? one : many}` : '')
+  return [
+    n(c.shells, 'shell'), n(c.monitors, 'monitor'), n(c.agents, 'agent'), n(c.workflows, 'workflow'),
+    n(c.codex, 'Codex run'), n(c.other, 'task'), n(st.crons.length, 'loop'),
+    st.nextWake ? `a wake-up at ${new Date(st.nextWake).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '',
+  ].filter(Boolean).join(', ')
+}
+
 // what a subagent has been doing lately, from the tail of its own transcript: its last tool calls (with what each
 // was for) and the last thing it wrote, so "how is it going" has an answer without digging through its worktree
 const clip = (s: unknown, n: number) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n)

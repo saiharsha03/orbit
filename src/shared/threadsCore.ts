@@ -33,7 +33,8 @@ export type PhoneSection = 'watchers' | 'pinned' | 'waiting' | 'working' | 'depe
 export const PHONE_SECTIONS: readonly PhoneSection[] = ['watchers', 'pinned', 'waiting', 'working', 'dependabot', 'recent']
 // sessionId: the thread's Claude session (wake-ups and continues name it), null for a thread that has none yet
 export type PhoneThread = { id: string; title: string; folder: string; state: 'working' | 'waiting' | 'idle'; note: string; updated: number; section: PhoneSection; sessionId?: string | null }
-export type PhoneLive = { tabId: string; sessionId: string | null; title: string; folder: string; busy: boolean; waitingReason?: string }
+// waitingOn: what a thread whose turn ended still waits on (shells, monitors, agents, loops, a wake-up), in words
+export type PhoneLive = { tabId: string; sessionId: string | null; title: string; folder: string; busy: boolean; waitingReason?: string; waitingOn?: string }
 export type PhoneSaved = { id: string; title: string; project: string; updated: number; watcherRun?: boolean; dependabot?: boolean }
 export type PhoneWatcher = { name: string; tabId: string | null; sessionId: string | null; sessionIds?: string[]; enabled?: boolean; nextRun?: number | null }
 
@@ -47,7 +48,7 @@ export function phoneThreads(live: PhoneLive[], saved: PhoneSaved[], watchers: P
   const currentTabs = new Set(watchers.flatMap((w) => (w.tabId ? [w.tabId] : [])))
   const isWatcherLive = (t: PhoneLive) => currentTabs.has(t.tabId) || latestIds.has(t.sessionId ?? '') || latestIds.has(t.tabId)
   // a question for the user wins over busy, as in the sidebar's Waiting for you
-  const stateOf = (t: PhoneLive): PhoneThread['state'] => (t.waitingReason ? 'waiting' : t.busy ? 'working' : 'idle')
+  const stateOf = (t: PhoneLive): PhoneThread['state'] => (t.waitingReason ? 'waiting' : t.busy || t.waitingOn ? 'working' : 'idle')
   const savedById = new Map(saved.map((s) => [s.id, s]))
   // Dependabot review threads (running or saved) get their own section, as in the sidebar
   const bot = (tabId: string, sessionId: string | null) => tabId.startsWith('dependabot-') || !!savedById.get(sessionId ?? tabId)?.dependabot
@@ -71,7 +72,7 @@ export function phoneThreads(live: PhoneLive[], saved: PhoneSaved[], watchers: P
     if (st === 'idle' && runs.has(t.sessionId ?? '')) continue // an older watcher run open but idle: out of the list, as in the sidebar
     const kept = st === 'idle' ? keep(t.sessionId ?? t.tabId) : st
     const section = kept && kept !== 'pinned' && bot(t.tabId, t.sessionId) ? 'dependabot' : kept
-    if (section) (st === 'idle' ? rest : out).push({ id: t.tabId, title: t.title, folder: t.folder, state: st, note: t.waitingReason ?? '', updated: now, section, sessionId: t.sessionId })
+    if (section) (st === 'idle' ? rest : out).push({ id: t.tabId, title: t.title, folder: t.folder, state: st, note: t.waitingReason ?? (!t.busy && t.waitingOn ? `Waiting on ${t.waitingOn}` : ''), updated: now, section, sessionId: t.sessionId })
   }
   let recent = 0, bots = 0 // Recent and Dependabot each hold up to recentMax
   for (const s of saved) {

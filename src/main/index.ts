@@ -230,7 +230,7 @@ const mobileDeps = () => ({
     // the sidebar's sections (Watchers, Pinned, Waiting, Working, Recent), from the same pins and watcher runs
     // watchers first: listing them settles a finished run and can close its tab, so the live list is read after
     const { watchers } = await listWatchersView()
-    const live = liveThreads().map((t) => ({ tabId: t.tabId, sessionId: t.sessionId, title: t.title, folder: basename(t.cwd), busy: t.busy, waitingReason: t.waitingReason }))
+    const live = liveThreads().map((t) => ({ tabId: t.tabId, sessionId: t.sessionId, title: t.title, folder: basename(t.cwd), busy: t.busy, waitingReason: t.waitingReason, waitingOn: t.waitingOn }))
     return phoneThreads(live, await listSessions(), watchers, uiLoad('threads') as ThreadMap, Date.now())
   },
   // the plan limits as the status bar's usage popover shows them (one cached reading, see status.ts)

@@ -53,17 +53,18 @@ export function activity(s: Session): string {
   return nowLine(verb, what, t.input)
 }
 
-// agents: per tab, how many of its subagents / workflows / Codex runs are still running. A thread whose turn ended
-// but which still has some running is working (waiting on them), not idle or "Finished"; a question for the user wins.
-export function liveRows(all: Session[], extra: LiveRow[] = [], agents: Map<string, number> = new Map()): { waiting: LiveRow[]; working: LiveRow[] } {
+// waitingOn: per tab, what it is still waiting on in words (agentStatusCore.ts waitingOn: shells, monitors, subagents,
+// workflows, Codex, loops, a wake-up). A thread whose turn ended but which still waits on any of them is working, not
+// idle or "Finished"; a question for the user wins.
+export function liveRows(all: Session[], extra: LiveRow[] = [], waitingOn: Map<string, string> = new Map()): { waiting: LiveRow[]; working: LiveRow[] } {
   const rows: LiveRow[] = [...extra]
   for (const s of all) {
     let state = stateOf(s)
-    const n = agents.get(s.id) ?? 0
-    const onAgents = n > 0 && !s.busy && (!state || (s.waitingReason ?? '').startsWith('Finished'))
-    if (onAgents) state = 'working'
+    const on = waitingOn.get(s.id) ?? ''
+    const onWork = !!on && !s.busy && (!state || (s.waitingReason ?? '').startsWith('Finished'))
+    if (onWork) state = 'working'
     if (!state) continue
-    const note = onAgents ? `Waiting on ${n} agent${n === 1 ? '' : 's'}` : state === 'waiting' ? s.waitingReason ?? '' : activity(s)
+    const note = onWork ? `Waiting on ${on}` : state === 'waiting' ? s.waitingReason ?? '' : activity(s)
     rows.push({ id: s.id, sessionId: s.sessionId, title: s.title, state, note, since: s.waitingSince ?? 0 })
   }
   return {

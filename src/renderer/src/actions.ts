@@ -1,6 +1,7 @@
 // What the window does with threads: open, show, send, close, background, reopen, stop. Plain functions over the
 // stores (store.ts), so any region calls them without the shell passing callbacks down. engine.ts feeds the stores
 // from main's events; nothing here keeps state of its own beyond small stores the shell draws (toasts, preview).
+import { waitingOn } from '../../shared/agentStatusCore'
 import { activateSession, findSession, liveRows, type LiveRow } from './background'
 import { PAGE_LABEL, workingOn, type Session, type ToolTab } from './chat'
 import { activate as activateIn, addPaneFor, focusedTab, moveTab, reconcile, splitWith, type PaneState } from './panes'
@@ -140,8 +141,7 @@ export function setExtraRows(rows: LiveRow[]) { extraRows = rows; recomputeLive(
 let liveKey = ''
 export function recomputeLive() {
   const statuses = getAllStatus()
-  const agents = new Map([...statuses].map(([tab, st]) => [tab, st.tasks.filter((t) => t.status === 'running' && t.kind !== 'local_bash').length]))
-  const next = liveRows(getSessions(), extraRows, agents)
+  const next = liveRows(getSessions(), extraRows, new Map([...statuses].map(([tab, st]) => [tab, waitingOn(st)])))
   const key = JSON.stringify(next)
   if (key !== liveKey) { liveKey = key; live.set(next) }
 }
