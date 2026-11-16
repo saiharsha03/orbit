@@ -665,6 +665,18 @@ export function SessionView(p: Props) {
     const s = scrolls.get(session.id)
     if (el && (!s || s.bottom)) el.scrollTop = el.scrollHeight
   }, [session.items.length, session.streaming])
+  // anything that grows the thread (a tool's output, a card opening, the composer shrinking after a send) keeps the
+  // newest output in view while the thread is following; scrolling up stops that, scrolling back down starts it again
+  useEffect(() => {
+    const el = thread.current
+    if (!el) return
+    const follow = () => { const s = scrolls.get(session.id); if (!s || s.bottom) el.scrollTop = el.scrollHeight }
+    const mo = new MutationObserver(follow)
+    mo.observe(el, { childList: true, subtree: true, characterData: true })
+    const ro = new ResizeObserver(follow)
+    ro.observe(el)
+    return () => { mo.disconnect(); ro.disconnect() }
+  }, [session.id])
   const onScroll = () => { const el = thread.current; if (el) scrolls.set(session.id, { top: el.scrollTop, bottom: el.scrollHeight - el.scrollTop - el.clientHeight < 40 }) }
 
   // keys of the focused pane: Ctrl+Down to the end, Ctrl+F find, Ctrl+B background what runs
@@ -856,6 +868,7 @@ export function SessionView(p: Props) {
     setDraft('')
     setImages([])
     scrolls.set(session.id, { top: 0, bottom: true })
+    if (thread.current) thread.current.scrollTop = thread.current.scrollHeight
   }
   // Enter steers (or sends), Tab queues while Claude works, Ctrl+Enter sends and moves the thread to the background,
   // Ctrl+Shift+Enter stops Claude and sends this at once (an empty box: what already waits goes now), Shift+Enter a

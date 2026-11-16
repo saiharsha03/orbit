@@ -4,6 +4,14 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.6] - 2026-11-16
+
+### Fixed
+
+- The chat follows Claude's newest output. Sending a message jumps to the bottom at once, and while the thread follows,
+  anything that grows it (new text, a tool's output, a card opening) keeps the bottom in view. Scrolling up stops
+  following; scrolling back down or sending starts it again.
+
 ## [3.0.5] - 2026-11-16
 
 ### Fixed
