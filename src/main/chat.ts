@@ -7,7 +7,7 @@ import { typeInTerminal } from './terminal'
 import { cliLine, cliOnlyCommand } from '../shared/cliCommandCore'
 import { execFile, type ChildProcess } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { appendFile, rm } from 'node:fs/promises'
+import { appendFile, readFile, rm } from 'node:fs/promises'
 import { closeSync, fstatSync, openSync, readSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -119,7 +119,7 @@ export const PERMISSION_MODE = 'bypassPermissions' as const
 
 const append = () => [
   `You are running inside ${appName()}, the user's desktop app for Claude Code.`,
-  'Keep this thread named after what the user is doing: once the task is clear (usually after your first reply), call mcp__orbit__rename_thread with a short title (3 to 6 words), and again only when the work clearly moves to something else. Do not mention it.',
+  'Keep this thread named after what the user is doing: once the task is clear (usually after your first reply), call mcp__orbit__rename_thread once with a short title (3 to 6 words). Name it once only: do not rename it later, even when the work moves on. Do not mention it.',
   'The user runs many threads at once and sometimes types into the wrong one. When a message clearly is not meant for this thread (it refers to work this thread never did or to another task), do not act on it: say so in one line, call mcp__orbit__list_threads to find the thread it belongs to, and offer to forward it there with mcp__orbit__message_thread (forward it at once only if the user already asked you to).',
   'To show the user an image, screenshot, HTML mockup, PDF or any file, call mcp__orbit__show_to_user with its absolute path.',
   'It opens in a preview panel beside the chat and shows inline in the conversation. Use it instead of opening files in other apps (Start-Process, start, open).',
@@ -420,6 +420,7 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
           await appendFile(transcriptPath(cwd, s.sessionId), JSON.stringify({ type: 'custom-title', customTitle: t, sessionId: s.sessionId }) + '\n')
           tabTitles.set(tabId, t)
           setThreadTitle(tabId, t)
+          named.add(tabId); saidBy.delete(tabId) // named now: the Haiku namer does not name it again
           send({ type: 'hive_title', title: t })
           return { content: [{ type: 'text', text: `Thread renamed: ${t}` }] }
         },
@@ -1406,14 +1407,18 @@ export type Outgoing = { uuid?: string; title?: string; text: string; images: { 
 
 // ---- the thread's name, from a small second call ----
 // After your fifth message in a thread, one short Haiku call (no tools, nothing of the thread's own context) reads what
-// you said so far and names the thread in 3 to 6 words. It runs once per thread; the name is stored like /rename.
+// you said so far and names the thread in 3 to 6 words. It runs once per thread, and not at all when the thread already
+// has a name (rename_thread, /rename, or an earlier run before Orbit restarted); the name is stored like /rename.
 const TITLE_AFTER = 5
+const hasTitle = (transcript: string): boolean => /^\{"type":"custom-title"/m.test(transcript)
 const saidBy = new Map<string, string[]>() // tab -> what the user said (short), until the name is made
 const named = new Set<string>()
 async function nameThread(tabId: string, cwd: string, web: WebContents): Promise<void> {
   const said = saidBy.get(tabId) ?? []
   saidBy.delete(tabId)
   if (TEST_MODE || !said.length) return
+  const sid = live.get(tabId)?.sessionId
+  if (sid && hasTitle(await readFile(transcriptPath(cwd, sid), 'utf8').catch(() => ''))) return
   const q = query({
     prompt: `Name this conversation in 3 to 6 words: what the user is working on, plain words, no quotes, no full stop. Answer with the name only.\n\nWhat the user said, in order:\n${said.map((t, i) => `${i + 1}. ${t}`).join('\n')}`,
     options: {

@@ -4,6 +4,13 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.5] - 2026-11-16
+
+### Fixed
+
+- A thread is named once. Claude names it after its first reply and no longer renames it when the work moves on, and the
+  automatic namer (after your fifth message) skips a thread that already has a name, including after Orbit restarts.
+
 ## [3.0.4] - 2026-11-16
 
 ### Changed
