@@ -66,7 +66,7 @@ type HookRow = {
   enabled: boolean
 }
 
-type DeployWatcher = { id: string; repo: string; sha: string; state: 'working' | 'waiting'; note: string; stuck: boolean; landed: boolean; log?: string }
+type DeployWatcher = { id: string; repo: string; target?: string; sha: string; state: 'working' | 'waiting'; note: string; stuck: boolean; landed: boolean; log?: string }
 type DeployDiffs = { diffs: import('../../shared/deployCore').RepoDiff[]; changelog: string; output: string; root: string }
 type DeployEnvStatus = {
   env: 'dev' | 'qa' | 'staging' | 'prod'
@@ -213,6 +213,13 @@ interface Window {
     deployRun: (repo: string, target: 'staging' | 'prod') => Promise<{ runId: string }>
     deployRewatch: (repo: string, target: 'staging' | 'prod', sha: string) => Promise<string>
     deployWatchers: () => Promise<DeployWatcher[]>
+    companionState: () => Promise<import('../../shared/companionCore').CompanionState>
+    companionAnswer: (thread: string, ask: string, question: string, label: string) => Promise<boolean>
+    companionReply: (thread: string, text: string) => Promise<string>
+    companionOpen: (thread: string) => Promise<void>
+    companionDismiss: (thread: string) => Promise<void>
+    companionSize: (w: number, h: number) => Promise<void>
+    companionHide: () => Promise<void>
     deployDismiss: (id: string) => Promise<void>
     onDeployOut: (cb: (runId: string, text: string) => void) => () => void
     onDeployEnd: (cb: (runId: string, code: number, message: string, sha: string, watchId: string) => void) => () => void

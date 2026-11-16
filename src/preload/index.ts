@@ -219,6 +219,14 @@ contextBridge.exposeInMainWorld('api', {
   deployRun: (repo: string, target: string) => ipcRenderer.invoke('deploy:run', repo, target),
   deployRewatch: (repo: string, target: string, sha: string) => ipcRenderer.invoke('deploy:rewatch', repo, target, sha),
   deployWatchers: () => ipcRenderer.invoke('deploy:watchers'),
+  // the companion window (companionCore.ts)
+  companionState: () => ipcRenderer.invoke('companion:state'),
+  companionAnswer: (thread: string, ask: string, question: string, label: string) => ipcRenderer.invoke('companion:answer', thread, ask, question, label),
+  companionReply: (thread: string, text: string) => ipcRenderer.invoke('companion:reply', thread, text),
+  companionOpen: (thread: string) => ipcRenderer.invoke('companion:open', thread),
+  companionDismiss: (thread: string) => ipcRenderer.invoke('companion:dismiss', thread),
+  companionSize: (w: number, h: number) => ipcRenderer.invoke('companion:size', w, h),
+  companionHide: () => ipcRenderer.invoke('companion:hide'),
   deployDismiss: (id: string) => ipcRenderer.invoke('deploy:dismiss', id),
   onDeployOut: (cb: (runId: string, text: string) => void) => {
     const fn = (_e: unknown, runId: string, text: string) => cb(runId, text)

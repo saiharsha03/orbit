@@ -35,7 +35,7 @@ import { busyWith, idleToClose, messageParts, permitWithoutPrompt, retireStep, s
 import { readOnlyOptions } from './readOnly'
 import { isWatcherTab, isWatcherTranscript } from '../shared/readOnlyCore'
 import { createWatcher, deleteWatcher, formatWatchers, runWatcherNow, setWatcherEnabled, updateWatcher } from './watchers'
-import { notifyPhone } from './mobile'
+import { notifyPhone, turnEnded } from './mobile'
 import { notifyDesktop } from './desktopNotify'
 import { autoBackground } from '../shared/autoBackgroundCore'
 import { realLimits } from '../shared/usageCore'
@@ -1264,6 +1264,7 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
           s.lastOk = r.subtype === 'success' && !r.is_error
           s.lastReply = r.subtype === 'success' ? (r.result || lastText) : `The turn ended with an error (${r.subtype}). ${(r.errors ?? []).join('; ')}`.trim()
           s.lastReplyAt = Date.now()
+          if (!watcher && !s.stopped) turnEnded(tabId, titleOf(tabId), s.lastOk, s.lastOk ? '' : (s.lastReply ?? '').split('\n').find((l) => l.trim()) ?? 'The turn failed')
           // idle compaction: a long conversation left alone is compacted before its prompt cache expires
           clearTimeout(s.idleTimer)
           if (!watcher) s.idleTimer = setTimeout(() => void idleCompact(tabId, s, send), IDLE_COMPACT_MS)

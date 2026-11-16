@@ -351,6 +351,18 @@ async function stopEverything(d: Deps, pauseWakeups: boolean): Promise<{ threads
 // threads that failed (chat.ts says so in a notification) and were not written to since: the inbox lists them
 const fails = new Map<string, PhoneFail>()
 const FAIL_KEEP_MS = 24 * 3_600_000
+// the failures of the last day, newest first (the companion's list); dismiss drops one
+export function failsNow(now = Date.now()): PhoneFail[] {
+  for (const [k, f] of fails) if (now - f.at > FAIL_KEEP_MS) fails.delete(k)
+  return [...fails.values()]
+}
+export const dismissFail = (thread: string): void => { fails.delete(thread) }
+// a turn's end in any thread (the window's own too, which sends no notification): a failure stays listed until the
+// thread goes on
+export function turnEnded(thread: string, title: string, ok: boolean, note: string): void {
+  if (ok) fails.delete(thread)
+  else fails.set(thread, { thread, title, note, at: Date.now() })
+}
 
 // The press of a notification's button, sealed with the notification key (the app was locked): stop a thread, or pick
 // a harmless choice of the thread's open question. Nothing else, whatever the message says, and no reply: when the
@@ -524,12 +536,13 @@ export async function phoneRequest(deps: Deps, m: Record<string, unknown>, limit
 // ---- notifications: shown on the phone even when the app is closed (the relay pushes the sealed blob) ----
 export function notifyPhone(title: string, body: string, thread?: string): string {
   if (TEST_MODE) return blocked('phone notifications')
-  if (!pairing) return 'No phone is paired with Orbit (Settings > General > Phone app).'
-  if (!connected) return 'Orbit is not connected to the relay right now, so the phone was not notified.'
+  // the failures are kept with or without a phone: the companion lists them too
   const kind = noteKind(title)
   const id = thread ?? ''
   if (kind === 'fail' && id) fails.set(id, { thread: id, title: title.replace(/^Failed:\s*/, ''), note: body, at: Date.now() })
   else if (id) fails.delete(id) // it went on (a question, a finish): no longer a failure to look at
+  if (!pairing) return 'No phone is paired with Orbit (Settings > General > Phone app).'
+  if (!connected) return 'Orbit is not connected to the relay right now, so the phone was not notified.'
   const d = deps
   // the buttons (a question's choices, Stop) need the thread's state now; only an app with the notification key can
   // press them, and a notification is never held back for them

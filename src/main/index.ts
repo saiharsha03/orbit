@@ -1,7 +1,7 @@
 // Electron main process. The Agent SDK runs here.
 // first: Hive's data is copied over before any module reads the state folder (carryOver.ts)
 import './carryOver'
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, powerMonitor, protocol, shell, Tray } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, protocol, screen, shell, Tray } from 'electron'
 import { basename, dirname, join, resolve } from 'node:path'
 import QRCode from 'qrcode'
 import { randomUUID } from 'node:crypto'
@@ -19,7 +19,8 @@ import type { PhoneAsk, QuietHours } from '../shared/phoneCore'
 import { phoneTasks, phoneTeams, phoneWakeups } from '../shared/phoneCore'
 import { pendingResent, resendGroups, takePending } from './pending'
 import { initDesktopNotify } from './desktopNotify'
-import { initMobile, mobileStatus, notifyPhone, pairPhone, unpairPhone, type PhoneItem, type PhoneThread } from './mobile'
+import { dismissFail, failsNow, initMobile, mobileStatus, notifyPhone, pairPhone, unpairPhone, type PhoneItem, type PhoneThread } from './mobile'
+import { companionBounds, companionState } from '../shared/companionCore'
 import { registerStatusIpc, setAdvisor, setEffort, setModel } from './liveStatus'
 import { registerClaudeConfigIpc } from './claudeConfig'
 import { modeLabel } from '../shared/modeCore'
@@ -956,6 +957,62 @@ function openTeamWindow(teamId: string | null): void {
   else void win.loadFile(APP_HTML, { search })
 }
 
+// ---- the companion (companionCore.ts): a small always-on-top window with what needs you, beside any other app ----
+// Its own page (?view=companion) on the same preload. It keeps its right edge and bottom where you dragged it, and
+// grows upward as it opens. Tray menu and Ctrl+Alt+O show and hide it; it is on unless you hide it.
+let companionWin: BrowserWindow | null = null
+type CompanionPrefs = { on?: boolean; right?: number; bottom?: number }
+const companionPrefs = (): CompanionPrefs => (uiLoad('companion') ?? {}) as CompanionPrefs
+let companionDepsKept: ReturnType<typeof mobileDeps> | null = null
+const companionDeps = () => (companionDepsKept ??= mobileDeps())
+const companionAnchor = () => { const p = companionPrefs(); return typeof p.right === 'number' && typeof p.bottom === 'number' ? { right: p.right, bottom: p.bottom } : null }
+function placeCompanion(w: number, h: number): void {
+  const win = companionWin
+  if (!win || win.isDestroyed()) return
+  const a = companionAnchor()
+  const area = (a ? screen.getDisplayNearestPoint({ x: a.right - 1, y: a.bottom - 1 }) : screen.getPrimaryDisplay()).workArea
+  win.setBounds(companionBounds(w, h, a, area))
+}
+function openCompanion(): void {
+  if (TEST_MODE) return
+  if (companionWin && !companionWin.isDestroyed()) { companionWin.showInactive(); return }
+  const win = new BrowserWindow({
+    show: false, width: 300, height: 44, frame: false, resizable: false, maximizable: false, minimizable: false, fullscreenable: false,
+    alwaysOnTop: true, skipTaskbar: true, backgroundColor: '#121314', title: `${appName()} companion`, icon,
+    webPreferences: { preload: join(__dirname, '../preload/index.js') },
+  })
+  companionWin = win
+  win.setAlwaysOnTop(true, 'floating')
+  win.on('closed', () => { if (companionWin === win) companionWin = null })
+  // dragged: the new right edge and bottom are where it stays (and where it grows from)
+  win.on('moved', () => { const b = win.getBounds(); uiSave('companion', { ...companionPrefs(), right: b.x + b.width, bottom: b.y + b.height }) })
+  win.once('ready-to-show', () => { placeCompanion(300, 44); win.showInactive() })
+  guardWindow(win.webContents)
+  if (DEV_URL) { const u = new URL(DEV_URL); u.search = 'view=companion'; void win.loadURL(u.href) }
+  else void win.loadFile(APP_HTML, { search: 'view=companion' })
+}
+function setCompanion(on: boolean): void {
+  uiSave('companion', { ...companionPrefs(), on })
+  if (on) openCompanion()
+  else if (companionWin && !companionWin.isDestroyed()) companionWin.close()
+  makeTrayMenu()
+}
+const companionOn = () => !!companionWin && !companionWin.isDestroyed()
+handle('companion:state', async () => {
+  const d = companionDeps()
+  const threads = await d.threads()
+  const asks = Object.fromEntries(threads.filter((t) => t.state === 'waiting').map((t) => [t.id, d.peek(t.id)?.asks ?? []] as const))
+  return companionState(threads, asks, failsNow(), d.wakeups(), Date.now())
+})
+// a choice of a thread's open question; you are at the computer, so every choice is allowed (the phone's lock-screen
+// buttons are limited, the companion is not)
+handle('companion:answer', (_e, thread: string, ask: string, question: string, label: string) => companionDeps().answer(String(thread), String(ask), { [String(question)]: String(label) }))
+handle('companion:reply', async (_e, thread: string, text: string) => { const t = String(text ?? '').trim(); if (!t) return 'empty'; dismissFail(String(thread)); return sendTo(String(thread), t, true) })
+handle('companion:open', (_e, thread: string) => { showWindow(); if (thread) mainWeb()?.send('hive:activate', String(thread)) })
+handle('companion:dismiss', (_e, thread: string) => { dismissFail(String(thread)) })
+handle('companion:size', (_e, w: number, h: number) => { if (Number.isFinite(w) && Number.isFinite(h)) placeCompanion(w, h) })
+handle('companion:hide', () => setCompanion(false))
+
 // messages that had not reached Claude when Orbit last closed go to their threads again (chat:reset, once)
 function resendPending(web: Electron.WebContents): void {
   for (const p of TEST_MODE ? [] : resendGroups(takePending())) {
@@ -1130,15 +1187,19 @@ function makeTray(): void {
   if (image.isEmpty()) console.warn('tray: the icon image did not load')
   tray = new Tray(image)
   tray.setToolTip(appName())
-  tray.setContextMenu(Menu.buildFromTemplate([
+  makeTrayMenu()
+  tray.on('click', showWindow)
+}
+function makeTrayMenu(): void {
+  tray?.setContextMenu(Menu.buildFromTemplate([
     { label: `Open ${appName()}`, click: showWindow },
+    { label: 'Companion', type: 'checkbox', checked: companionOn(), accelerator: 'Ctrl+Alt+O', click: () => setCompanion(!companionOn()) },
     { type: 'separator' },
     { label: `Quit ${appName()}`, click: () => { quitting = true; app.quit() } },
   ]))
-  tray.on('click', showWindow)
 }
 // terminals and agent threads stop with the app (Quit does not always pass through window-all-closed)
-app.on('before-quit', () => { quitting = true; saveSearchNow(); stopQuarry(); killAllTerminals() })
+app.on('before-quit', () => { quitting = true; globalShortcut.unregisterAll(); saveSearchNow(); stopQuarry(); killAllTerminals() })
 
 // one Orbit at a time: opening it again (the shortcut, Start menu) brings back the running one
 if (!TEST_MODE && !app.requestSingleInstanceLock()) app.quit()
@@ -1191,7 +1252,9 @@ app.whenReady().then(() => {
   handleQuarryScheme()
   void configureQuarry(settings.general.quarryPath)
   createWindow()
+  if (companionPrefs().on !== false) openCompanion()
   makeTray()
+  if (!TEST_MODE) { try { globalShortcut.register('CommandOrControl+Alt+O', () => setCompanion(!companionOn())) } catch { /* taken by another app: the tray menu still has it */ } }
   startSearch()
   startVersions((v) => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.isDestroyed()) w.webContents.send('versions:changed', v) })
   startUpdater((st) => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.isDestroyed()) w.webContents.send('update:state', st) })

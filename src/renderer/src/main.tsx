@@ -9,10 +9,14 @@ import './appearance'
 import { Shell } from './Shell'
 import { startEngine } from './engine'
 import { TeamWindow, pickTeam } from './TeamView'
+import { Companion } from './Companion'
 import { teamWindowOf } from '../../shared/teamSidebarCore'
 
-// ?view=team: the pop-out Team window, the Team view alone; otherwise the whole app
-const teamWin = teamWindowOf(location.search)
+// ?view=team: the pop-out Team window, the Team view alone; ?view=companion: the small always-on-top companion;
+// otherwise the whole app
+const companion = new URLSearchParams(location.search).get('view') === 'companion'
+const teamWin = companion ? null : teamWindowOf(location.search)
 if (teamWin?.team) pickTeam(teamWin.team)
-if (!teamWin) startEngine()
-createRoot(document.getElementById('root')!).render(teamWin ? <TeamWindow /> : <Shell />)
+if (companion) document.documentElement.classList.add('companion')
+else if (!teamWin) startEngine()
+createRoot(document.getElementById('root')!).render(companion ? <Companion /> : teamWin ? <TeamWindow /> : <Shell />)
