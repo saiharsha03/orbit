@@ -230,8 +230,8 @@ contextBridge.exposeInMainWorld('api', {
   companionStopTask: (thread: string, task: string) => ipcRenderer.invoke('companion:stopTask', thread, task),
   companionLaunch: (label: string, test?: boolean) => ipcRenderer.invoke('companion:launch', label, test),
   companionVoice: (on?: boolean) => ipcRenderer.invoke('companion:voice', on),
-  onCompanionSay: (cb: (line: string, kind: string) => void) => {
-    const fn = (_e: unknown, line: string, kind: string) => cb(line, kind)
+  onCompanionSay: (cb: (line: string, kind: string, face: unknown) => void) => {
+    const fn = (_e: unknown, line: string, kind: string, face: unknown) => cb(line, kind, face)
     ipcRenderer.on('companion:say', fn)
     return () => ipcRenderer.removeListener('companion:say', fn)
   },

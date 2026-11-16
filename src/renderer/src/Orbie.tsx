@@ -3,7 +3,10 @@
 //   jumps (a thread finished, a deploy landed); sleepy (idle late at night) has heavy eyes and a "z".
 // moons: one per working thread, round the ring. weather: the plan usage (clear, cloud, rain, storm).
 // rocket: a deploy on the pad while it is checked, gone up once it landed. stars: one per wake-up coming (up to 3).
+// drawn: while Orbie says something, the face Haiku drew for it takes the place of the mood's eyes and mouth.
 // Drawn in SVG, moved by CSS (companion.css).
+import { useId } from 'react'
+import type { FaceShape } from '../../shared/orbieFaceCore'
 export type Mood = 'idle' | 'work' | 'wait' | 'fail' | 'happy' | 'sleepy'
 export type Weather = 'clear' | 'cloudy' | 'rain' | 'storm'
 export type Rocket = 'none' | 'pad' | 'launch'
@@ -15,7 +18,14 @@ export const weatherOf = (pct: number): Weather => (pct >= 90 ? 'storm' : pct >=
 const MOON_SECONDS: Record<string, number> = { work: 2.2, fail: 1.2 }
 const STARS = [{ x: 4, y: 6 }, { x: 36, y: 34 }, { x: 2, y: 33 }]
 
-export function Orbie({ mood, moons = 0, weather = 'clear', rocket = 'none', stars = 0, size = 42 }: { mood: Mood; moons?: number; weather?: Weather; rocket?: Rocket; stars?: number; size?: number }) {
+// one shape of a drawn face: only the tags and attributes orbieFaceCore.ts let through
+function DrawnShape({ s }: { s: FaceShape }) {
+  const Tag = s.tag
+  return <Tag {...(s.attrs as Record<string, string | number>)} />
+}
+
+export function Orbie({ mood, moons = 0, weather = 'clear', rocket = 'none', stars = 0, size = 42, drawn }: { mood: Mood; moons?: number; weather?: Weather; rocket?: Rocket; stars?: number; size?: number; drawn?: FaceShape[] }) {
+  const clip = `ob-clip${useId().replace(/:/g, '')}`
   const n = Math.min(MAX_MOONS, Math.max(0, moons))
   // the moons share one path, spread evenly by starting each part of the way round
   const turn = MOON_SECONDS[mood] ?? 9
@@ -23,12 +33,15 @@ export function Orbie({ mood, moons = 0, weather = 'clear', rocket = 'none', sta
   const moon = (side: 'far' | 'near') => Array.from({ length: n }, (_, i) => <circle key={`${side}${i}`} className={`ob-moon ob-${side}`} cx="20" cy="23" r="1.6" style={phase(i)} />)
   return (
     <svg className={`orbie m-${mood} w-${weather}`} width={size} height={size} viewBox="0 0 40 40" aria-label={`Orbie: ${mood}, ${n} working, ${weather}`}>
+      {/* a drawn face stays inside Orbie's square */}
+      <defs><clipPath id={clip}><rect x="0" y="0" width="40" height="40" /></clipPath></defs>
       {STARS.slice(0, Math.min(3, stars)).map((s, i) => <path key={i} className="ob-star" style={{ animationDelay: `${i * 0.7}s` }} d={`M${s.x} ${s.y - 1.6}L${s.x + 0.5} ${s.y - 0.5}L${s.x + 1.6} ${s.y}L${s.x + 0.5} ${s.y + 0.5}L${s.x} ${s.y + 1.6}L${s.x - 0.5} ${s.y + 0.5}L${s.x - 1.6} ${s.y}L${s.x - 0.5} ${s.y - 0.5}Z`} />)}
       <g className="ob-body">
         {/* the ring's back half, behind the planet */}
         <ellipse className="ob-ring ob-back" cx="20" cy="23" rx="18" ry="5" />
         {moon('far')}
         <circle className="ob-planet" cx="20" cy="20" r="12" />
+        {!drawn?.length && <>
         <ellipse className="ob-cheek" cx="13.5" cy="24" rx="2" ry="1.2" />
         <ellipse className="ob-cheek" cx="26.5" cy="24" rx="2" ry="1.2" />
         <g className="ob-eyes">
@@ -48,9 +61,12 @@ export function Orbie({ mood, moons = 0, weather = 'clear', rocket = 'none', sta
           )}
         </g>
         <path className="ob-mouth" d={mood === 'fail' ? 'M17.5 26q2.5-1.6 5 0' : mood === 'wait' || mood === 'sleepy' ? 'M19 25.5a1 1 0 0 0 2 0a1 1 0 0 0-2 0' : 'M17.5 24.5q2.5 2 5 0'} />
+        </>}
         {/* the ring's front half, over the planet */}
         <path className="ob-ring ob-front" d="M2 23a18 5 0 0 0 36 0" />
         {moon('near')}
+        {/* the face Haiku drew for what Orbie is saying (orbieFaceCore.ts cleaned it), in place of the mood's own */}
+        {!!drawn?.length && <g className="ob-drawn" clipPath={`url(#${clip})`}>{drawn.map((s, i) => <DrawnShape key={i} s={s} />)}</g>}
       </g>
       {weather !== 'clear' && (
         <g className="ob-weather">

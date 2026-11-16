@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { companionSummary, needKey, type CompanionView } from '../../shared/companionCore'
 import type { PhoneNeed } from '../../shared/phoneCore'
 import { Orbie, weatherOf, type Mood, type Rocket } from './Orbie'
+import type { FaceShape } from '../../shared/orbieFaceCore'
 import './companion.css'
 
 const EMPTY: CompanionView = { needs: [], working: [], coming: [], running: [], prs: [], usage: [] }
@@ -59,13 +60,14 @@ export function Companion() {
   const root = useRef<HTMLDivElement>(null)
 
   // Orbie's speech bubble: a line from main (companionVoice.ts) while you are away from Orbit, shown for a while
-  const [said, setSaid] = useState<{ line: string; kind: string; at: number } | null>(null)
+  // with it, the face Haiku drew for the line (Orbie wears it while the bubble shows); a greeting stays up longer
+  const [said, setSaid] = useState<{ line: string; kind: string; at: number; face: FaceShape[] } | null>(null)
   const [voice, setVoice] = useState(true)
   useEffect(() => {
     void window.api.companionVoice().then(setVoice)
-    return window.api.onCompanionSay((line, kind) => setSaid({ line, kind, at: Date.now() }))
+    return window.api.onCompanionSay((line, kind, face) => setSaid({ line, kind, at: Date.now(), face: Array.isArray(face) ? face : [] }))
   }, [])
-  useEffect(() => { if (!said) return; const t = setTimeout(() => setSaid(null), 15_000); return () => clearTimeout(t) }, [said])
+  useEffect(() => { if (!said) return; const t = setTimeout(() => setSaid(null), said.kind === 'greet' ? 40_000 : 15_000); return () => clearTimeout(t) }, [said])
 
   const refresh = () => { void window.api.companionState().then(setS).catch(() => {}) }
   useEffect(() => {
@@ -134,7 +136,7 @@ export function Companion() {
         <button className="cp-head" onClick={() => setOpen(!open)} title={open ? 'Fold' : 'Open'}>
           {/* a poke: Orbie jumps and a test rocket goes up */}
           <span className="cp-orbie" onClick={(e) => { e.stopPropagation(); setHappy(Date.now()); void window.api.companionLaunch('Test launch', true) }} title="Poke Orbie">
-            <Orbie mood={mood} moons={s.working.length} weather={weather} rocket={rocket} stars={s.coming.length} />
+            <Orbie mood={mood} moons={s.working.length} weather={weather} rocket={rocket} stars={s.coming.length} drawn={said?.face} />
           </span>
           <span className="cp-sum">{summary}</span>
         </button>

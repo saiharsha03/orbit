@@ -223,7 +223,7 @@ interface Window {
     companionStopTask: (thread: string, task: string) => Promise<boolean>
     companionLaunch: (label: string, test?: boolean) => Promise<void>
     companionVoice: (on?: boolean) => Promise<boolean>
-    onCompanionSay: (cb: (line: string, kind: string) => void) => () => void
+    onCompanionSay: (cb: (line: string, kind: string, face: import('../../shared/orbieFaceCore').FaceShape[]) => void) => () => void
     deployDismiss: (id: string) => Promise<void>
     onDeployOut: (cb: (runId: string, text: string) => void) => () => void
     onDeployEnd: (cb: (runId: string, code: number, message: string, sha: string, watchId: string) => void) => () => void

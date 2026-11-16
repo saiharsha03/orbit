@@ -1,7 +1,7 @@
 {
   "name": "orbit",
   "productName": "Orbit",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "private": true,
   "description": "One desk, many agents: a desktop orchestrator for Claude Code agents",
   "keywords": [

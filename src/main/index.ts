@@ -21,7 +21,7 @@ import { pendingResent, resendGroups, takePending } from './pending'
 import { initDesktopNotify } from './desktopNotify'
 import { dismissFail, failsNow, initMobile, mobileStatus, notifyPhone, pairPhone, unpairPhone, type PhoneItem, type PhoneThread } from './mobile'
 import { companionBounds, companionState, type CompanionPr } from '../shared/companionCore'
-import { initVoice, voiceEvent } from './companionVoice'
+import { greet, happenedSince, initVoice, voiceEvent } from './companionVoice'
 import { registerStatusIpc, setAdvisor, setEffort, setModel } from './liveStatus'
 import { registerClaudeConfigIpc } from './claudeConfig'
 import { modeLabel } from '../shared/modeCore'
@@ -1061,8 +1061,62 @@ handle('companion:launch', (_e, label: string, test?: boolean) => {
 // Orbie's voice (companionVoice.ts): only while you are away from Orbit's window, and not when you muted it
 initVoice({
   away: () => companionOn() && companionPrefs().voice !== false && !(mainWin && !mainWin.isDestroyed() && mainWin.isFocused()),
-  say: (line, kind) => { if (companionWin && !companionWin.isDestroyed()) companionWin.webContents.send('companion:say', line, kind) },
+  say: (line, kind, face) => { if (companionWin && !companionWin.isDestroyed()) companionWin.webContents.send('companion:say', line, kind, face) },
 })
+// ---- Orbie's greetings: good morning (first time today), welcome back (after 20+ minutes locked or asleep), the
+// evening wrap (first time you are around after 6 PM). Haiku writes them from the facts gathered here. What was
+// still running when Windows shut down or Orbit quit is kept for the next morning.
+const AWAY_GREET_MS = 20 * 60_000
+let awayAt = 0
+const today = () => new Date().toLocaleDateString('en-CA')
+const voiceOn = () => companionOn() && companionPrefs().voice !== false && !TEST_MODE
+type GreetPrefs = { greetedMorning?: string; greetedEvening?: string; lastSeen?: number; leftRunning?: string[] }
+const greetPrefs = () => companionPrefs() as CompanionPrefs & GreetPrefs
+async function greetFacts(since: number, extra: string[] = []): Promise<string[]> {
+  const d = companionDeps()
+  const threads = await d.threads().catch(() => [])
+  const now = new Date()
+  const endOfDay = new Date(now).setHours(23, 59, 59, 999)
+  const wakes = d.wakeups().filter((w) => w.at <= endOfDay)
+  const usage = (await d.usage().catch(() => ({ rows: [] as { label: string; pct: number }[] }))).rows
+  return [
+    `it is ${now.toLocaleDateString('en-US', { weekday: 'long' })}, ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+    ...extra,
+    ...happenedSince(since),
+    ...threads.filter((t) => t.state === 'waiting').map((t) => `waiting for you: ${t.title}${t.note ? ` (${t.note.slice(0, 80)})` : ''}`),
+    ...threads.filter((t) => t.state === 'working').map((t) => `still working: ${t.title}`),
+    ...wakes.map((w) => `scheduled today at ${new Date(w.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}: ${w.title}`),
+    ...usage.map((u) => `${u.label}: ${Math.round(u.pct)}% used`),
+  ]
+}
+async function maybeGreet(reason: 'start' | 'back'): Promise<void> {
+  if (!voiceOn()) return
+  const p = greetPrefs()
+  const awayFor = awayAt ? Date.now() - awayAt : 0
+  if (p.greetedMorning !== today()) {
+    uiSave('companion', { ...companionPrefs(), greetedMorning: today() })
+    const hour = new Date().getHours()
+    const left = p.leftRunning?.length ? [`last time Orbit closed, these were still running: ${p.leftRunning.join(', ')}`] : []
+    const since = p.lastSeen ?? awayAt ?? Date.now() - 12 * 3_600_000
+    await greet(hour < 12 ? 'good morning, the first hello of the day' : 'hello, the first hello of the day (it is past noon)', await greetFacts(since, left))
+  } else if (reason === 'back' && awayFor >= AWAY_GREET_MS) {
+    await greet(`welcome back after ${Math.round(awayFor / 60_000)} minutes away`, await greetFacts(awayAt))
+  }
+  awayAt = 0
+}
+// what was still running, kept when you leave (lock, sleep, shutdown, quit) for the next greeting
+function leaving(): void {
+  if (!awayAt) awayAt = Date.now()
+  if (TEST_MODE) return
+  const running = liveThreads().filter((t) => t.busy).map((t) => t.title).slice(0, 8)
+  uiSave('companion', { ...companionPrefs(), lastSeen: Date.now(), leftRunning: running })
+}
+function eveningCheck(): void {
+  if (!voiceOn() || new Date().getHours() < 18 || greetPrefs().greetedEvening === today()) return
+  if (powerMonitor.getSystemIdleTime() > 120) return // not at the computer right now
+  uiSave('companion', { ...companionPrefs(), greetedEvening: today() })
+  void greetFacts(new Date().setHours(0, 0, 0, 0)).then((f) => greet('the evening wrap: how the day went, and what is still running before they shut down', f))
+}
 handle('companion:voice', (_e, on?: boolean) => {
   if (typeof on === 'boolean') uiSave('companion', { ...companionPrefs(), voice: on })
   return companionPrefs().voice !== false
@@ -1254,7 +1308,7 @@ function makeTrayMenu(): void {
   ]))
 }
 // terminals and agent threads stop with the app (Quit does not always pass through window-all-closed)
-app.on('before-quit', () => { quitting = true; globalShortcut.unregisterAll(); saveSearchNow(); stopQuarry(); killAllTerminals() })
+app.on('before-quit', () => { quitting = true; leaving(); globalShortcut.unregisterAll(); saveSearchNow(); stopQuarry(); killAllTerminals() })
 
 // one Orbit at a time: opening it again (the shortcut, Start menu) brings back the running one
 if (!TEST_MODE && !app.requestSingleInstanceLock()) app.quit()
@@ -1296,7 +1350,13 @@ function sourceRunIdentity(): void {
 Menu.setApplicationMenu(null)
 app.whenReady().then(() => {
   // the laptop slept through wake-ups: fire them once it is back (after the network has had a moment)
-  powerMonitor.on('resume', () => { setTimeout(() => void wakeupsTick(), 15_000) })
+  powerMonitor.on('resume', () => { setTimeout(() => void wakeupsTick(), 15_000); setTimeout(() => void maybeGreet('back'), 8_000) })
+  // Orbie's greetings: away from the lock or sleep, back at the unlock (resume above), every leave remembered
+  powerMonitor.on('lock-screen', leaving)
+  powerMonitor.on('suspend', leaving)
+  powerMonitor.on('shutdown', leaving)
+  powerMonitor.on('unlock-screen', () => { setTimeout(() => void maybeGreet('back'), 3_000) })
+  setInterval(eveningCheck, 5 * 60_000).unref?.()
   // Windows toasts need it; same as appId in electron-builder.yml.
   if (app.isPackaged) app.setAppUserModelId(APP_ID)
   else sourceRunIdentity()
@@ -1308,6 +1368,7 @@ app.whenReady().then(() => {
   void configureQuarry(settings.general.quarryPath)
   createWindow()
   if (companionPrefs().on !== false) openCompanion()
+  setTimeout(() => void maybeGreet('start'), 12_000) // once the companion and the threads have settled
   makeTray()
   if (!TEST_MODE) { try { globalShortcut.register('CommandOrControl+Alt+O', () => setCompanion(!companionOn())) } catch { /* taken by another app: the tray menu still has it */ } }
   startSearch()

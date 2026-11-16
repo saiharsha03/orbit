@@ -4,6 +4,17 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-11-16
+
+### Added
+
+- Orbie's greetings, written by Haiku from what is going on: good morning (the first hello of the day, with what
+  finished or failed overnight, what waits for you, today's wake-ups and the usage left), welcome back (after 20+
+  minutes locked or asleep) and the evening wrap (the first time you are around after 6 PM). What was still running
+  when Orbit closed is told the next morning.
+- Orbie's faces are drawn by Haiku for each line it says (winks, star eyes, a nightcap, a yawn...). Only plain shapes
+  inside Orbie, in its own colours, are drawn.
+
 ## [4.0.0] - 2026-11-16
 
 ### Added
