@@ -1010,15 +1010,34 @@ async function readCompanionPrs(): Promise<void> {
     const prs = threadPrs(await loadHistory(transcriptPath(l.cwd, l.sessionId)).catch(() => [])).slice(-3)
     for (const p of prs) rows.push({ thread: l.tabId, threadTitle: l.title, repo: p.repo, num: p.num, url: p.url, state: await gitPanel.prStateByUrl(p.url) })
   }
+  // what changed since the last reading: Orbie says it (checks went red or green, merged)
+  for (const r of rows) {
+    const was = prSeen.get(r.url)
+    prSeen.set(r.url, r.state)
+    if (!was || was === r.state) continue
+    const what = r.state === 'failing' ? 'checks are failing' : r.state === 'passing' ? 'checks passed' : r.state === 'merged' ? 'merged' : r.state === 'closed' ? 'closed' : ''
+    if (what) voiceEvent({ kind: 'pr', title: `${r.repo.split('/').pop()} #${r.num}`, text: `${what} (${r.threadTitle})` })
+  }
   companionPrs = rows.filter((r) => r.state !== 'merged' && r.state !== 'closed')
 }
+const prSeen = new Map<string, string>()
+const usageSeen = new Map<string, number>()
 handle('companion:state', async () => {
   const d = companionDeps()
   const threads = await d.threads()
   const asks = Object.fromEntries(threads.filter((t) => t.state === 'waiting').map((t) => [t.id, d.peek(t.id)?.asks ?? []] as const))
   if (Date.now() - prsAt > 60_000) { prsAt = Date.now(); void readCompanionPrs().catch(() => {}) }
   const usage = await d.usage().catch(() => ({ plan: null, rows: [] }))
-  return { ...companionState(threads, asks, failsNow(), d.wakeups(), Date.now()), running: d.running(), prs: companionPrs, usage: usage.rows }
+  // a limit crossing 90%: Orbie warns (the phone's usage guard only reaches a paired phone)
+  for (const u of usage.rows) {
+    const was = usageSeen.get(u.key) ?? 0
+    usageSeen.set(u.key, u.pct)
+    if (was > 0 && was < 90 && u.pct >= 90) voiceEvent({ kind: 'limit', title: u.label, text: `${Math.round(u.pct)}% used${u.resetsAt ? `, resets ${new Date(u.resetsAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}` })
+  }
+  const live = liveThreads()
+  const goals = live.flatMap((t) => (t.goal && !t.tabId.startsWith('watcher-') ? [{ thread: t.tabId, title: t.title, condition: t.goal.condition, status: t.goal.status, setAt: t.goal.setAt, ...(t.goal.metAt ? { metAt: t.goal.metAt } : {}) }] : []))
+  const extra = Object.fromEntries(live.filter((t) => t.todos || t.retry).map((t) => [t.tabId, { todos: t.todos, retry: t.retry }]))
+  return { ...companionState(threads, asks, failsNow(), d.wakeups(), Date.now()), running: d.running(), prs: companionPrs, usage: usage.rows, goals, extra }
 })
 handle('companion:stopTask', (_e, thread: string, task: string) => companionDeps().stopTask(String(thread), String(task)))
 // a choice of a thread's open question; you are at the computer, so every choice is allowed (the phone's lock-screen

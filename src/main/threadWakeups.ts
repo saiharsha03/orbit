@@ -3,6 +3,7 @@
 // turn, Orbit closing and the laptop sleeping. Orbit checks them every 30 s, after it starts and when the laptop wakes;
 // a row that came due while Orbit was closed (or asleep) fires once when it is back and says how late it is.
 // A repeating row then moves to its next slot after now: missed slots are not replayed one by one.
+import { voiceEvent } from './companionVoice'
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -103,6 +104,7 @@ export function wakeMessage(r: ThreadWakeup, now: number): string {
 }
 
 function markFired(r: ThreadWakeup, now: number): void {
+  voiceEvent({ kind: 'wake', title: r.title || 'A thread', text: r.prompt.slice(0, 160) })
   withDb((db) => {
     if (r.every_minutes) db.prepare('UPDATE thread_wakeups SET wake_at = ?, fired_at = ?, error = NULL WHERE id = ?').run(localIso(new Date(nextSlot(Date.parse(r.wake_at), r.every_minutes, now))), localIso(new Date(now)), r.id)
     else db.prepare(`UPDATE thread_wakeups SET status = 'fired', fired_at = ?, error = NULL WHERE id = ?`).run(localIso(new Date(now)), r.id)

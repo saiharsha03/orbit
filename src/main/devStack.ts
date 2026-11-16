@@ -2,6 +2,7 @@
 // services and local dev processes), tracks their status / port / logs / owner, and lets each process run from the main
 // checkout, an existing git worktree, or a new worktree for a local branch.
 // The same engine backs the panel (IPC) and the agent tool in chat.ts, which gets guard rails through the `caller`.
+import { voiceEvent } from './companionVoice'
 import { BrowserWindow } from 'electron'
 import { execFile, spawn, type ChildProcess } from 'node:child_process'
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync } from 'node:fs'
@@ -63,6 +64,7 @@ const git = (dir: string, args: string[]) => run('git', args, { cwd: dir })
 
 const label = (o: Owner | null): string => (o && o.kind === 'thread' ? ownerLabel({ ...o, title: titles.get(o.id) ?? o.title }) : ownerLabel(o))
 let pending: ReturnType<typeof setTimeout> | null = null
+const lastStates = new Map<string, string>()
 function publish() {
   if (pending) return
   pending = setTimeout(() => {
@@ -71,6 +73,12 @@ function publish() {
     const json = JSON.stringify(s)
     if (json === lastJson) return
     lastJson = json
+    // a service that crashed: Orbie says so (while you are away from Orbit)
+    for (const v of s.services) {
+      const was = lastStates.get(v.name)
+      if (v.state === 'failed' && was && was !== 'failed' && was !== 'stopped') voiceEvent({ kind: 'fail', title: `${v.label || v.name} (dev stack)`, text: v.note || 'crashed' })
+      lastStates.set(v.name, v.state)
+    }
     for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.isDestroyed()) w.webContents.send('dev:update', s)
   }, 120)
 }

@@ -27,3 +27,22 @@ test('waitingOn names running shells, monitors and agents, not the schedule', ()
   assert.equal(waitingOn({ ...emptyStatus(), nextWake: Date.now() + 60_000 }), '')
   assert.equal(waitingOn(emptyStatus()), '')
 })
+
+test('a goal keeps its thread under Working; a met goal is Completed until opened', () => {
+  const g = (status: 'active' | 'met', metAt?: number) => ({ condition: 'tests pass', status, setAt: 1, ...(metAt ? { metAt } : {}) })
+  const all = [s('going'), s('done'), s('seen'), s('busy', { busy: true })]
+  const goals = new Map([['going', g('active')], ['done', g('met', 5)], ['seen', g('met', 6)], ['busy', g('active')]])
+  const r = liveRows(all, [], new Map(), goals, new Set(['seen:6']))
+  assert.deepEqual(r.working.map((x) => [x.id, x.goal?.status]), [['going', 'active'], ['busy', 'active']])
+  assert.equal(r.working[0].note, 'Goal: tests pass')
+  assert.deepEqual(r.completed.map((x) => [x.id, x.note]), [['done', 'Goal met: tests pass']])
+})
+
+test('Claude Code signals: retries blink the row, todos count, a cap needs you', () => {
+  const r = liveRows([s('slow', { busy: true }), s('capped')], [], new Map(), new Map(), new Set(), new Map([
+    ['slow', { retry: { attempt: 2, max: 10, error: 'overloaded' }, todos: { done: 3, total: 7 } }],
+    ['capped', { cap: 'turns' }],
+  ]))
+  assert.deepEqual(r.working.map((x) => [x.note, x.retrying, x.todos]), [['Retrying 2/10 · overloaded', true, '3/7']])
+  assert.deepEqual(r.waiting.map((x) => [x.id, x.note]), [['capped', 'Stopped at the turn cap']])
+})

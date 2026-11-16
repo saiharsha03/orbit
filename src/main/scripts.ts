@@ -2,6 +2,7 @@
 // folder with the user's own environment and streams the output; Stop kills the process tree. The UI only names a
 // script and an option: the command always comes from the settings store (or the file), never from the page.
 // The list lives in the settings store (seeded from scripts.json); the file is only the fallback when the store has none.
+import { voiceEvent } from './companionVoice'
 import { execFile, spawn, type ChildProcess } from 'node:child_process'
 import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -116,6 +117,7 @@ export function runScript(name: string, label: string): string {
     procs.delete(name)
     out.end()
     patch(name, id, { output: tail.text(), endedAt: Date.now(), ...r })
+    if (r.phase === 'failed') voiceEvent({ kind: 'fail', title: `Script ${name}`, text: r.note ?? 'failed' })
   }
   child.on('error', (e) => end({ phase: 'failed', note: `could not start: ${e.message}` }))
   child.on('close', (code, signal) => {

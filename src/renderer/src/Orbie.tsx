@@ -7,7 +7,8 @@
 // Drawn in SVG, moved by CSS (companion.css).
 import { useId } from 'react'
 import type { FaceShape } from '../../shared/orbieFaceCore'
-export type Mood = 'idle' | 'work' | 'wait' | 'fail' | 'happy' | 'sleepy'
+// retry: an API call is being retried (overloaded): a sweat drop and a wavy mouth
+export type Mood = 'idle' | 'work' | 'wait' | 'fail' | 'happy' | 'sleepy' | 'retry'
 export type Weather = 'clear' | 'cloudy' | 'rain' | 'storm'
 export type Rocket = 'none' | 'pad' | 'launch'
 
@@ -16,6 +17,8 @@ export const weatherOf = (pct: number): Weather => (pct >= 90 ? 'storm' : pct >=
 
 // one turn of the ring per mood (companion.css): the moons are spread by starting part of a turn in
 const MOON_SECONDS: Record<string, number> = { work: 2.2, fail: 1.2 }
+// where each confetti piece flies to, from Orbie's middle
+const CONFETTI = [[-17, -14], [16, -16], [-20, 2], [20, 0], [-10, -20], [11, -21], [-15, 12], [15, 13], [0, -22], [-4, 18]]
 const STARS = [{ x: 4, y: 6 }, { x: 36, y: 34 }, { x: 2, y: 33 }]
 
 // one shape of a drawn face: only the tags and attributes orbieFaceCore.ts let through
@@ -24,7 +27,8 @@ function DrawnShape({ s }: { s: FaceShape }) {
   return <Tag {...(s.attrs as Record<string, string | number>)} />
 }
 
-export function Orbie({ mood, moons = 0, weather = 'clear', rocket = 'none', stars = 0, size = 42, drawn }: { mood: Mood; moons?: number; weather?: Weather; rocket?: Rocket; stars?: number; size?: number; drawn?: FaceShape[] }) {
+// party: a goal was just met (confetti bursts out); goal: a goal is being worked toward (a little flag on top)
+export function Orbie({ mood, moons = 0, weather = 'clear', rocket = 'none', stars = 0, size = 42, drawn, party = false, goal = false }: { mood: Mood; moons?: number; weather?: Weather; rocket?: Rocket; stars?: number; size?: number; drawn?: FaceShape[]; party?: boolean; goal?: boolean }) {
   const clip = `ob-clip${useId().replace(/:/g, '')}`
   const n = Math.min(MAX_MOONS, Math.max(0, moons))
   // the moons share one path, spread evenly by starting each part of the way round
@@ -60,11 +64,13 @@ export function Orbie({ mood, moons = 0, weather = 'clear', rocket = 'none', sta
             </g>
           )}
         </g>
-        <path className="ob-mouth" d={mood === 'fail' ? 'M17.5 26q2.5-1.6 5 0' : mood === 'wait' || mood === 'sleepy' ? 'M19 25.5a1 1 0 0 0 2 0a1 1 0 0 0-2 0' : 'M17.5 24.5q2.5 2 5 0'} />
+        {mood === 'retry' && <path className="ob-sweat" d="M28.5 12.5q-1.6 2.4 0 3.2q1.6-.8 0-3.2z" />}
+        <path className="ob-mouth" d={mood === 'retry' ? 'M17 25.5q1-1 2 0t2 0t2 0' : mood === 'fail' ? 'M17.5 26q2.5-1.6 5 0' : mood === 'wait' || mood === 'sleepy' ? 'M19 25.5a1 1 0 0 0 2 0a1 1 0 0 0-2 0' : 'M17.5 24.5q2.5 2 5 0'} />
         </>}
         {/* the ring's front half, over the planet */}
         <path className="ob-ring ob-front" d="M2 23a18 5 0 0 0 36 0" />
         {moon('near')}
+        {goal && <g className="ob-flag"><path className="ob-pole" d="M20 8.2V2.5" /><path className="ob-pennant" d="M20 2.6l5 1.6l-5 1.6z" /></g>}
         {/* the face Haiku drew for what Orbie is saying (orbieFaceCore.ts cleaned it), in place of the mood's own */}
         {!!drawn?.length && <g className="ob-drawn" clipPath={`url(#${clip})`}>{drawn.map((s, i) => <DrawnShape key={i} s={s} />)}</g>}
       </g>
@@ -89,6 +95,7 @@ export function Orbie({ mood, moons = 0, weather = 'clear', rocket = 'none', sta
         </g>
       )}
       {mood === 'wait' && <text className="ob-q" x="33" y="9">?</text>}
+      {party && <g className="ob-confetti">{CONFETTI.map((c, i) => <rect key={i} className={`cf c${i % 4}`} x="19" y="19" width="2" height="1.2" style={{ '--dx': `${c[0]}px`, '--dy': `${c[1]}px`, animationDelay: `${(i % 3) * 0.08}s` } as React.CSSProperties} />)}</g>}
       {mood === 'sleepy' && <text className="ob-z" x="31" y="10">z</text>}
     </svg>
   )

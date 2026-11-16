@@ -10,7 +10,10 @@ import { claudeExecutable } from './engine'
 import { TEST_MODE } from './testMode'
 import { FACE_COLORS, MAX_PART, MAX_SHAPES, parseFaceSvg, type FaceShape } from '../shared/orbieFaceCore'
 
-export type VoiceEvent = { kind: 'done' | 'fail' | 'ask' | 'deploy'; title: string; text: string }
+// done / fail: a turn ended; ask: it needs you; deploy: one landed; goal / goalmet: a /goal was set / met; limit: a usage
+// limit paused a thread; watch: a thread (a watcher) called notify_phone; wake: a scheduled wake-up fired; pr: a pull
+// request's checks or state changed
+export type VoiceEvent = { kind: 'done' | 'fail' | 'ask' | 'deploy' | 'goal' | 'goalmet' | 'limit' | 'watch' | 'wake' | 'pr'; title: string; text: string }
 export type SayKind = VoiceEvent['kind'] | 'greet'
 // the face Haiku drew for the line (orbieFaceCore.ts cleans it); empty when it drew none Orbit can use
 export type Face = FaceShape[]
@@ -35,7 +38,9 @@ const FACE_RULE = [
 const NEWS = [WHO,
   'Write ONE short line (at most 16 words) telling them what just happened, from the events given.',
   'Be warm and a little playful (one emoji at most, no exclamation spam), but every fact must come from the events: the thread names, what finished, what failed and why, what is waiting.',
-  'If something needs them (a question, a permission, a failure), say that first and plainly. No pet names or nicknames.', FACE_RULE].join(' ')
+  'If something needs them (a question, a permission, a failure, a usage limit, failing checks), say that first and plainly. No pet names or nicknames.',
+  'Event kinds: done/fail = a turn ended; ask = needs them; deploy = landed; goal = a /goal was set; goalmet = a goal was MET (celebrate it big);',
+  'limit = a usage limit paused a thread (text says when it continues); watch = a watcher flagged something; wake = a scheduled wake-up fired; pr = a pull request changed (text says how).', FACE_RULE].join(' ')
 const GREET = [WHO,
   'Greet them for the moment given (good morning, welcome back, evening wrap) in at most 28 words: playful, a pun is welcome, one or two emoji.',
   'Never call them anything: no pet names or nicknames (sunshine, buddy, friend, champ, ring-bearer...), just "Good morning!" and on.',
@@ -66,7 +71,7 @@ export function voiceEvent(e: VoiceEvent): void {
 
 // what happened since then, one line each, for a greeting's facts
 export const happenedSince = (since: number): string[] =>
-  awayLog.filter((e) => e.at >= since).map((e) => `${e.kind === 'fail' ? 'failed' : e.kind === 'ask' ? 'needs you' : e.kind === 'deploy' ? 'deploy landed' : 'finished'}: ${e.title}${e.text ? ` (${e.text.slice(0, 100)})` : ''}`)
+  awayLog.filter((e) => e.at >= since).map((e) => `${WORD[e.kind].toLowerCase()}: ${e.title}${e.text ? ` (${e.text.slice(0, 100)})` : ''}`)
 
 // a greeting (moment: "good morning", "welcome back after 2 hours away", ...), said whether or not Orbit is focused
 export async function greet(moment: string, facts: string[]): Promise<void> {
@@ -82,8 +87,11 @@ function schedule(): void {
   timer = setTimeout(() => { timer = null; void speak() }, wait)
 }
 
-const plain = (es: VoiceEvent[]) => es.map((e) => `${e.kind === 'fail' ? 'Failed' : e.kind === 'ask' ? 'Needs you' : e.kind === 'deploy' ? 'Landed' : 'Done'}: ${e.title}`).join(' · ')
-const worst = (es: VoiceEvent[]): VoiceEvent['kind'] => (['fail', 'ask', 'deploy', 'done'] as const).find((k) => es.some((e) => e.kind === k)) ?? 'done'
+const WORD: Record<VoiceEvent['kind'], string> = { fail: 'Failed', ask: 'Needs you', deploy: 'Landed', done: 'Done', goal: 'Goal set', goalmet: 'Goal met', limit: 'Usage limit', watch: 'Heads up', wake: 'Woke up', pr: 'Pull request' }
+const plain = (es: VoiceEvent[]) => es.map((e) => `${WORD[e.kind]}: ${e.title}${e.kind === 'pr' || e.kind === 'watch' ? ` (${e.text.slice(0, 80)})` : ''}`).join(' · ')
+// the bubble's kind: what needs you first, then the good news
+const ORDER: VoiceEvent['kind'][] = ['fail', 'ask', 'limit', 'watch', 'pr', 'goalmet', 'deploy', 'goal', 'wake', 'done']
+const worst = (es: VoiceEvent[]): VoiceEvent['kind'] => ORDER.find((k) => es.some((e) => e.kind === k)) ?? 'done'
 
 async function speak(): Promise<void> {
   if (speaking || !queued.length || !sink) return

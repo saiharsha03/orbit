@@ -48,6 +48,7 @@ import { cancelContinue, limitBack, scheduleContinue } from './autoContinue'
 import { addWakeup, cancelWakeup, formatWakeups, listWakeups } from './threadWakeups'
 import { resetFromText, wakeLabel } from '../shared/continueCore'
 import { emptyStatus, reduceStatus, type ThreadStatus } from '../shared/statusCore'
+import type { Goal } from '../shared/goalCore'
 import { formatAgentStatus, recentActions, waitingOn } from '../shared/agentStatusCore'
 // the last `bytes` of a file (its first, cut-off line is skipped by the JSONL readers)
 function readTail(path: string, bytes: number): string {
@@ -81,6 +82,8 @@ const notifyUser = (title: string, body: string, thread: string): void => {
   // Orbie says what needs you (a finished or failed turn it hears from the turn's end itself)
   const ask = /^(Question|Waiting|Permission|Plan ready):\s*/.exec(title)
   if (ask) voiceEvent({ kind: 'ask', title: title.slice(ask[0].length), text: `${ask[1]}: ${body}` })
+  const limit = /^Usage limit:\s*/.exec(title)
+  if (limit) voiceEvent({ kind: 'limit', title: title.slice(limit[0].length), text: body })
 }
 
 // a watcher's thread gets only these Orbit tools: none starts, steers or reconfigures other threads, edits code (Codex,
@@ -237,6 +240,17 @@ async function idleCompact(tabId: string, s: Live, send: (ev: unknown) => void):
   track(s, m, 'hive')
   s.push(m)
 }
+// A thread's /goal changed: set (Orbie notices) or met (Orbie celebrates, and the phone and the desktop are told)
+function goalChanged(tabId: string, before: Goal | null, after: Goal | null): void {
+  if (!after || isWatcherTab(tabId)) return
+  const fresh = !before || before.condition !== after.condition
+  if (after.status === 'active' && fresh) voiceEvent({ kind: 'goal', title: titleOf(tabId), text: after.condition })
+  if (after.status === 'met' && (fresh || before?.status !== 'met')) {
+    voiceEvent({ kind: 'goalmet', title: titleOf(tabId), text: after.condition })
+    notifyPhone(`Goal met: ${titleOf(tabId)}`, after.condition, tabId)
+    notifyDesktop(`Goal met: ${titleOf(tabId)}`, after.condition, tabId)
+  }
+}
 // The recap ("the goal is X; next: Y"): IDLE_RECAP_MS after a live thread's last turn, a separate Sonnet call in a
 // throwaway fork writes it (btw.ts), in the background whether or not the thread is on screen. The thread shows it
 // once it is written (threadRecap); a new turn drops it and starts the wait again.
@@ -323,7 +337,9 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
   let s: Live
   const send = (event: unknown) => {
     if (s) {
+      const goalBefore = s.status.goal
       s.status = reduceStatus(s.status, event, Date.now())
+      goalChanged(tabId, goalBefore, s.status.goal)
       s.lastActiveAt = Date.now()
       const ev = event as { type?: string; tasks?: unknown }
       if (ev?.type === 'hive_stop') s.stopTasks = Array.isArray(ev.tasks) ? ev.tasks.length : 0
@@ -431,7 +447,7 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
         'notify_phone',
         `Send a notification to the user's phone (the ${appName()} app), shown even when the app is closed. Use it when the user asked to be told, or for something they would want to know right away when away from the desk: a long job finished or failed, a decision only they can make, an alert. Keep it short; tapping it opens this thread.`,
         { title: z.string().describe('One short line'), body: z.string().optional().describe('A sentence or two') },
-        async ({ title, body }) => ({ content: [{ type: 'text', text: notifyPhone(title, body ?? '', tabId) }] }),
+        async ({ title, body }) => { voiceEvent({ kind: 'watch', title, text: body ?? '' }); return { content: [{ type: 'text', text: notifyPhone(title, body ?? '', tabId) }] } },
       ),
       tool(
         'rename_thread',
@@ -1758,7 +1774,7 @@ export function teamStates(team: Team): Record<string, MemberStatus> {
   return out
 }
 
-const threadInfo = (id: string, t: Live) => ({ sessionId: t.sessionId, title: titleOf(id), cwd: t.cwd, busy: t.turns.isBusy(), waitingReason: t.waitingReason, waitingOn: waitingOn(t.status), background: t.background })
+const threadInfo = (id: string, t: Live) => ({ sessionId: t.sessionId, title: titleOf(id), cwd: t.cwd, busy: t.turns.isBusy(), waitingReason: t.waitingReason, waitingOn: waitingOn(t.status), background: t.background, goal: t.status.goal, todos: t.status.todos ?? null, retry: t.status.retry ?? null })
 // every live thread, for the phone app's list
 export const liveThreads = () => [...live.entries()].map(([id, t]) => ({ tabId: id, ...threadInfo(id, t) }))
 

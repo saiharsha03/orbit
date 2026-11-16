@@ -7,7 +7,7 @@ import { Orbie, weatherOf, type Mood, type Rocket } from './Orbie'
 import type { FaceShape } from '../../shared/orbieFaceCore'
 import './companion.css'
 
-const EMPTY: CompanionView = { needs: [], working: [], coming: [], running: [], prs: [], usage: [] }
+const EMPTY: CompanionView = { needs: [], working: [], coming: [], running: [], prs: [], usage: [], goals: [], extra: {} }
 const WIDTH_OPEN = 380
 const WIDTH_SHUT = 300
 const MAX_H = 560
@@ -118,11 +118,25 @@ export function Companion() {
     was.current = { busy, landed }
   }, [busy, landed, failed])
   useEffect(() => { if (!happy) return; const t = setTimeout(() => setHappy(0), 2_400); return () => clearTimeout(t) }, [happy])
+  // a goal met since the last look: a party (confetti and a jump), and the list opens to show it completed
+  const [party, setParty] = useState(0)
+  const metSeen = useRef<Set<string> | null>(null)
+  const metKeys = s.goals.filter((g) => g.status === 'met').map((g) => `${g.thread}:${g.metAt ?? 0}`).join('|')
+  useEffect(() => {
+    const keys = metKeys ? metKeys.split('|') : []
+    if (!metSeen.current) { metSeen.current = new Set(keys); return }
+    if (keys.some((k) => !metSeen.current!.has(k))) { setParty(Date.now()); setHappy(Date.now()); setOpen(true) }
+    for (const k of keys) metSeen.current.add(k)
+  }, [metKeys])
+  useEffect(() => { if (!party) return; const t = setTimeout(() => setParty(0), 4_000); return () => clearTimeout(t) }, [party])
+  // a thread whose API calls are being retried (overloaded, a network error): Orbie sweats
+  const retrying = Object.values(s.extra).some((x) => x.retry)
+  const goalsActive = s.goals.filter((g) => g.status === 'active').length
   const hour = new Date().getHours()
-  const mood: Mood = failed ? 'fail' : waiting ? 'wait' : happy ? 'happy' : busy ? 'work' : hour >= 23 || hour < 7 ? 'sleepy' : 'idle'
+  const mood: Mood = failed ? 'fail' : waiting ? 'wait' : party || happy ? 'happy' : retrying ? 'retry' : busy || goalsActive ? 'work' : hour >= 23 || hour < 7 ? 'sleepy' : 'idle'
   const weather = weatherOf(Math.max(0, ...s.usage.map((u) => u.pct)))
   const rocket: Rocket = running.length ? 'pad' : happy && landed ? 'launch' : 'none'
-  const summary = companionSummary(s, running.length)
+  const summary = companionSummary({ ...s, goalsActive }, running.length)
   const limits = s.usage.slice(0, 3)
 
   return (
@@ -136,7 +150,7 @@ export function Companion() {
         <button className="cp-head" onClick={() => setOpen(!open)} title={open ? 'Fold' : 'Open'}>
           {/* a poke: Orbie jumps and a test rocket goes up */}
           <span className="cp-orbie" onClick={(e) => { e.stopPropagation(); setHappy(Date.now()); void window.api.companionLaunch('Test launch', true) }} title="Poke Orbie">
-            <Orbie mood={mood} moons={s.working.length} weather={weather} rocket={rocket} stars={s.coming.length} drawn={said?.face} />
+            <Orbie mood={mood} moons={s.working.length} weather={weather} rocket={rocket} stars={s.coming.length} drawn={said?.face} party={!!party} goal={goalsActive > 0} />
           </span>
           <span className="cp-sum">{summary}</span>
         </button>
@@ -162,6 +176,14 @@ export function Companion() {
               {(d.landed || d.stuck) && <button className="cp-ib" onClick={() => void window.api.deployDismiss(d.id).then(() => window.api.deployWatchers().then(setDeploys))} title="Dismiss"><i className="codicon codicon-close sm" /></button>}
             </div>
           ))}
+          {!!s.goals.length && <div className="cp-sec">Goals <span>{s.goals.length}</span></div>}
+          {s.goals.map((g) => (
+            <div key={g.thread} className="cp-row cp-click" onClick={() => void window.api.companionOpen(g.thread)} title={`${g.title}: ${g.condition}`}>
+              {g.status === 'met' ? <i className="codicon codicon-pass-filled sm cp-good" /> : <i className="codicon codicon-target sm cp-goal" />}
+              <span className="cp-title">{g.condition}</span>
+              <span className={`cp-time ${g.status === 'met' ? 'cp-good' : ''}`}>{g.status === 'met' ? `completed ${at(g.metAt ?? Date.now())}` : ago(g.setAt)}</span>
+            </div>
+          ))}
           {!!s.running.length && <div className="cp-sec">Background tasks <span>{s.running.length}</span></div>}
           {s.running.map((r) => (
             <div key={`${r.thread}:${r.id}`} className="cp-row cp-click" onClick={() => void window.api.companionOpen(r.thread)} title={[r.threadTitle, r.title, r.now].filter(Boolean).join(' · ')}>
@@ -184,7 +206,9 @@ export function Companion() {
             <div key={t.id} className="cp-row cp-click" onClick={() => void window.api.companionOpen(t.id)} title={t.note || `${t.title} (${t.folder})`}>
               <i className="codicon codicon-loading sm cp-spin" />
               <span className="cp-title">{t.title}</span>
-              {t.note && <span className="cp-time cp-dnote">{t.note}</span>}
+              {s.extra[t.id]?.retry ? <span className="cp-time cp-warn" title={s.extra[t.id]!.retry!.error}>retrying {s.extra[t.id]!.retry!.attempt}/{s.extra[t.id]!.retry!.max}</span>
+                : s.extra[t.id]?.todos ? <span className="cp-time" title={s.extra[t.id]!.todos!.now}>{s.extra[t.id]!.todos!.done}/{s.extra[t.id]!.todos!.total}</span>
+                : t.note && <span className="cp-time cp-dnote">{t.note}</span>}
             </div>
           ))}
           {!!limits.length && <div className="cp-sec">Plan limits</div>}

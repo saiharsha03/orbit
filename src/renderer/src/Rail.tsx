@@ -51,7 +51,8 @@ const askOf = (tabId: string) => {
 const clearWaiting = (id: string) => { setSessions((all) => all.map((s) => (s.id === id ? { ...s, waitingReason: undefined, waitingSince: undefined } : s))); recomputeLive() }
 
 // ---- a thread row's line: its icon (what it is, a ring with its context use, its state on it), title and cache ----
-type Badge = 'work' | 'wait' | 'fail' | ''
+// goal: working toward its /goal; done: the goal is met (the Completed rows)
+type Badge = 'work' | 'wait' | 'fail' | 'goal' | 'done' | 'retry' | ''
 function ThreadLine({ icon, badge, title, path, tabId, live, end }: { icon: string; badge: Badge; title: string; path?: string; tabId?: string; live: boolean; end?: ReactNode }) {
   const m = useThreadMeters(path, tabId, live)
   // a countdown ticks only while the cache is still warm
@@ -173,7 +174,7 @@ const rowKeys = (e: React.KeyboardEvent<HTMLElement>) => {
   rows[to]?.focus()
 }
 
-const RailList = memo(function RailList({ live, focus, shown }: { live: { waiting: LiveRow[]; working: LiveRow[] }; focus: string | null; shown: Set<string> }) {
+const RailList = memo(function RailList({ live, focus, shown }: { live: { waiting: LiveRow[]; working: LiveRow[]; completed: LiveRow[] }; focus: string | null; shown: Set<string> }) {
   const listed = useSavedThreads()
   // threads running in the background (no tab) carry the kind word "background"
   const background = useStore(sessionStore, (all) => all.filter((s) => s.background).map((s) => s.id).join(' '))
@@ -247,7 +248,8 @@ const RailList = memo(function RailList({ live, focus, shown }: { live: { waitin
   const teams = useMemo(() => (archiveView ? [] : groupTeams(rosters, [...live.waiting, ...live.working], sessions ?? [])), [rosters, live, sessions, archiveView])
   const waitingRows = live.waiting.filter((r) => !isTeam(r))
   const workingRows = live.working.filter((r) => !isTeam(r))
-  const liveIds = useMemo(() => new Set([...live.waiting, ...live.working].flatMap((r) => [r.id, r.sessionId ?? ''])), [live])
+  const completedRows = live.completed
+  const liveIds = useMemo(() => new Set([...live.waiting, ...live.working, ...live.completed].flatMap((r) => [r.id, r.sessionId ?? ''])), [live])
   const pausedRows = useMemo(() => (archiveView ? [] : (sessions ?? []).filter((s) => continues.has(s.id) && !liveIds.has(s.id))), [sessions, continues, liveIds, archiveView])
   const savedRows = useMemo(() => {
     if (archiveView) return sessions ?? []
@@ -299,19 +301,19 @@ const RailList = memo(function RailList({ live, focus, shown }: { live: { waitin
 
   // a live row: one line, its title and a quiet note; the selected one says what it is doing now; a working one
   // carries the moving line instead of a word
-  const liveRow = (r: LiveRow, opts: { kind?: string; who?: RosterPerson; member?: boolean } = {}) => {
+  const liveRow = (r: LiveRow, opts: { kind?: string; who?: RosterPerson; member?: boolean; done?: boolean } = {}) => {
     const look = liveLook(r)
     const w = watcherFor(r)
     const kind = opts.who ? opts.who.role : opts.kind ?? (w ? 'watcher' : isBot(r) ? 'dependabot' : r.kind === 'deploy' ? 'deploy' : r.kind === 'script' ? 'script' : bgIds.has(r.id) ? 'background' : '')
     const title = w?.name ?? r.title
     const wakes = wakesAt(r.sessionId ?? r.id)
-    const note = wakes ? `wakes ${clock(wakes)}` : kind && kind !== 'background' ? kind : ''
+    const note = opts.done ? 'goal met' : r.retrying ? 'retrying' : r.todos ? r.todos : r.goal?.status === 'active' ? 'goal' : wakes ? `wakes ${clock(wakes)}` : kind && kind !== 'background' ? kind : ''
     return (
       <div key={`l:${r.id}`} className={`rail-row${isOn(r.id, r.sessionId) ? ' on' : ''}${isShown(r.id, r.sessionId) ? ' vis' : ''}${opts.member ? ' member' : ''}${r.state === 'working' ? ' busy' : ''}`} role="button" tabIndex={0} title={[title, kind, noteOf(r)].filter(Boolean).join('\n')}
         onClick={() => activate(r.id)}
         onKeyDown={(e) => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter') { e.preventDefault(); activate(r.id) } else if (e.key === ' ' && !r.kind) { e.preventDefault(); openBeside(r.id) } }}
         data-testid="live-row" data-id={r.id}>
-        <ThreadLine icon={iconOf(kind, !!opts.who, hasWorktree(r.id))} badge={r.state === 'working' ? 'work' : look.tone === 'fail' ? 'fail' : look.tone === 'wait' ? 'wait' : ''}
+        <ThreadLine icon={iconOf(kind, !!opts.who, hasWorktree(r.id))} badge={opts.done ? 'done' : r.retrying ? 'retry' : r.goal?.status === 'active' && r.state === 'working' ? 'goal' : r.state === 'working' ? 'work' : look.tone === 'fail' ? 'fail' : look.tone === 'wait' ? 'wait' : ''}
           title={title} path={pathOf(r.id)} tabId={r.id} live end={note ? <em>{note}</em> : undefined} />
         {!r.kind && <button className="more" aria-label="Close thread" title="Close (stops it)" onClick={(e) => { e.stopPropagation(); closeSession(r.id) }} data-testid={`thread-live-close-${r.id}`}>×</button>}
       </div>
@@ -407,6 +409,12 @@ const RailList = memo(function RailList({ live, focus, shown }: { live: { waitin
             {workingRows.map((r) => liveRow(r))}
             {teamsWorking.map(teamBlock)}
             {pausedRows.map((s) => savedRow(s, 'paused'))}
+          </div>
+        )}
+        {completedRows.length > 0 && (
+          <div data-testid="section-completed">
+            {head('completed', 'Completed', completedRows.length)}
+            {completedRows.map((r) => liveRow(r, { done: true }))}
           </div>
         )}
         <AgentRows focus={focus} />

@@ -9,7 +9,11 @@ export type CompanionThread = { id: string; title: string; folder: string; note:
 export type CompanionPr = { thread: string; threadTitle: string; repo: string; num: number; url: string; state: string }
 export type CompanionState = { needs: PhoneNeed[]; working: CompanionThread[]; coming: PhoneWakeup[] }
 // what the window gets: the above plus every running background task, the threads' PRs and the plan limits
-export type CompanionView = CompanionState & { running: PhoneRunning[]; prs: CompanionPr[]; usage: UsageRow[] }
+// a live thread's /goal: being worked toward (active) or met (shown as completed)
+export type CompanionGoal = { thread: string; title: string; condition: string; status: 'active' | 'met'; setAt: number; metAt?: number }
+// a working thread's TodoWrite progress and whether its API calls are being retried, by thread id
+export type CompanionExtra = { todos?: { done: number; total: number; now: string } | null; retry?: { attempt: number; max: number; error: string } | null }
+export type CompanionView = CompanionState & { running: PhoneRunning[]; prs: CompanionPr[]; usage: UsageRow[]; goals: CompanionGoal[]; extra: Record<string, CompanionExtra> }
 
 export function companionState(threads: PhoneThread[], asks: Record<string, PhoneAsk[]>, fails: PhoneFail[], wakeups: PhoneWakeup[], now: number): CompanionState {
   const { needs, coming } = phoneInbox(threads, asks, fails, wakeups, now, 3)
@@ -18,7 +22,7 @@ export function companionState(threads: PhoneThread[], asks: Record<string, Phon
 }
 
 // what the collapsed bar says: the count that matters most first
-export function companionSummary(s: CompanionState & { running?: unknown[] }, deploysRunning: number): string {
+export function companionSummary(s: CompanionState & { running?: unknown[]; goalsActive?: number }, deploysRunning: number): string {
   const waiting = s.needs.filter((n) => n.kind === 'waiting').length
   const failed = s.needs.length - waiting
   const parts = [
@@ -26,6 +30,7 @@ export function companionSummary(s: CompanionState & { running?: unknown[] }, de
     failed ? `${failed} failed` : '',
     s.working.length ? `${s.working.length} working` : '',
     s.running?.length ? `${s.running.length} task${s.running.length > 1 ? 's' : ''}` : '',
+    s.goalsActive ? `${s.goalsActive} goal${s.goalsActive > 1 ? 's' : ''}` : '',
     deploysRunning ? `${deploysRunning} deploy${deploysRunning > 1 ? 's' : ''}` : '',
   ].filter(Boolean)
   return parts.join(' · ') || 'All quiet'

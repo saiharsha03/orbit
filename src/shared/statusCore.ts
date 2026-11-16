@@ -20,6 +20,11 @@ export type ThreadStatus = {
   crons: LoopJob[]
   wakeRunning: string | null // the scheduled fire running right now (command uuid)
   nextWake: number | null // when the next ScheduleWakeup fires (ms), until it fires or is stopped
+  // Claude Code signals the CLI shows and Orbit kept to itself:
+  retry?: { attempt: number; max: number; error: string; at: number } | null // the API is failing and being retried (cleared when an answer arrives)
+  todos?: { done: number; total: number; now: string } | null // the thread's TodoWrite list: how far, and the item in progress
+  denied?: { tool: string; at: number } | null // the last tool call denied without asking (a rule, the mode, the classifier)
+  cap?: string | null // the turn stopped at a cap: 'turns' (max turns) or 'budget' (max budget)
   tasks: Task[]
 }
 
@@ -27,6 +32,16 @@ export const emptyStatus = (): ThreadStatus => ({ goal: null, crons: [], wakeRun
 
 const textOf = (ev: any): string => (Array.isArray(ev.message?.content) ? ev.message.content : [])
   .filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n')
+
+// a TodoWrite call in this message: how many are done, of how many, and the one in progress; undefined when none
+function todosOf(ev: any): ThreadStatus['todos'] | undefined {
+  const call = (Array.isArray(ev.message?.content) ? ev.message.content : []).findLast((b: any) => b.type === 'tool_use' && b.name === 'TodoWrite')
+  const list = call?.input?.todos
+  if (!Array.isArray(list)) return undefined
+  if (!list.length) return null
+  const cur = list.find((t: any) => t?.status === 'in_progress')
+  return { done: list.filter((t: any) => t?.status === 'completed').length, total: list.length, now: String(cur?.activeForm ?? cur?.content ?? '').slice(0, 120) }
+}
 
 // a ScheduleWakeup call in this message: its fire time, null when it stops the loop, undefined when there is none
 function wakeOf(ev: any, now: number): number | null | undefined {
@@ -42,12 +57,18 @@ export function reduceStatus(st: ThreadStatus, ev: any, now: number): ThreadStat
   switch (ev.type) {
     case 'system':
       if (ev.subtype === 'init') return { ...st, model: ev.model ?? st.model }
+      if (ev.subtype === 'api_retry' && !ev.parent_tool_use_id) return { ...st, retry: { attempt: Number(ev.attempt) || 1, max: Number(ev.max_retries) || 0, error: String(ev.error ?? (ev.error_status ? `HTTP ${ev.error_status}` : 'error')), at: now } }
+      if (ev.subtype === 'permission_denied' && !ev.agent_id) return { ...st, denied: { tool: String(ev.tool_name ?? 'a tool').replace(/^mcp__\w+?__/, ''), at: now } }
       if (typeof ev.subtype === 'string' && (ev.subtype.startsWith('task_') || ev.subtype === 'background_tasks_changed')) {
         return { ...st, tasks: applyTask(st.tasks, ev, now) }
       }
       return st
     case 'assistant': {
       if (ev.parent_tool_use_id) return st // a subagent's model is not the thread's
+      // an answer came: no longer retrying, no longer at a cap; its TodoWrite (if any) is the list now
+      if (st.retry || st.cap) st = { ...st, retry: null, cap: null }
+      const todos = todosOf(ev)
+      if (todos !== undefined) st = { ...st, todos }
       const wake = wakeOf(ev, now)
       if (wake !== undefined) st = { ...st, nextWake: wake }
       const model = ev.message?.model
@@ -64,7 +85,9 @@ export function reduceStatus(st: ThreadStatus, ev: any, now: number): ThreadStat
     case 'hive_fast':
       return { ...st, fast: !!ev.on, fastError: ev.error, fastReason: undefined }
     case 'result':
-      if (ev.parent_tool_use_id || (ev.fast_mode_state === undefined && ev.fast_mode_disabled_reason === undefined)) return st
+      if (ev.parent_tool_use_id) return st
+      st = { ...st, retry: null, cap: ev.subtype === 'error_max_turns' ? 'turns' : ev.subtype === 'error_max_budget_usd' ? 'budget' : null }
+      if (ev.fast_mode_state === undefined && ev.fast_mode_disabled_reason === undefined) return st
       return { ...st, fastState: ev.fast_mode_state ?? st.fastState, fastReason: ev.fast_mode_disabled_reason }
     case 'hive_effort':
       return { ...st, effort: ev.level ?? st.effort, ultrathink: !!ev.ultrathink, effortError: ev.error }

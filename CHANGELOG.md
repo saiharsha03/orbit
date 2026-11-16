@@ -4,6 +4,22 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2026-11-16
+
+### Added
+
+- Goals: a thread working toward its /goal carries a goal badge (a pulsing target) and the goal on its row, and stays
+  under Working between turns. When the goal is met the thread moves to a new Completed section (a green check) until
+  you open it, the phone and the desktop are told, and Orbie throws confetti.
+- The companion lists the goals: the ones being worked on (and for how long) and the ones completed. Orbie wears a
+  little flag while a goal is on.
+- Claude Code signals Orbit kept to itself: an API call being retried (overloaded, a network error) blinks the row
+  amber with "Retrying 2/10" and makes Orbie sweat; the thread's todo list shows as "3/7"; a turn stopped at its turn
+  or budget cap goes under Needs you.
+- Orbie hears more, and says it while you are away: a goal set or met, a usage limit pausing a thread or crossing 90%,
+  a pull request's checks going red or green or the PR merging, a watcher's alert, a wake-up firing, a dev stack
+  service crashing, a script failing.
+
 ## [4.1.2] - 2026-11-16
 
 ### Fixed

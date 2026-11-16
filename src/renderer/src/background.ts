@@ -5,7 +5,13 @@ import { nowLine } from './conversationCore'
 
 export type LiveState = 'working' | 'waiting' | null
 // kind 'deploy' / 'dev' / 'script' are the Deploy wizard's, Dev stack's and Scripts' items (not Claude sessions)
-export type LiveRow = { id: string; kind?: 'deploy' | 'script'; sessionId?: string; title: string; state: 'working' | 'waiting'; note: string; since: number }
+// goal: the thread's /goal, while it works toward it (active) or once it is met (the Completed rows)
+// retrying: its API calls are being retried (the row blinks); todos: its TodoWrite progress ("3/7")
+export type LiveRow = { id: string; kind?: 'deploy' | 'script'; sessionId?: string; title: string; state: 'working' | 'waiting'; note: string; since: number; goal?: { condition: string; status: 'active' | 'met'; setAt: number; metAt?: number }; retrying?: boolean; todos?: string }
+// what Claude Code says about a thread beyond working or not (statusCore): retries, its todo list, a cap it stopped at
+export type LiveSignals = { retry?: { attempt: number; max: number; error: string } | null; todos?: { done: number; total: number } | null; cap?: string | null }
+// the goal a tab's Completed row is for, so opening the thread acknowledges that one (a later goal shows again)
+export const goalKey = (id: string, metAt: number | undefined) => `${id}:${metAt ?? 0}`
 
 // waiting (Claude asked, or a background turn ended) wins over working; the visible active tab never carries waiting
 export const stateOf = (s: Session): LiveState => (s.waitingSince ? 'waiting' : s.busy ? 'working' : null)
@@ -56,19 +62,37 @@ export function activity(s: Session): string {
 // waitingOn: per tab, what it is still waiting on in words (agentStatusCore.ts waitingOn: shells, monitors, subagents,
 // workflows, Codex, loops, a wake-up). A thread whose turn ended but which still waits on any of them is working, not
 // idle or "Finished"; a question for the user wins.
-export function liveRows(all: Session[], extra: LiveRow[] = [], waitingOn: Map<string, string> = new Map()): { waiting: LiveRow[]; working: LiveRow[] } {
+// goals: per tab, its /goal (statusCore). A thread working toward one carries it on its row; one whose goal is met
+// and that has stopped is Completed until you open it (acked holds the goalKey of those opened).
+export type LiveGoal = NonNullable<LiveRow['goal']>
+export function liveRows(all: Session[], extra: LiveRow[] = [], waitingOn: Map<string, string> = new Map(), goals: Map<string, LiveGoal> = new Map(), acked: Set<string> = new Set(), signals: Map<string, LiveSignals> = new Map()): { waiting: LiveRow[]; working: LiveRow[]; completed: LiveRow[] } {
   const rows: LiveRow[] = [...extra]
+  const completed: LiveRow[] = []
   for (const s of all) {
     let state = stateOf(s)
     const on = waitingOn.get(s.id) ?? ''
-    const onWork = !!on && !s.busy && (!state || (s.waitingReason ?? '').startsWith('Finished'))
+    const g = goals.get(s.id)
+    const finished = (s.waitingReason ?? '').startsWith('Finished')
+    const onWork = !!on && !s.busy && (!state || finished)
     if (onWork) state = 'working'
-    if (!state) continue
-    const note = onWork ? `Waiting on ${on}` : state === 'waiting' ? s.waitingReason ?? '' : activity(s)
-    rows.push({ id: s.id, sessionId: s.sessionId, title: s.title, state, note, since: s.waitingSince ?? 0 })
+    // a goal still being worked toward keeps the thread under Working even between turns
+    const onGoal = g?.status === 'active' && !s.busy && (!state || finished)
+    if (onGoal) state = 'working'
+    const sig = signals.get(s.id)
+    // stopped at a cap (max turns, max budget): it needs a nudge to go on
+    if (!s.busy && sig?.cap && (!state || finished)) { rows.push({ id: s.id, sessionId: s.sessionId, title: s.title, state: 'waiting', note: `Stopped at the ${sig.cap === 'budget' ? 'budget' : 'turn'} cap`, since: s.waitingSince ?? Date.now() }); continue }
+    if (!state || (finished && g?.status === 'met')) {
+      if (g?.status === 'met' && !acked.has(goalKey(s.id, g.metAt))) completed.push({ id: s.id, sessionId: s.sessionId, title: s.title, state: 'working', note: `Goal met: ${g.condition}`, since: g.metAt ?? 0, goal: g })
+      continue
+    }
+    const retry = state === 'working' ? sig?.retry : null
+    const note = retry ? `Retrying ${retry.attempt}/${retry.max} · ${retry.error}` : onWork ? `Waiting on ${on}` : onGoal ? `Goal: ${g!.condition}` : state === 'waiting' ? s.waitingReason ?? '' : activity(s)
+    const todos = state === 'working' && sig?.todos && sig.todos.total ? `${sig.todos.done}/${sig.todos.total}` : undefined
+    rows.push({ id: s.id, sessionId: s.sessionId, title: s.title, state, note, since: s.waitingSince ?? 0, ...(g ? { goal: g } : {}), ...(retry ? { retrying: true } : {}), ...(todos ? { todos } : {}) })
   }
   return {
     waiting: rows.filter((r) => r.state === 'waiting').sort((a, b) => a.since - b.since),
     working: rows.filter((r) => r.state === 'working'),
+    completed: completed.sort((a, b) => b.since - a.since),
   }
 }

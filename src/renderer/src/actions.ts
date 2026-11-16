@@ -2,7 +2,7 @@
 // stores (store.ts), so any region calls them without the shell passing callbacks down. engine.ts feeds the stores
 // from main's events; nothing here keeps state of its own beyond small stores the shell draws (toasts, preview).
 import { waitingOn } from '../../shared/agentStatusCore'
-import { activateSession, findSession, liveRows, type LiveRow } from './background'
+import { activateSession, findSession, goalKey, liveRows, type LiveRow } from './background'
 import { PAGE_LABEL, workingOn, type Session, type ToolTab } from './chat'
 import { activate as activateIn, addPaneFor, focusedTab, moveTab, reconcile, splitWith, type PaneState } from './panes'
 import { agentThreads, createStore, getSessions, panes, setSessions } from './store'
@@ -134,14 +134,18 @@ export function toggleTerminal() {
 }
 
 // ---- live rows (Needs you / Working): threads plus the deploy wizard's and the scripts' rows ----
-export type Live = { waiting: LiveRow[]; working: LiveRow[] }
-export const live = createStore<Live>({ waiting: [], working: [] })
+// completed: threads whose /goal is met, until you open them (goalAcked holds the ones opened)
+export type Live = { waiting: LiveRow[]; working: LiveRow[]; completed: LiveRow[] }
+export const live = createStore<Live>({ waiting: [], working: [], completed: [] })
 let extraRows: LiveRow[] = []
 export function setExtraRows(rows: LiveRow[]) { extraRows = rows; recomputeLive() }
+const goalAcked = new Set<string>()
 let liveKey = ''
 export function recomputeLive() {
   const statuses = getAllStatus()
-  const next = liveRows(getSessions(), extraRows, new Map([...statuses].map(([tab, st]) => [tab, waitingOn(st)])))
+  const goals = new Map([...statuses].flatMap(([tab, st]) => (st.goal ? [[tab, st.goal] as const] : [])))
+  const signals = new Map([...statuses].map(([tab, st]) => [tab, { retry: st.retry, todos: st.todos, cap: st.cap }]))
+  const next = liveRows(getSessions(), extraRows, new Map([...statuses].map(([tab, st]) => [tab, waitingOn(st)])), goals, goalAcked, signals)
   const key = JSON.stringify(next)
   if (key !== liveKey) { liveKey = key; live.set(next) }
 }
@@ -188,6 +192,9 @@ export function activate(id: string) {
   if (id.startsWith('script:')) { openPage('workspace'); return }
   setSessions((all) => activateSession(all, id))
   panes.set((p) => activateIn(p, id))
+  // opening a Completed thread is seeing it: its row goes back to Recent
+  const done = live.get().completed.find((r) => r.id === id)
+  if (done) { goalAcked.add(goalKey(id, done.goal?.metAt)); recomputeLive() }
 }
 
 // a thread in a new pane beside the focused one (Space on a rail row); a background one comes back first

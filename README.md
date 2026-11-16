@@ -363,7 +363,11 @@ menu shows and hides it; drag it anywhere.
   checked, and late at night it gets sleepy.
 - **Liftoff**: when a deploy lands, a rocket counts down and launches from the taskbar up the side of the screen.
 - **Orbie talks**: while you are away from Orbit, a separate Haiku call (outside your threads, no tools) turns what
-  happened into one short line in Orbie's speech bubble. The speech button mutes it.
+  happened into one short line in Orbie's speech bubble, and draws the face Orbie pulls for it. It hears turns finishing
+  or failing, questions, deploys, goals set and met, usage limits, pull request checks, watcher alerts, wake-ups, a dev
+  stack crash and failed scripts. It also says good morning, welcome back and the evening wrap. The speech button mutes it.
+- **Goals**: a thread working toward a /goal shows a goal badge in the sidebar and in the companion; a met goal moves
+  it to Completed (with confetti from Orbie) until you open it.
 
 The companion was inspired by [coucou](https://github.com/louis-cfm/coucou) by louis-cfm, the floating island that
 watches your coding agents. Thank you!

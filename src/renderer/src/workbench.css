@@ -452,6 +452,14 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .rail-row.on .rail-ic { color: var(--hi); }
 .rail-badge { position: absolute; right: -3px; bottom: -2px; width: 8px; height: 8px; box-shadow: 0 0 0 2px var(--side); }
 .rail-badge.wait { background: var(--signal); } .rail-badge.fail { background: var(--fail); }
+/* working toward a /goal: a ring with a dot (a target), turning; the goal met: a filled green check dot */
+.rail-badge.goal { width: 10px; height: 10px; background: radial-gradient(circle, var(--work) 0 1.6px, var(--side) 2px); border: 1.5px solid var(--work); box-shadow: 0 0 0 1.5px var(--side); animation: rail-pulse 1.6s ease-in-out infinite; }
+.rail-badge.done { width: 10px; height: 10px; background: #9ece6a; }
+/* its API calls are being retried (overloaded, a network error): an amber dot that blinks */
+.rail-badge.retry { background: var(--signal); animation: rail-blink 1s steps(1) infinite; }
+@keyframes rail-blink { 50% { opacity: .2 } }
+.rail-badge.done::after { content: ''; position: absolute; left: 3px; top: 1.5px; width: 2.5px; height: 5px; border: solid var(--side); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+@keyframes rail-pulse { 50% { transform: scale(.82) } }
 .rail-badge.work { width: 10px; height: 10px; border: 1.5px solid var(--rule2); border-top-color: var(--work); background: var(--side); box-shadow: none; animation: rail-spin .9s linear infinite; }
 @keyframes rail-spin { to { transform: rotate(360deg); } }
 .rail-cache { flex: none; font: 500 11px var(--sans); font-variant-numeric: tabular-nums; padding: 1px 6px; }
