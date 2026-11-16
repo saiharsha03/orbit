@@ -39,7 +39,7 @@ type Item =
   | { kind: 'tool'; id: string; name: string; input: any; status: 'running' | 'done' | 'error'; patch?: unknown; output?: string; ask?: unknown[]; mid?: string }
   | { kind: 'show'; path: string }
   | { kind: 'error'; text: string }
-  | { kind: 'note'; text: string }
+  | { kind: 'note'; text: string; warn?: boolean } // warn: drawn red (a turn that was stopped)
   | { kind: 'agent'; from: string; text: string } // a message another agent sent in (e.g. Codex via codex-panel)
   // a message another Orbit thread sent in (message_thread / start_thread)
   | { kind: 'thread'; fromId: string; fromTitle: string; text: string; steer?: boolean; queue?: { id: string; pending: boolean } }

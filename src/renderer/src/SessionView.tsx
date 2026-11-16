@@ -503,7 +503,7 @@ const Transcript = memo(function Transcript({ session, limit, setLimit, st, star
     if (it.kind === 'tool' && it.name === 'AskUserQuestion') { out.push(<div key={key} className="qwrap"><AskCard tabId={session.id} id={it.id} input={it.input} open={!!session.asks?.includes(it.id)} result={it.output} /></div>); return }
     if (it.kind === 'tool' && it.name === 'ExitPlanMode') { out.push(<div key={key} className="qwrap"><PlanCard tabId={session.id} id={it.id} input={it.input} open={!!session.asks?.includes(it.id)} status={it.status} repo={repo} /></div>); return }
     if (it.kind === 'show') { out.push(<div key={key} className="msg"><ShowCard path={it.path} onOpen={st.open} /></div>); return }
-    if (it.kind === 'note') { out.push(<div key={key} className="note">{it.text}</div>); return }
+    if (it.kind === 'note') { out.push(<div key={key} className={it.warn ? 'note warn' : 'note'}>{it.text}</div>); return }
     if (it.kind === 'summary') { out.push(<SummaryRow key={key} text={it.text} />); return }
     if (it.kind === 'thinking') { out.push(<ThinkingRow key={key} text={it.text} />); return }
     if (it.kind === 'warning') { out.push(<WarningRow key={key} event={it.event} text={it.text} />); return }
