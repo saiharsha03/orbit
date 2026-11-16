@@ -20,9 +20,10 @@ test('idle or finished threads still waiting on something are working; a questio
   assert.deepEqual(r.waiting.map((x) => x.id), ['asks'])
 })
 
-test('waitingOn names shells, monitors, agents, loops and a wake-up', () => {
+test('waitingOn names running shells, monitors and agents, not the schedule', () => {
   const task = (kind: string, status = 'running') => ({ id: kind, kind, status, title: kind }) as never
   const st = { ...emptyStatus(), tasks: [task('local_bash'), task('monitor'), task('local_agent'), task('local_agent'), task('local_bash', 'completed')], crons: [{ id: 'c', schedule: '*/5', recurring: true, prompt: 'p' }] }
-  assert.equal(waitingOn(st), '1 shell, 1 monitor, 2 agents, 1 loop')
+  assert.equal(waitingOn(st), '1 shell, 1 monitor, 2 agents') // the loop is scheduled, not running
+  assert.equal(waitingOn({ ...emptyStatus(), nextWake: Date.now() + 60_000 }), '')
   assert.equal(waitingOn(emptyStatus()), '')
 })
