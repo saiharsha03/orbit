@@ -259,7 +259,7 @@ const mobileDeps = () => ({
     runInThread({ tabId, cwd, title: text.replace(/\s+/g, ' ').slice(0, 50), prompt: text, user: true }, w.webContents)
     return { id: tabId } // the phone opens the thread it just started
   },
-  stop: async (id: string) => { const l = liveThreads().find((t) => t.tabId === id || t.sessionId === id); if (l) await interrupt(l.tabId) },
+  stop: async (id: string) => { const l = liveThreads().find((t) => t.tabId === id || t.sessionId === id); if (l) await interrupt(l.tabId, 'Stopped from the phone') },
   // the folders a new thread can start in: the workspace root and the git repos directly under it
   folders: () => {
     const root = appConfig.config?.root
@@ -320,7 +320,7 @@ const mobileDeps = () => ({
   sendHow: async (id: string, text: string, how: 'queue' | 'interrupt', images?: { mediaType: string; data: string }[]) => {
     const l = liveThreads().find((t) => t.tabId === id || t.sessionId === id)
     const r = await sendTo(id, text, true, images)
-    if (how === 'interrupt' && l?.busy) await interrupt(l.tabId)
+    if (how === 'interrupt' && l?.busy) await interrupt(l.tabId, 'Stopped to send your message')
     return r
   },
   notes: async () => (await listNotes()).map((n) => ({ id: n.id, title: n.title, text: n.text.length > 20_000 ? `${n.text.slice(0, 20_000)}…` : n.text, updated: n.updated })),

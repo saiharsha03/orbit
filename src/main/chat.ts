@@ -173,6 +173,7 @@ type Live = {
   // prompt hooks still run ends the turn with "prompt_check" and the message never reaches Claude, so it goes again
   unchecked?: SDKUserMessage | null
   stopped?: boolean // the user stopped the running turn (Stop, Interrupt, Send now): its end is not a failure
+  stopWhy?: string // the line the chat shows for that stop ("Stopped by you", "Stopped to send your message now")
   authRetry?: boolean // the turn failed on sign-in: the process closes and a new one answers the message
   sentNow?: boolean // Send now stopped the turn so a waiting message is answered at once
   lastOk: boolean | null // whether the last finished turn succeeded (null: none yet)
@@ -1224,7 +1225,7 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
           if (uuid) { s.outbox.delete(uuid); pendingSeen(uuid); send({ type: 'hive_seen', uuid }) }
           continue
         }
-        if (m.type === 'result' && s.stopped) (m as any).hive_stopped = true
+        if (m.type === 'result' && s.stopped) { (m as any).hive_stopped = true; (m as any).hive_stopped_why = s.stopWhy ?? 'Stopped' }
         // the sign-in this process holds is no longer good (an account switch, a token it could not refresh): a new
         // process reads the login again, so the turn is tried once more instead of being left as a failure
         if (m.type === 'result' && (m as any).is_error && !s.stopped && !watcher && s.sessionId && authRetryDue(resultText(m as any), authTried.get(tabId), Date.now())) {
@@ -1296,7 +1297,7 @@ ${s.lastReply}`, Date.now())
           // the queue hands nothing over either, one short line asks for that answer. (Seen 2026-11-12: the thread
           // sat idle after Send now, with the stop reported as a failure.)
           const nudge = s.sentNow && !lost && !s.turns.isBusy()
-          s.sentNow = false; s.stopped = false
+          s.sentNow = false; s.stopped = false; s.stopWhy = undefined
           if (nudge) { s.push(userMsg(SEND_NOW_NUDGE)); s.turns.markBusy(); send({ type: 'hive_nudged' }) }
           if (!s.turns.isBusy()) wake(s)
           // signed in to another account while this turn ran: the process closes now if nothing else of it runs
@@ -1482,7 +1483,7 @@ export function sendMessage(tabId: string, cwd: string, resume: string | undefin
   // a send that runs now and fails rejects chat:send; one that waited tells the tab with hive_error instead
   sends.run(tabId, () => {
     go()
-    if (interrupt) { void cur.q.interrupt().catch(() => { /* turn already over */ }); forceStopLater(tabId) }
+    if (interrupt) { if (cur.turns.isBusy()) { cur.stopped = true; cur.stopWhy = 'Stopped to send your message' } void cur.q.interrupt().catch(() => { /* turn already over */ }); forceStopLater(tabId) }
   }, boost && !interrupt ? boost : null, (e: any) => cur.emit({ type: 'hive_error', message: `The message was not sent: ${e?.message ?? e}` }))
 }
 
@@ -1506,7 +1507,7 @@ export async function stopEverything(): Promise<{ threads: number; tasks: number
       try { await s.q.stopTask(t.id); tasks++ } catch { /* already ended */ }
     }
     for (const p of codexRuns.get(id) ?? []) { p.kill(); tasks++ }
-    if (s.turns.isBusy()) { await interrupt(id).catch(() => {}); threads++ }
+    if (s.turns.isBusy()) { await interrupt(id, 'Stopped by you (Stop everything)').catch(() => {}); threads++ }
   }
   return { threads, tasks }
 }
@@ -1673,7 +1674,7 @@ export async function pauseTeam(teamId: string, by: Ref, reason?: string): Promi
     if (!t) continue
     t.turns.hold(true) // what was queued for it waits for the resume, not the end of the interrupted turn (the caller's too)
     if (x.id === by.id || !t.turns.isBusy()) continue
-    await interrupt(id).catch(() => {})
+    await interrupt(id, 'Stopped: the team was paused').catch(() => {})
     stopped.push(nameOf(team, x.id))
   }
   appendLog(team, { at: Date.now(), from: by.id, fromName: by.title, to: [], text: `Team paused${reason ? `: ${reason}` : ''}` })
@@ -1836,7 +1837,7 @@ export async function sendNow(tabId: string, id?: string): Promise<boolean> {
   if (!s || !s.turns.isBusy()) return false
   if (!(id ? s.turns.first(id) || s.outbox.has(id) : s.turns.flush() + s.outbox.size > 0)) return false
   s.sentNow = true
-  await interrupt(tabId).catch(() => { /* turn already over */ })
+  await interrupt(tabId, 'Stopped to send your message now').catch(() => { /* turn already over */ })
   return true
 }
 
@@ -1866,10 +1867,11 @@ export async function background(tabId: string, toolUseId?: string): Promise<boo
   return (await live.get(tabId)?.q.backgroundTasks(toolUseId)) ?? false
 }
 
-export async function interrupt(tabId: string): Promise<void> {
+// why: the line the chat shows where the turn stopped
+export async function interrupt(tabId: string, why = 'Stopped by you'): Promise<void> {
   cancelAsks(tabId) // Stop also ends an open question
   const cur = live.get(tabId)
-  if (cur?.turns.isBusy()) cur.stopped = true
+  if (cur?.turns.isBusy()) { cur.stopped = true; cur.stopWhy = why }
   forceStopLater(tabId)
   await live.get(tabId)?.q.interrupt()
 }

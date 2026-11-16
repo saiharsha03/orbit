@@ -299,6 +299,8 @@ export function applyEvent(s: Session, ev: any): Session {
         const text = why.startsWith('[ede_diagnostic]') ? `The turn stopped before Claude finished (usually a full context: it compacts and carries on). ${why}` : why
         items.push({ kind: 'error', text: text || `The turn ended: ${ev.subtype ?? 'error'}` })
       }
+      // where a stopped turn ended, and why (Stop, Esc, Send now, the phone)
+      if (stopped) items.push({ kind: 'note', text: typeof ev.hive_stopped_why === 'string' && ev.hive_stopped_why ? ev.hive_stopped_why : 'Stopped' })
       // still busy while a compaction runs after the turn
       return { ...s, items, busy: !!s.compacting, turnOpen: false, streaming: '' }
     }
