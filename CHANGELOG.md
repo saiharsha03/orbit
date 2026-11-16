@@ -4,6 +4,14 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.7] - 2026-11-16
+
+### Fixed
+
+- The phone app is built only when it changed: a release whose tag has no change under mobile/ carries no APK.
+- The phone's update card offers the newest phone app at its own version (from the APK's name), not the desktop
+  release tag, so it no longer offers the same app again after every desktop release. Phone app 3.0.7.
+
 ## [3.0.6] - 2026-11-16
 
 ### Fixed

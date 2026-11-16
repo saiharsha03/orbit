@@ -11,15 +11,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONObject
+import org.json.JSONArray
 import java.util.concurrent.TimeUnit
 
-// A newer phone app on the latest Orbit release: looked up on GitHub (public, no sign-in) when the app opens, at most
-// once a day; the answer is kept, so the card stays until the update is installed or "Later" is pressed for it.
+// A newer phone app on GitHub (public, no sign-in), looked up when the app opens, at most once a day; the answer is
+// kept, so the card stays until the update is installed or "Later" is pressed for it. A release carries a phone app only
+// when mobile/ changed, so the newest release with an Orbit-Phone-<version>.apk is the one, and its version is the
+// APK's own (from the file name), not the release tag.
 object PhoneUpdate {
     data class Available(val version: String, val apk: String)
 
-    private const val LATEST = "https://api.github.com/repos/saiharsha03/orbit/releases/latest"
+    private const val RELEASES = "https://api.github.com/repos/saiharsha03/orbit/releases?per_page=30"
     private const val DAY = 24 * 60 * 60 * 1000L
     private val http = OkHttpClient.Builder().callTimeout(15, TimeUnit.SECONDS).build()
 
@@ -53,17 +55,25 @@ object PhoneUpdate {
     fun later(ctx: Context, version: String) = ctx.getSharedPreferences("update", Context.MODE_PRIVATE).edit().putString("later", version).apply()
 
     private suspend fun fetch(): Available? = withContext(Dispatchers.IO) {
-        val req = Request.Builder().url(LATEST).header("Accept", "application/vnd.github+json").build()
-        http.newCall(req).execute().use { r ->
-            if (!r.isSuccessful) return@use null
-            val j = JSONObject(r.body?.string() ?: return@use null)
-            val version = j.optString("tag_name").removePrefix("v")
-            val assets = j.optJSONArray("assets") ?: return@use null
-            val apk = (0 until assets.length()).map { assets.getJSONObject(it) }
-                .firstOrNull { it.optString("name").startsWith("Orbit-Phone-") && it.optString("name").endsWith(".apk") }
-                ?.optString("browser_download_url").orEmpty()
-            if (version.isEmpty() || apk.isEmpty()) null else Available(version, apk)
+        val req = Request.Builder().url(RELEASES).header("Accept", "application/vnd.github+json").build()
+        http.newCall(req).execute().use { r -> if (r.isSuccessful) newest(r.body?.string() ?: return@use null) else null }
+    }
+
+    // the newest published phone app in GitHub's release list (newest release first; drafts and pre-releases skipped)
+    fun newest(releases: String): Available? {
+        val list = JSONArray(releases)
+        for (i in 0 until list.length()) {
+            val rel = list.getJSONObject(i)
+            if (rel.optBoolean("draft") || rel.optBoolean("prerelease")) continue
+            val assets = rel.optJSONArray("assets") ?: continue
+            for (k in 0 until assets.length()) {
+                val a = assets.getJSONObject(k)
+                val m = Regex("""^Orbit-Phone-(.+)\.apk$""").find(a.optString("name")) ?: continue
+                val url = a.optString("browser_download_url")
+                if (url.isNotEmpty()) return Available(m.groupValues[1], url)
+            }
         }
+        return null
     }
 }
 

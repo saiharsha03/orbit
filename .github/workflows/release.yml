@@ -91,18 +91,27 @@ jobs:
         if: env.HAS_KEY == 'true'
         with:
           ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+
+      # the phone app is built only when mobile/ changed since the previous tag (or there is none); otherwise this
+      # release carries no APK and phones keep the one they have (the update card looks back to the newest APK)
+      - name: Did the phone app change
+        if: env.HAS_KEY == 'true'
+        run: |
+          prev=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^" 2>/dev/null || true)
+          if [ -z "$prev" ] || ! git diff --quiet "$prev" "$TAG" -- mobile/; then echo "PHONE=true" >> "$GITHUB_ENV"; else echo "PHONE=false" >> "$GITHUB_ENV"; echo "mobile/ unchanged since $prev: no APK"; fi
 
       - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
-        if: env.HAS_KEY == 'true'
+        if: env.HAS_KEY == 'true' && env.PHONE == 'true'
         with:
           distribution: temurin
           java-version: 21
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        if: env.HAS_KEY == 'true'
+        if: env.HAS_KEY == 'true' && env.PHONE == 'true'
 
       - name: Build the signed app
-        if: env.HAS_KEY == 'true'
+        if: env.HAS_KEY == 'true' && env.PHONE == 'true'
         working-directory: mobile
         env:
           KEYSTORE_B64: ${{ secrets.HIVE_KEYSTORE_B64 }}
@@ -122,7 +131,7 @@ jobs:
           echo "APK=$RUNNER_TEMP/Orbit-Phone-$name.apk" >> "$GITHUB_ENV"
 
       - name: Attach it to the release
-        if: env.HAS_KEY == 'true'
+        if: env.HAS_KEY == 'true' && env.PHONE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" "$APK" --repo "$GITHUB_REPOSITORY" --clobber
