@@ -39,3 +39,63 @@ html.companion, html.companion body, html.companion #root { height: auto; backgr
 .cp-reply input:focus { box-shadow: inset 0 0 0 1px var(--dim); }
 .cp-err { color: var(--fail); font-size: 12px; padding: 4px 8px 0 25px; }
 .cp-empty { color: var(--dim); padding: 14px 10px; }
+.cp-bad { color: var(--fail); }
+.cp-lim { gap: 10px; }
+.cp-lim .cp-title { flex: 0 0 auto; width: 130px; color: var(--dim); }
+.cp-meter { flex: 1; height: 5px; border-radius: 3px; background: var(--lift2); overflow: hidden; }
+.cp-meter span { display: block; height: 100%; border-radius: 3px; }
+.cp-meter .five { background: #7aa2f7; }
+.cp-meter .seven { background: #bb9af7; }
+.cp-meter .model { background: #e0af68; }
+.cp-head { padding-left: 2px; }
+
+/* ---- Orbie: the companion's face (Orbie.tsx) ---- */
+.orbie { flex-shrink: 0; overflow: visible; }
+.orbie * { transform-box: view-box; transform-origin: 20px 20px; }
+.ob-planet { fill: var(--lift2); stroke: var(--dim); stroke-width: 1.2; }
+.ob-ring { fill: none; stroke: var(--dim); stroke-width: 1.4; stroke-linecap: round; }
+.ob-back { opacity: .45; }
+.ob-eye { fill: var(--hi); }
+.ob-x path, .ob-smile-eyes, .ob-mouth { fill: none; stroke: var(--hi); stroke-width: 1.5; stroke-linecap: round; }
+.m-wait .ob-mouth { fill: var(--hi); stroke: none; }
+.ob-cheek { fill: var(--fail); opacity: 0; transition: opacity .3s; }
+.m-happy .ob-cheek { opacity: .35; }
+.ob-moon { fill: var(--hi); }
+.ob-q { font: 700 11px var(--sans); fill: var(--signal); }
+
+/* idle: a slow float and a blink every few seconds; the moon goes round, dim behind the planet */
+.ob-body { animation: ob-float 4s ease-in-out infinite; }
+.ob-open { transform-origin: 20px 18.5px; animation: ob-blink 4.5s infinite; }
+/* two moons on one path: the near one over the planet, the far one behind it, each shown on its own half */
+.ob-moon { animation: ob-moon 9s linear infinite, ob-near 9s step-end infinite; }
+.ob-far { animation-name: ob-moon, ob-far; opacity: .5; }
+@keyframes ob-near { 0% { visibility: visible } 50% { visibility: hidden } }
+@keyframes ob-far { 0% { visibility: hidden } 50% { visibility: visible } }
+@keyframes ob-float { 50% { transform: translateY(-1.5px) } }
+@keyframes ob-blink { 0%, 92%, 100% { transform: scaleY(1) } 95% { transform: scaleY(.1) } }
+/* round the ring (18 by 5): bright on the near side, dim on the far side behind the planet */
+@keyframes ob-moon {
+  0% { transform: translate(18px, 0) } 12.5% { transform: translate(12.7px, 3.5px) } 25% { transform: translate(0, 5px) }
+  37.5% { transform: translate(-12.7px, 3.5px) } 50% { transform: translate(-18px, 0) }
+  62.5% { transform: translate(-12.7px, -3.5px) } 75% { transform: translate(0, -5px) } 87.5% { transform: translate(12.7px, -3.5px) }
+  100% { transform: translate(18px, 0) }
+}
+/* work: eyes look side to side, the moon hurries */
+.m-work .ob-eye { animation: ob-look 2.4s ease-in-out infinite; }
+.m-work .ob-moon { animation-duration: 2.2s; }
+@keyframes ob-look { 0%, 100% { transform: translateX(0) } 25% { transform: translateX(-1.6px) } 65% { transform: translateX(1.6px) } }
+/* wait: hops for you, amber outline, the ? bobs */
+.m-wait .ob-body { animation: ob-hop 1.4s ease-in-out infinite; }
+.m-wait .ob-planet, .m-wait .ob-ring { stroke: var(--signal); }
+.ob-q { animation: ob-bob 1.4s ease-in-out infinite; }
+@keyframes ob-hop { 0%, 60%, 100% { transform: translateY(0) } 30% { transform: translateY(-4px) } }
+@keyframes ob-bob { 50% { transform: translateY(-2px) } }
+/* fail: a dizzy wobble, red outline, X eyes */
+.m-fail .ob-body { animation: ob-dizzy 1.8s ease-in-out infinite; }
+.m-fail .ob-planet, .m-fail .ob-ring { stroke: var(--fail); }
+.m-fail .ob-moon { fill: var(--fail); animation-duration: 1.2s; }
+@keyframes ob-dizzy { 0%, 100% { transform: rotate(0) } 25% { transform: rotate(-10deg) } 75% { transform: rotate(10deg) } }
+/* happy: three jumps with a squash on landing */
+.m-happy .ob-body { animation: ob-jump .8s cubic-bezier(.3, .7, .4, 1) 3; }
+@keyframes ob-jump { 0%, 100% { transform: translateY(0) scale(1, 1) } 15% { transform: translateY(1px) scale(1.08, .92) } 50% { transform: translateY(-7px) scale(.96, 1.05) } 85% { transform: translateY(0) scale(1.06, .94) } }
+@media (prefers-reduced-motion: reduce) { .orbie * { animation: none !important; } }

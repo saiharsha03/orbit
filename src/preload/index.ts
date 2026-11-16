@@ -227,6 +227,7 @@ contextBridge.exposeInMainWorld('api', {
   companionDismiss: (thread: string) => ipcRenderer.invoke('companion:dismiss', thread),
   companionSize: (w: number, h: number) => ipcRenderer.invoke('companion:size', w, h),
   companionHide: () => ipcRenderer.invoke('companion:hide'),
+  companionStopTask: (thread: string, task: string) => ipcRenderer.invoke('companion:stopTask', thread, task),
   deployDismiss: (id: string) => ipcRenderer.invoke('deploy:dismiss', id),
   onDeployOut: (cb: (runId: string, text: string) => void) => {
     const fn = (_e: unknown, runId: string, text: string) => cb(runId, text)

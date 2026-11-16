@@ -20,7 +20,7 @@ import { phoneTasks, phoneTeams, phoneWakeups } from '../shared/phoneCore'
 import { pendingResent, resendGroups, takePending } from './pending'
 import { initDesktopNotify } from './desktopNotify'
 import { dismissFail, failsNow, initMobile, mobileStatus, notifyPhone, pairPhone, unpairPhone, type PhoneItem, type PhoneThread } from './mobile'
-import { companionBounds, companionState } from '../shared/companionCore'
+import { companionBounds, companionState, type CompanionPr } from '../shared/companionCore'
 import { registerStatusIpc, setAdvisor, setEffort, setModel } from './liveStatus'
 import { registerClaudeConfigIpc } from './claudeConfig'
 import { modeLabel } from '../shared/modeCore'
@@ -998,12 +998,27 @@ function setCompanion(on: boolean): void {
   makeTrayMenu()
 }
 const companionOn = () => !!companionWin && !companionWin.isDestroyed()
+// the pull requests the live threads opened and their checks, read again at most once a minute (gh is slow)
+let companionPrs: CompanionPr[] = []
+let prsAt = 0
+async function readCompanionPrs(): Promise<void> {
+  const rows: CompanionPr[] = []
+  for (const l of liveThreads()) {
+    if (!l.sessionId) continue
+    const prs = threadPrs(await loadHistory(transcriptPath(l.cwd, l.sessionId)).catch(() => [])).slice(-3)
+    for (const p of prs) rows.push({ thread: l.tabId, threadTitle: l.title, repo: p.repo, num: p.num, url: p.url, state: await gitPanel.prStateByUrl(p.url) })
+  }
+  companionPrs = rows.filter((r) => r.state !== 'merged' && r.state !== 'closed')
+}
 handle('companion:state', async () => {
   const d = companionDeps()
   const threads = await d.threads()
   const asks = Object.fromEntries(threads.filter((t) => t.state === 'waiting').map((t) => [t.id, d.peek(t.id)?.asks ?? []] as const))
-  return companionState(threads, asks, failsNow(), d.wakeups(), Date.now())
+  if (Date.now() - prsAt > 60_000) { prsAt = Date.now(); void readCompanionPrs().catch(() => {}) }
+  const usage = await d.usage().catch(() => ({ plan: null, rows: [] }))
+  return { ...companionState(threads, asks, failsNow(), d.wakeups(), Date.now()), running: d.running(), prs: companionPrs, usage: usage.rows }
 })
+handle('companion:stopTask', (_e, thread: string, task: string) => companionDeps().stopTask(String(thread), String(task)))
 // a choice of a thread's open question; you are at the computer, so every choice is allowed (the phone's lock-screen
 // buttons are limited, the companion is not)
 handle('companion:answer', (_e, thread: string, ask: string, question: string, label: string) => companionDeps().answer(String(thread), String(ask), { [String(question)]: String(label) }))

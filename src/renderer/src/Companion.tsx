@@ -1,11 +1,12 @@
 // The companion window (?view=companion): one bar that says what needs you, opening into the list. Answer a question,
 // reply to a waiting thread, open a thread or a deploy in Orbit, without bringing Orbit forward first.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { companionSummary, needKey, type CompanionState } from '../../shared/companionCore'
+import { companionSummary, needKey, type CompanionView } from '../../shared/companionCore'
 import type { PhoneNeed } from '../../shared/phoneCore'
+import { Orbie, type Mood } from './Orbie'
 import './companion.css'
 
-const EMPTY: CompanionState = { needs: [], working: [], coming: [] }
+const EMPTY: CompanionView = { needs: [], working: [], coming: [], running: [], prs: [], usage: [] }
 const WIDTH_OPEN = 380
 const WIDTH_SHUT = 300
 const MAX_H = 560
@@ -51,7 +52,7 @@ function Need({ n, refresh }: { n: PhoneNeed; refresh: () => void }) {
 }
 
 export function Companion() {
-  const [s, setS] = useState<CompanionState>(EMPTY)
+  const [s, setS] = useState<CompanionView>(EMPTY)
   const [deploys, setDeploys] = useState<DeployWatcher[]>([])
   const [open, setOpen] = useState(false)
   const seen = useRef<Set<string> | null>(null)
@@ -89,14 +90,25 @@ export function Companion() {
   const running = deploys.filter((d) => !d.landed && !d.stuck)
   const failed = s.needs.some((n) => n.kind === 'failed') || deploys.some((d) => d.stuck)
   const waiting = s.needs.some((n) => n.kind === 'waiting')
-  const dot = failed ? 'fail' : waiting ? 'wait' : s.working.length || running.length ? 'work' : 'idle'
+  const busy = s.working.length + s.running.length + running.length
+  // happy for a few seconds when work ends without a failure: a thread finished, a deploy landed (or you poke it)
+  const [happy, setHappy] = useState(0)
+  const was = useRef({ busy: 0, landed: 0 })
+  const landed = deploys.filter((d) => d.landed).length
+  useEffect(() => {
+    if ((busy < was.current.busy && !failed) || landed > was.current.landed) setHappy(Date.now())
+    was.current = { busy, landed }
+  }, [busy, landed, failed])
+  useEffect(() => { if (!happy) return; const t = setTimeout(() => setHappy(0), 2_400); return () => clearTimeout(t) }, [happy])
+  const mood: Mood = failed ? 'fail' : waiting ? 'wait' : happy ? 'happy' : busy ? 'work' : 'idle'
   const summary = companionSummary(s, running.length)
+  const limits = s.usage.slice(0, 3)
 
   return (
     <div className={`cp ${open ? 'open' : ''}`} ref={root}>
       <div className="cp-bar">
         <button className="cp-head" onClick={() => setOpen(!open)} title={open ? 'Fold' : 'Open'}>
-          {dot === 'work' ? <i className="codicon codicon-loading sm cp-spin" /> : <span className={`cp-dot ${dot}`} />}
+          <Orbie mood={mood} />
           <span className="cp-sum">{summary}</span>
         </button>
         <span className="cp-drag" />
@@ -106,7 +118,7 @@ export function Companion() {
       </div>
       {open && (
         <div className="cp-body">
-          {!s.needs.length && !deploys.length && !s.working.length && !s.coming.length && (
+          {!s.needs.length && !deploys.length && !s.working.length && !s.running.length && !s.prs.length && !s.coming.length && (
             <div className="cp-empty">Nothing needs you. Threads that wait for you or fail, and deploys being watched, show up here.</div>
           )}
           {!!s.needs.length && <div className="cp-sec">Needs you <span>{s.needs.length}</span></div>}
@@ -120,12 +132,37 @@ export function Companion() {
               {(d.landed || d.stuck) && <button className="cp-ib" onClick={() => void window.api.deployDismiss(d.id).then(() => window.api.deployWatchers().then(setDeploys))} title="Dismiss"><i className="codicon codicon-close sm" /></button>}
             </div>
           ))}
+          {!!s.running.length && <div className="cp-sec">Background tasks <span>{s.running.length}</span></div>}
+          {s.running.map((r) => (
+            <div key={`${r.thread}:${r.id}`} className="cp-row cp-click" onClick={() => void window.api.companionOpen(r.thread)} title={[r.threadTitle, r.title, r.now].filter(Boolean).join(' · ')}>
+              <i className="codicon codicon-loading sm cp-spin" />
+              <span className="cp-title">{r.title}</span>
+              <span className="cp-time cp-dnote">{r.kind}</span>
+              <button className="cp-ib" onClick={(e) => { e.stopPropagation(); void window.api.companionStopTask(r.thread, r.id).then(refresh) }} title="Stop"><i className="codicon codicon-debug-stop sm" /></button>
+            </div>
+          ))}
+          {!!s.prs.length && <div className="cp-sec">Pull requests <span>{s.prs.length}</span></div>}
+          {s.prs.map((p) => (
+            <div key={p.url} className="cp-row cp-click" onClick={() => void window.api.companionOpen(p.thread)} title={`${p.threadTitle} · ${p.url}`}>
+              {p.state === 'failing' ? <span className="cp-dot fail" /> : p.state === 'pending' ? <i className="codicon codicon-loading sm cp-spin" /> : p.state === 'passing' ? <i className="codicon codicon-check sm cp-ok" /> : <i className="codicon codicon-git-pull-request sm cp-faint" />}
+              <span className="cp-title">{p.repo.split('/').pop()} #{p.num}</span>
+              <span className={`cp-time ${p.state === 'failing' ? 'cp-bad' : ''}`}>{p.state === 'none' ? '' : p.state}</span>
+            </div>
+          ))}
           {!!s.working.length && <div className="cp-sec">Working <span>{s.working.length}</span></div>}
           {s.working.map((t) => (
             <div key={t.id} className="cp-row cp-click" onClick={() => void window.api.companionOpen(t.id)} title={t.note || `${t.title} (${t.folder})`}>
               <i className="codicon codicon-loading sm cp-spin" />
               <span className="cp-title">{t.title}</span>
               {t.note && <span className="cp-time cp-dnote">{t.note}</span>}
+            </div>
+          ))}
+          {!!limits.length && <div className="cp-sec">Plan limits</div>}
+          {limits.map((u, i) => (
+            <div key={u.key} className="cp-row cp-lim" title={u.resetsAt ? `Resets ${new Date(u.resetsAt).toLocaleString()}` : ''}>
+              <span className="cp-title">{u.label}</span>
+              <span className="cp-meter"><span style={{ width: `${Math.min(100, Math.max(0, u.pct))}%` }} className={['five', 'seven', 'model'][i]} /></span>
+              <span className={`cp-time ${u.pct >= 90 ? 'cp-bad' : ''}`}>{Math.round(u.pct)}%</span>
             </div>
           ))}
           {!!s.coming.length && <div className="cp-sec">Coming up</div>}

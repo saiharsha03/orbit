@@ -213,13 +213,14 @@ interface Window {
     deployRun: (repo: string, target: 'staging' | 'prod') => Promise<{ runId: string }>
     deployRewatch: (repo: string, target: 'staging' | 'prod', sha: string) => Promise<string>
     deployWatchers: () => Promise<DeployWatcher[]>
-    companionState: () => Promise<import('../../shared/companionCore').CompanionState>
+    companionState: () => Promise<import('../../shared/companionCore').CompanionView>
     companionAnswer: (thread: string, ask: string, question: string, label: string) => Promise<boolean>
     companionReply: (thread: string, text: string) => Promise<string>
     companionOpen: (thread: string) => Promise<void>
     companionDismiss: (thread: string) => Promise<void>
     companionSize: (w: number, h: number) => Promise<void>
     companionHide: () => Promise<void>
+    companionStopTask: (thread: string, task: string) => Promise<boolean>
     deployDismiss: (id: string) => Promise<void>
     onDeployOut: (cb: (runId: string, text: string) => void) => () => void
     onDeployEnd: (cb: (runId: string, code: number, message: string, sha: string, watchId: string) => void) => () => void
