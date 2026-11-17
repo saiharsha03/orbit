@@ -11,6 +11,14 @@ const longDay = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString(
 
 type Side = 'all' | 'work' | 'personal'
 const SIDES: { id: Side; label: string }[] = [{ id: 'all', label: 'All' }, { id: 'work', label: 'Work' }, { id: 'personal', label: 'Personal' }]
+const plural = (n: number, one: string) => `${one}${n === 1 ? '' : 's'}`
+// the summary's part for one side: its "## Work" or "## Personal" section, the whole text for All
+function summaryPart(text: string, side: Side): string {
+  if (side === 'all') return text
+  const parts = text.split(/^(?=## )/m)
+  const hit = parts.find((p) => p.toLowerCase().startsWith(`## ${side}`))
+  return hit ? hit.replace(/^## [^\n]*\n/, '').trim() : ''
+}
 const keep = (side: Side) => (x: { personal: boolean }) => side === 'all' || x.personal === (side === 'personal')
 
 export function WorkLogPage() {
@@ -59,16 +67,15 @@ export function WorkLogPage() {
             {SIDES.map((x) => <button key={x.id} className={`dlink${side === x.id ? ' won' : ''}`} onClick={() => setSide(x.id)} aria-pressed={side === x.id} data-testid={`wl-side-${x.id}`}>{x.label}</button>)}
           </div>
           <div className="wl-facts">
-            <span><b>{threads.length}</b> threads</span>
-            <span><b>{prompts}</b> prompts</span>
-            <span><b>{commits.length}</b> commits{repos.length ? ` in ${repos.length} repos` : ''}</span>
-            <span><b>{log.done.length}</b> to-dos done</span>
+            <span><b>{threads.length}</b> {plural(threads.length, 'thread')}</span>
+            <span><b>{prompts}</b> {plural(prompts, 'prompt')}</span>
+            <span><b>{commits.length}</b> {plural(commits.length, 'commit')}{repos.length ? ` in ${repos.length} ${plural(repos.length, 'repo')}` : ''}</span>
+            <span><b>{log.done.length}</b> {plural(log.done.length, 'to-do')} done</span>
           </div>
 
           <section className="wl-sec">
             <div className="wl-h">
               <h2>Summary</h2>
-              <span className="dspace" />
               {edit === null ? (
                 <>
                   {log.summary && <button className="dlink" onClick={() => setEdit(log.summary)}>Edit</button>}
@@ -85,8 +92,8 @@ export function WorkLogPage() {
             </div>
             {edit !== null
               ? <textarea className="wl-edit" value={edit} onChange={(e) => setEdit(e.target.value)} spellCheck={false} />
-              : log.summary ? <div className="wl-sum"><MdBody text={log.summary} copy={false} /></div>
-                : <div className="dnote">No summary for this day yet.</div>}
+              : summaryPart(log.summary, side) ? <div className="wl-sum"><MdBody text={summaryPart(log.summary, side)} copy={false} /></div>
+                : <div className="dnote">{log.summary ? `Nothing ${side} in the summary.` : 'No summary for this day yet.'}</div>}
           </section>
 
           <section className="wl-sec">

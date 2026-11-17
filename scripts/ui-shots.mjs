@@ -192,6 +192,22 @@ const fixtures = {
   ].map(([sha, title, author]) => ({ sha, title, author })) }], changelog: '## 4.18.0\n- Workspaces rename\n- CSV export fix', output: 'ledger-web: 8 commits to prod', root: REPOS },
   'deploy:status': [],
   'handoff:at': 400000,
+  'worklog:day': (() => {
+    const at = (h, m) => new Date(new Date().setHours(h, m, 0, 0)).getTime()
+    const d = new Date(); const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const th = (id, title, project, personal, prompts, h1, h2) => ({ id, title, project, cwd: '', path: '', started: at(h1, 0), updated: at(h2, 0), personal, prompts, first: at(h1, 5), last: at(h2, 40), asked: ['Look at the failing sync test and fix it', 'push it'] })
+    return {
+      day, personalNames: ['fieldbook'],
+      summary: '## Work\n\n- **billing-api**: fixed the invoice rounding bug, PR open with tests green\n- **web**: moved the export button into the toolbar, shipped\n- **Still open**: CI image build fails at step 7\n\n## Personal\n\n- **fieldbook**: outbox queue retries offline syncs, merged\n',
+      threads: [th('a', 'Invoice rounding off by a cent', 'billing-api', false, 14, 9, 11), th('b', 'Export button placement', 'web', false, 6, 11, 12), th('c', 'Outbox queue retries', 'fieldbook', true, 22, 13, 16), th('d', 'CI image for node 22', 'infra', false, 4, 16, 17)],
+      commits: [
+        { repo: 'billing-api', hash: 'a1b2c3d', at: at(10, 52), subject: 'Round invoice totals half-up per line', personal: false },
+        { repo: 'web', hash: 'e4f5a6b', at: at(12, 10), subject: 'Move export into the toolbar', personal: false },
+        { repo: 'fieldbook', hash: 'c7d8e9f', at: at(15, 31), subject: 'Retry queued syncs with backoff', personal: true },
+      ],
+      done: [{ text: 'Reply to the rounding ticket', at: at(11, 30) }], notes: [{ title: 'Sync design', at: at(14, 0) }],
+    }
+  })(),
   'todos:list': [
     { id: 'td1', text: 'Ask the bank for the new payout file format', status: 'todo', done: false, due: local(NOW + 24 * H).slice(0, 10), createdAt: NOW - 3 * H, source: 'user' },
     { id: 'td2', text: 'Review the refund retry PR once tests pass', status: 'todo', done: false, createdAt: NOW - H, source: 'claude' },
@@ -422,7 +438,7 @@ if (process.env.SIDE) {
   // a section that is not on the rail is a row of the More menu
   const go = async (v) => { const b = page.locator(`[data-testid="abar-${v}"]`); if (!(await b.isVisible().catch(() => false))) await page.locator('[data-testid="abar-more"]').click(); await b.click() }
   await page.locator('[data-testid="abar-more"]').click(); await d('more-menu'); await page.keyboard.press('Escape')
-  for (const v of ['files', 'threads', 'git', 'codex', 'env', 'allow', 'deploy', 'notes', 'todo', 'watchers', 'running', 'scheduled', 'pull', 'scripts', 'dependabot', 'usage']) { await go(v); await d(v) }
+  for (const v of ['files', 'threads', 'git', 'codex', 'env', 'allow', 'deploy', 'notes', 'todo', 'watchers', 'running', 'scheduled', 'pull', 'scripts', 'dependabot', 'usage', 'worklog']) { await go(v); await d(v) }
   await go('threads')
   // the detail panel on each tab, the running bar open, the model control expanded
   const inv = page.locator('[data-testid="chat-t-invoice"]')
