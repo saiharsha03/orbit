@@ -93,7 +93,7 @@ dependencies {
 
     // unit tests of the sealed link (Link.kt) on the JVM; org.json there is the real one, not Android's empty stub
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20260814")
     // every screen drawn to a PNG without a device (ScreensTest): Robolectric runs Compose, Roborazzi captures it
     testImplementation("org.robolectric:robolectric:4.17")
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.40.1")
