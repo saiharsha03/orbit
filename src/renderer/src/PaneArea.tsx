@@ -80,7 +80,10 @@ export function TabRow() {
             onContextMenu={(e) => { e.preventDefault(); setMenu({ id, x: e.clientX, y: e.clientY }) }}
             title={`${s.title}${tabs.length > 1 ? ' (drag onto a pane to move it, onto its edge to split)' : ''}`}
             data-testid="tab" data-id={id} data-index={i}>
-            <i className={`codicon codicon-${s.file ? 'file' : s.tool ? 'window' : s.agent ? 'hubot' : 'comment'} tab-ic`} aria-hidden />
+            {/* a thread at work spins in its tab, so a tab you are not looking at still says it is running */}
+            {w && w[1] === 'work' && !s.agent
+              ? <i className="codicon codicon-loading codicon-modifier-spin tab-ic tab-busy" aria-label="Working" data-testid="tab-working" />
+              : <i className={`codicon codicon-${s.file ? 'file' : s.tool ? 'window' : s.agent ? 'hubot' : 'comment'} tab-ic`} aria-hidden />}
             <span className="tab-t">{s.title}</span>
             {s.agent ? <AgentWord state={agents[id]?.state ?? 'running'} /> : w && (w[1] === 'wait' || w[1] === 'fail') && <State word={w[0]} tone={w[1]} />}
             {dirty && <span className="tab-dirty" data-testid="tab-dirty">M</span>}

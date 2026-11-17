@@ -1,5 +1,8 @@
 /* The companion window: near-monochrome, colour for state only (v3 design language) */
-html.companion, html.companion body, html.companion #root { height: auto; background: var(--bg); }
+/* the window is see-through: folded, only Orbie shows; open, the panel has the page colour */
+html.companion, html.companion body, html.companion #root { height: auto; background: transparent; }
+.cp.open { background: var(--bg); border-radius: 10px; box-shadow: inset 0 0 0 1px var(--rule); overflow: hidden; }
+.cp-say { background: var(--lift2); }
 .cp { display: flex; flex-direction: column; max-height: 560px; font: 13px/1.45 var(--sans); color: var(--ink); }
 .cp-bar { display: flex; align-items: center; gap: 2px; height: 54px; padding: 0 6px 0 4px; flex-shrink: 0; -webkit-app-region: drag; }
 .cp.open .cp-bar { border-bottom: 1px solid var(--rule); }
@@ -183,3 +186,14 @@ html.rocket, html.rocket body, html.rocket #root { background: transparent !impo
 .cp-say.k-limit, .cp-say.k-pr { box-shadow: inset 0 0 0 1px var(--signal); }
 
 @media (prefers-reduced-motion: reduce) { .orbie * { animation: none !important; } }
+
+/* folded: only Orbie and its number; the space around Orbie drags the window */
+.cp-mini { display: flex; justify-content: flex-end; padding: 6px; -webkit-app-region: drag; }
+.cp-mini-b { position: relative; display: inline-flex; padding: 4px; border-radius: 50%; -webkit-app-region: no-drag; cursor: pointer; }
+.cp-mini-b:hover { background: color-mix(in srgb, var(--hi) 6%, transparent); }
+.cp-count { position: absolute; top: 0; right: 0; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font: 600 11px/18px var(--sans); text-align: center; color: var(--bg); background: var(--dim); font-variant-numeric: tabular-nums; }
+.cp-count.wait { background: var(--signal); }
+.cp-count.fail { background: var(--fail); color: #fff; }
+.cp-count.busy { background: var(--lift2); color: var(--hi); }
+/* folded, the bubble sits above Orbie at the right edge, its tail pointing down at it */
+.cp:not(.open) .cp-say::after { left: auto; right: 26px; }

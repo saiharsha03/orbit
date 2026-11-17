@@ -370,7 +370,7 @@ fun MoreScreen(
     notice: String = "", stopAll: Boolean? = null, canPause: Boolean = false, threads: Int = 0, tasks: Int = 0, scheduled: Int = 0, done: String = "", accounts: Boolean = false,
     onAskStopAll: () -> Unit = {}, onPause: (Boolean) -> Unit = {}, onCancelStopAll: () -> Unit = {}, onStopAll: () -> Unit = {},
     onUsage: () -> Unit = {}, onTeams: () -> Unit = {}, onNew: () -> Unit = {}, onSettings: () -> Unit = {},
-    onNotes: (() -> Unit)? = null, onTodos: (() -> Unit)? = null, onWatchers: (() -> Unit)? = null,
+    onNotes: (() -> Unit)? = null, onTodos: (() -> Unit)? = null, onWatchers: (() -> Unit)? = null, onWorkLog: (() -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Head("More")
@@ -382,6 +382,7 @@ fun MoreScreen(
         if (onNotes != null) MoreRow("Notes", onClick = onNotes)
         if (onTodos != null) MoreRow("To do", onClick = onTodos)
         if (onWatchers != null) MoreRow("Watchers", onClick = onWatchers)
+        if (onWorkLog != null) MoreRow("Work log", onClick = onWorkLog)
         MoreRow("Teams", onClick = onTeams)
         MoreRow("New thread", onClick = onNew)
         MoreRow("Settings", onClick = onSettings)
