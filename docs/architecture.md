@@ -106,6 +106,7 @@ tools run inside Orbit's main process with direct access to its state. The agent
 | --- | --- |
 | `show_to_user` | Opens a file (image, HTML, PDF, video, text) in the preview panel and inline in the chat. |
 | `add_todo` | Adds an item to the user's to-do list, optionally with a due date and status. |
+| `update_todo` | Changes one to-do found by its text: status (done ticks it off), due date or wording. |
 | `add_note` | Adds to the note with that title in Notes, or makes one. |
 | `notify_phone` | Sends a notification to the paired phone. |
 | `search_sessions` | Keyword search over past Claude Code sessions, or within one session. |

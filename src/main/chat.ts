@@ -19,8 +19,8 @@ import { ORGANIZE_ACTIONS, checkOrganize, localNow } from './organize'
 import { searchInSession, searchSessions, sessionMeta } from './search'
 import { formatChunks, formatSessions } from './searchCore'
 import { inOrder, promptNeverChecked, turnQueue } from './queueCore'
-import { addTodo, listTodos } from './todos'
-import { formatTodos as formatPersonalTodos } from '../shared/todoListCore'
+import { addTodo, editTodo, listTodos, setDue, setStatus } from './todos'
+import { formatTodos as formatPersonalTodos, matchTodos } from '../shared/todoListCore'
 import { addToNote } from './notes'
 import { listSessions, sessionTouched } from './sessions'
 import { formatThreads, formatWait, labelFromThread, listThreads, resolveThread, statusOf, waitIdle, type From } from '../shared/threadTalkCore'
@@ -138,6 +138,7 @@ const append = () => [
   'and its answer arrives later as a message starting "[Codex finished"; end your turn or keep working meanwhile. The user watches it live.',
   'You can add an item to the user\'s personal to-do list with mcp__orbit__add_todo when the user asks, or when something clearly needs the user\'s follow-up later.',
   'mcp__orbit__list_todos reads that personal list (open items by status, with due dates); use it when the user asks what is on their list or what is due. It is not todo_list, which is a team\'s list.',
+  'mcp__orbit__update_todo changes one item on that list by its text: status "done" ticks it off; it also moves it to talk/holding, sets or clears the due date, or rewords it.',
   'add_todo can also set a due date (YYYY-MM-DD; turn words like "Monday" or "next week" into a date using the current date) and a status:',
   '"talk" when the user needs to talk to someone about it ("need to talk"), "holding" to hold it off for now, otherwise leave it as "todo".',
   'When the user asks you to note or save something to their Notes, use mcp__orbit__add_note (it adds to the note with that title, or makes one).',
@@ -406,6 +407,34 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
             return { content: [{ type: 'text', text: formatPersonalTodos(await listTodos(), { done: !!done, now: d.getTime(), today }) }] }
           } catch (e: any) {
             return { content: [{ type: 'text', text: `list_todos failed: ${e?.message ?? e}` }], isError: true }
+          }
+        },
+      ),
+      tool(
+        'update_todo',
+        `Change one item on the user's personal to-do list (the To do page of ${appName()}): mark it done (tick it off), move it to "need to talk" / "holding" / back to "to do", set or clear its due date, or reword it. `
+          + 'Name the item by its text as list_todos shows it (exact text, or a part that names only one item). Use when the user asks, or when a to-do is really finished.',
+        {
+          match: z.string().min(1).describe('The to-do\'s text, or a part of it that names only one item'),
+          status: z.enum(['todo', 'talk', 'holding', 'done']).optional().describe('"done" ticks it off; "todo", "talk" (need to talk) or "holding" moves it'),
+          due: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/).optional().describe('New due date as YYYY-MM-DD; an empty string clears it'),
+          text: z.string().min(1).optional().describe('New wording for the to-do'),
+        },
+        async ({ match, status, due, text }) => {
+          try {
+            if (!status && due === undefined && !text) return { content: [{ type: 'text', text: 'update_todo: give a status, due or text to change.' }], isError: true }
+            const found = matchTodos(await listTodos(), match)
+            if (!found.length) return { content: [{ type: 'text', text: `No to-do matches "${match}". Call list_todos to see the exact text.` }], isError: true }
+            if (found.length > 1) return { content: [{ type: 'text', text: `"${match}" matches ${found.length} to-dos; use more of the text:\n${found.map((t) => `- ${t.text}`).join('\n')}` }], isError: true }
+            const t = found[0]
+            if (text) await editTodo(t.id, text)
+            if (due !== undefined) await setDue(t.id, due || null)
+            if (status) await setStatus(t.id, status)
+            send({ type: 'hive_todos_changed' })
+            const what = [status && `status ${status}`, due !== undefined && (due ? `due ${due}` : 'due date cleared'), text && `text "${text}"`].filter(Boolean).join(', ')
+            return { content: [{ type: 'text', text: `Updated "${t.text}": ${what}.` }] }
+          } catch (e: any) {
+            return { content: [{ type: 'text', text: `update_todo failed: ${e?.message ?? e}` }], isError: true }
           }
         },
       ),

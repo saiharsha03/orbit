@@ -1,6 +1,6 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { DONE_KEPT_MS, formatTodos, type ListedTodo } from '../../src/shared/todoListCore'
+import { DONE_KEPT_MS, formatTodos, matchTodos, type ListedTodo } from '../../src/shared/todoListCore'
 
 const NOW = new Date('2026-11-12T12:00:00').getTime()
 const TODAY = '2026-11-12'
@@ -30,4 +30,14 @@ test('done items only when asked for, and only recent ones; an empty list says s
   assert.equal(formatTodos([], { done: true, now: NOW, today: TODAY }), 'The to-do list is empty.')
   // a line break inside a to-do does not break the list
   assert.match(formatTodos([todo({ text: 'two\nlines' })], { now: NOW, today: TODAY }), /^To do \(1\):\n- two lines\n/)
+})
+
+test('matchTodos: exact text wins, else a partial match, open items before done ones', () => {
+  const list = [todo({ text: 'Review dream edits' }), todo({ text: 'Review dream edits 2' }), todo({ text: 'old', status: 'done' }), todo({ text: 'old ' })]
+  assert.deepEqual(matchTodos(list, '  review DREAM edits ').map((t) => t.text), ['Review dream edits'])
+  assert.deepEqual(matchTodos(list, 'dream').map((t) => t.text), ['Review dream edits', 'Review dream edits 2'])
+  assert.deepEqual(matchTodos(list, 'old').map((t) => t.text), ['old '])
+  assert.deepEqual(matchTodos([todo({ text: 'gone', status: 'done' })], 'gone').map((t) => t.status), ['done'])
+  assert.deepEqual(matchTodos(list, 'nothing'), [])
+  assert.deepEqual(matchTodos(list, '   '), [])
 })

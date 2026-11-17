@@ -4,6 +4,13 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.8.0] - 2026-11-17
+
+### Added
+
+- Claude can change your to-dos with a new update_todo tool: tick one off, move it to Need to talk or Holding, set
+  or clear its due date, or reword it. It finds the item by its text.
+
 ## [4.7.0] - 2026-11-17
 
 ### Added

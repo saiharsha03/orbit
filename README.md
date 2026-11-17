@@ -199,6 +199,7 @@ The `orbit` MCP server is attached to every session Orbit starts and gives the a
 | `search_sessions` | Search past sessions |
 | `show_to_user` | Open a file, image, page or PDF in a full-window preview |
 | `add_todo` | Add to the to-do list |
+| `update_todo` | Tick off, move, re-date or reword a to-do |
 | `add_note` | Write to Notes (adds to the note with that title, or makes one) |
 | `notify_phone` | Send a notification to the paired phone |
 | `dev_stack`, `dev_stack_logs` | Start, stop and read logs from the local dev stack |

@@ -27,3 +27,18 @@ export function formatTodos(todos: ListedTodo[], opts: { done?: boolean; now: nu
   out.push(`${open.length} open${overdue ? `, ${overdue} overdue` : ''}${opts.done ? `, ${done.length} done in the last 14 days` : ''}.`)
   return out.join('\n')
 }
+
+// Which to-dos a piece of text names (the update_todo tool): an exact match (any case, spaces squeezed) wins,
+// otherwise every item whose text contains it. Open items are preferred over done ones.
+export function matchTodos<T extends ListedTodo>(todos: T[], match: string): T[] {
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
+  const m = norm(match)
+  if (!m) return []
+  const pick = (rows: T[]) => {
+    const open = rows.filter((t) => t.status !== 'done')
+    return open.length ? open : rows
+  }
+  const exact = todos.filter((t) => norm(t.text) === m)
+  if (exact.length) return pick(exact)
+  return pick(todos.filter((t) => norm(t.text).includes(m)))
+}
