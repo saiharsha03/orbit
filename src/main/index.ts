@@ -37,7 +37,7 @@ import { cancelSwitch, switchAccount } from './account'
 import { currentEmail, listAccounts, otherClaudeProcesses, realAccountPaths, removeAccount, saveCurrent, switchAccount as switchProfile } from './accounts'
 import { askBtw } from './btw'
 import { deleteNote, listNotes, saveNote, watchNotes } from './notes'
-import { dayLog, saveSummary, writeSummary } from './worklog'
+import { autoSummaries, dayLog, saveSummary, writeSummary } from './worklog'
 import { editorMtime, editorRead, editorWrite, vsCodeUrl } from './editorFiles'
 import { lspChange, lspClose, lspOpen, lspRequest, lspSaved, setDiagnosticsSink, stopLanguageServers } from './lsp'
 import type { AllowStatus } from '../shared/allowCore'
@@ -1389,6 +1389,8 @@ app.whenReady().then(() => {
   powerMonitor.on('unlock-screen', () => {
     screenLocked = false; setTimeout(() => void maybeGreet('back'), 3_000) })
   setInterval(eveningCheck, 5 * 60_000).unref?.()
+  // the work log's summaries write themselves (worklog.ts autoSummaries)
+  autoSummaries(() => appConfig.config, APP_DIR)
   // Windows toasts need it; same as appId in electron-builder.yml.
   if (app.isPackaged) app.setAppUserModelId(APP_ID)
   else sourceRunIdentity()

@@ -18,7 +18,7 @@ import { listTodos } from './todos'
 import { listNotes } from './notes'
 import { dataDir, TEST_MODE, blocked } from './testMode'
 import type { DevConfig } from '../shared/devCore'
-import { dayRange, isDay, type DayLog, type LogCommit, type LogThread } from '../shared/worklogCore'
+import { dayOf, dayRange, isDay, shiftDay, type DayLog, type LogCommit, type LogThread } from '../shared/worklogCore'
 
 export const worklogDir = () => join(dataDir(), 'hive', 'worklog')
 const summaryFile = (day: string) => {
@@ -256,6 +256,55 @@ export async function writeSummary(day: string, cfg: DevConfig | null, appDir: s
   const log = await dayLog(day, cfg, appDir)
   if (!log.threads.length && !log.commits.length && !log.done.length) return ''
   const text = await askClaude('sonnet', SUMMARY_RULES, facts(log), 120_000)
-  if (text) await saveSummary(day, `${text}\n`)
+  if (text) { await saveSummary(day, `${text}\n`); await markWritten(day) }
   return text
+}
+
+// Summaries Sonnet wrote (the page's button, the backfill, the timer below): when, and the file's time after, so a
+// summary you edited since is never written over
+const autoFile = () => join(worklogDir(), 'written.json')
+async function readWritten(): Promise<Record<string, { at: number; mtime: number }>> {
+  try { return JSON.parse(await readFile(autoFile(), 'utf8')) } catch { return {} }
+}
+async function markWritten(day: string): Promise<void> {
+  const all = await readWritten()
+  all[day] = { at: Date.now(), mtime: statSync(summaryFile(day)).mtimeMs }
+  await writeFile(autoFile(), JSON.stringify(all), 'utf8')
+}
+
+// The summaries fill themselves: from 10 AM each day (checked at start and every half hour, so a morning Orbit was
+// closed is caught up the next time it runs) every one of the last 7 days before today gets a summary when it has
+// none, or when Sonnet's was written before that day ended and you have not edited it since. A day tried once is not
+// tried again until Orbit restarts.
+const MORNING_HOUR = 10
+export function autoSummaries(cfg: () => DevConfig | null, appDir: string): () => void {
+  if (TEST_MODE) return () => {}
+  const tried = new Set<string>()
+  let busy = false
+  const tick = async () => {
+    if (busy || new Date().getHours() < MORNING_HOUR) return
+    busy = true
+    try {
+      const today = dayOf(Date.now())
+      const written = await readWritten()
+      for (let i = 7; i >= 1; i--) {
+        const day = shiftDay(today, -i)
+        const due = dayRange(day).end
+        if (tried.has(day)) continue
+        let mtime = 0
+        try { mtime = statSync(summaryFile(day)).mtimeMs } catch { /* none yet */ }
+        const w = written[day]
+        const stale = !mtime || (!!w && Math.abs(w.mtime - mtime) < 2 && w.at < due)
+        if (!stale) continue
+        tried.add(day)
+        await writeSummary(day, cfg(), appDir).catch(() => '')
+      }
+    } finally {
+      busy = false
+    }
+  }
+  const first = setTimeout(() => void tick(), 60_000)
+  const every = setInterval(() => void tick(), 30 * 60_000)
+  every.unref?.()
+  return () => { clearTimeout(first); clearInterval(every) }
 }
