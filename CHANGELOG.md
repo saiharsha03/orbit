@@ -4,6 +4,18 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.0] - 2026-11-17
+
+### Added
+
+- Work log, a new section in the title bar: one day at a time, the threads you typed in (when, how many prompts, and
+  what you asked), your commits in every repo under the repos root, the to-dos you finished and the notes you changed.
+- Each day is split into work and personal (All / Work / Personal). A repo is personal when its GitHub owner is
+  Orbit's own; a thread run from the repos root is labelled once by Haiku from its title and first prompts.
+- A summary per day in short bullet points under Work and Personal, written by Sonnet on request and editable. It is
+  kept in `~/.orbit/hive/worklog/YYYY-MM-DD.md`.
+- `scripts/worklog-backfill.mjs <from> <to>` writes the summaries for past days.
+
 ## [4.5.1] - 2026-11-16
 
 ### Changed
