@@ -88,7 +88,7 @@ dependencies {
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
     implementation("com.google.firebase:firebase-messaging")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.30.0")
 
     // unit tests of the sealed link (Link.kt) on the JVM; org.json there is the real one, not Android's empty stub
