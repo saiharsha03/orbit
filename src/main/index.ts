@@ -38,6 +38,7 @@ import { currentEmail, listAccounts, otherClaudeProcesses, realAccountPaths, rem
 import { askBtw } from './btw'
 import { deleteNote, listNotes, saveNote, watchNotes } from './notes'
 import { autoSummaries, dayLog, saveSummary, writeSummary } from './worklog'
+import { dayOf, isDay } from '../shared/worklogCore'
 import { editorMtime, editorRead, editorWrite, vsCodeUrl } from './editorFiles'
 import { lspChange, lspClose, lspOpen, lspRequest, lspSaved, setDiagnosticsSink, stopLanguageServers } from './lsp'
 import type { AllowStatus } from '../shared/allowCore'
@@ -331,6 +332,11 @@ const mobileDeps = () => ({
   todos: async () => (await listTodos()).map((t) => ({ id: t.id, text: t.text, status: t.status, ...(t.due ? { due: t.due } : {}) })),
   todoAdd: async (text: string) => (await addTodo(text, 'user')).id,
   todoDone: async (id: string, done: boolean) => { await setDone(id, done); return done ? 'done' : 'open' },
+  // the phone's Work log: the day as the page shows it, with fewer of the prompts asked per thread
+  workDay: async (day: string) => {
+    const l = await dayLog(isDay(day) ? day : dayOf(Date.now()), appConfig.config, APP_DIR)
+    return { ...l, threads: l.threads.map(({ path: _p, cwd: _c, asked, ...t }) => ({ ...t, asked: asked.slice(0, 5) })) }
+  },
   watchers: async () => (await listWatchersView()).watchers.map((x) => ({ id: x.id, name: x.name, goal: x.goal, enabled: x.enabled, status: String(x.status), note: x.message || x.waitingReason, lastRun: x.lastRun, nextRun: x.nextRun })),
   watcherRun: async (id: string) => { await runWatcherNow(id, 'sweep'); return 'started' },
   // a thread in more detail, for the phone's thread screen
@@ -985,8 +991,8 @@ function openCompanion(): void {
   if (TEST_MODE) return
   if (companionWin && !companionWin.isDestroyed()) { companionWin.showInactive(); return }
   const win = new BrowserWindow({
-    show: false, width: 300, height: 54, frame: false, resizable: false, maximizable: false, minimizable: false, fullscreenable: false,
-    alwaysOnTop: true, skipTaskbar: true, backgroundColor: '#121314', title: `${appName()} companion`, icon,
+    show: false, width: 76, height: 64, frame: false, transparent: true, hasShadow: false, resizable: false, maximizable: false, minimizable: false, fullscreenable: false,
+    alwaysOnTop: true, skipTaskbar: true, backgroundColor: '#00000000', title: `${appName()} companion`, icon,
     webPreferences: { preload: join(__dirname, '../preload/index.js') },
   })
   companionWin = win

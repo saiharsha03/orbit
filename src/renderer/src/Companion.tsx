@@ -1,4 +1,5 @@
-// The companion window (?view=companion): one bar that says what needs you, opening into the list. Answer a question,
+// The companion window (?view=companion): folded it is only Orbie with a number (what needs you, else what is working);
+// a click on Orbie opens the list and nothing opens it by itself. Answer a question,
 // reply to a waiting thread, open a thread or a deploy in Orbit, without bringing Orbit forward first.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { companionSummary, needKey, type CompanionView } from '../../shared/companionCore'
@@ -9,7 +10,8 @@ import './companion.css'
 
 const EMPTY: CompanionView = { needs: [], working: [], coming: [], running: [], prs: [], usage: [], goals: [], extra: {} }
 const WIDTH_OPEN = 380
-const WIDTH_SHUT = 300
+const WIDTH_SHUT = 76 // Orbie and its number
+const WIDTH_SAY = 300 // folded, while Orbie says something
 const MAX_H = 560
 const ago = (t: number) => { const m = Math.round((Date.now() - t) / 60_000); return m < 1 ? 'now' : m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d` }
 const at = (t: number) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -56,7 +58,6 @@ export function Companion() {
   const [s, setS] = useState<CompanionView>(EMPTY)
   const [deploys, setDeploys] = useState<DeployWatcher[]>([])
   const [open, setOpen] = useState(false)
-  const seen = useRef<Set<string> | null>(null)
   const root = useRef<HTMLDivElement>(null)
 
   // Orbie's speech bubble: a line from main (companionVoice.ts) while you are away from Orbit, shown for a while
@@ -69,6 +70,13 @@ export function Companion() {
   }, [])
   useEffect(() => { if (!said) return; const t = setTimeout(() => setSaid(null), said.kind === 'greet' ? 40_000 : 15_000); return () => clearTimeout(t) }, [said])
 
+  // a click anywhere else (the window loses focus) folds it back to Orbie
+  useEffect(() => {
+    const fold = () => setOpen(false)
+    window.addEventListener('blur', fold)
+    return () => window.removeEventListener('blur', fold)
+  }, [])
+
   const refresh = () => { void window.api.companionState().then(setS).catch(() => {}) }
   useEffect(() => {
     refresh()
@@ -78,25 +86,16 @@ export function Companion() {
     return () => { clearInterval(t); off() }
   }, [])
 
-  // something new needs you (a question, a failure, a deploy that ended, or one already there at start): the bar opens
-  const keyList = [...s.needs.map(needKey), ...deploys.filter((d) => d.landed || d.stuck).map((d) => `deploy:${d.id}:${d.landed}`)].join('|')
-  useEffect(() => {
-    const keys = keyList ? keyList.split('|') : []
-    if (!seen.current) seen.current = new Set()
-    if (keys.some((k) => !seen.current!.has(k))) setOpen(true)
-    for (const k of keys) seen.current.add(k)
-  }, [keyList])
-
   // the window is as tall as what it shows
   useLayoutEffect(() => {
     const el = root.current
     if (!el) return
-    const fit = () => void window.api.companionSize(open ? WIDTH_OPEN : WIDTH_SHUT, Math.min(MAX_H, Math.ceil(el.getBoundingClientRect().height)))
+    const fit = () => void window.api.companionSize(open ? WIDTH_OPEN : said ? WIDTH_SAY : WIDTH_SHUT, Math.min(MAX_H, Math.ceil(el.getBoundingClientRect().height)))
     fit()
     const ro = new ResizeObserver(fit)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [open])
+  }, [open, said])
 
   const running = deploys.filter((d) => !d.landed && !d.stuck)
   const failed = s.needs.some((n) => n.kind === 'failed') || deploys.some((d) => d.stuck)
@@ -118,14 +117,14 @@ export function Companion() {
     was.current = { busy, landed }
   }, [busy, landed, failed])
   useEffect(() => { if (!happy) return; const t = setTimeout(() => setHappy(0), 2_400); return () => clearTimeout(t) }, [happy])
-  // a goal met since the last look: a party (confetti and a jump), and the list opens to show it completed
+  // a goal met since the last look: a party (confetti and a jump)
   const [party, setParty] = useState(0)
   const metSeen = useRef<Set<string> | null>(null)
   const metKeys = s.goals.filter((g) => g.status === 'met').map((g) => `${g.thread}:${g.metAt ?? 0}`).join('|')
   useEffect(() => {
     const keys = metKeys ? metKeys.split('|') : []
     if (!metSeen.current) { metSeen.current = new Set(keys); return }
-    if (keys.some((k) => !metSeen.current!.has(k))) { setParty(Date.now()); setHappy(Date.now()); setOpen(true) }
+    if (keys.some((k) => !metSeen.current!.has(k))) { setParty(Date.now()); setHappy(Date.now()) }
     for (const k of keys) metSeen.current.add(k)
   }, [metKeys])
   useEffect(() => { if (!party) return; const t = setTimeout(() => setParty(0), 4_000); return () => clearTimeout(t) }, [party])
@@ -138,6 +137,9 @@ export function Companion() {
   const rocket: Rocket = running.length ? 'pad' : happy && landed ? 'launch' : 'none'
   const summary = companionSummary({ ...s, goalsActive }, running.length)
   const limits = s.usage.slice(0, 3)
+  // the folded number: what needs you (red when one failed), else the threads working (quiet)
+  const count = s.needs.length || s.working.length
+  const face = <Orbie mood={mood} moons={s.working.length} weather={weather} rocket={rocket} stars={s.coming.length} drawn={said?.face} party={!!party} goal={goalsActive > 0} />
 
   return (
     <div className={`cp ${open ? 'open' : ''}`} ref={root}>
@@ -146,12 +148,17 @@ export function Companion() {
           <span>{said.line}</span>
         </div>
       )}
-      <div className="cp-bar">
-        <button className="cp-head" onClick={() => setOpen(!open)} title={open ? 'Fold' : 'Open'}>
-          {/* a poke: Orbie jumps and a test rocket goes up */}
-          <span className="cp-orbie" onClick={(e) => { e.stopPropagation(); setHappy(Date.now()); void window.api.companionLaunch('Test launch', true) }} title="Poke Orbie">
-            <Orbie mood={mood} moons={s.working.length} weather={weather} rocket={rocket} stars={s.coming.length} drawn={said?.face} party={!!party} goal={goalsActive > 0} />
-          </span>
+      {!open && (
+        <div className="cp-mini">
+          <button className="cp-mini-b" onClick={() => setOpen(true)} title={`${summary}. Click to open`} data-testid="companion-orbie">
+            {face}
+            {count > 0 && <span className={`cp-count ${s.needs.length ? (failed ? 'fail' : 'wait') : 'busy'}`}>{count}</span>}
+          </button>
+        </div>
+      )}
+      {open && <div className="cp-bar">
+        <button className="cp-head" onClick={() => setOpen(false)} title="Fold">
+          <span className="cp-orbie">{face}</span>
           <span className="cp-sum">{summary}</span>
         </button>
         <span className="cp-drag" />
@@ -159,7 +166,7 @@ export function Companion() {
         <button className="cp-ib" onClick={() => void window.api.companionOpen('')} title="Open Orbit"><i className="codicon codicon-link-external sm" /></button>
         <button className="cp-ib" onClick={() => setOpen(!open)} title={open ? 'Fold' : 'Open'}><i className={`codicon codicon-chevron-${open ? 'down' : 'up'} sm`} /></button>
         <button className="cp-ib" onClick={() => void window.api.companionHide()} title="Hide the companion (Ctrl+Alt+O or the tray brings it back)"><i className="codicon codicon-close sm" /></button>
-      </div>
+      </div>}
       {open && (
         <div className="cp-body">
           {!s.needs.length && !deploys.length && !s.working.length && !s.running.length && !s.prs.length && !s.coming.length && (

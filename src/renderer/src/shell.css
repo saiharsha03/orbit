@@ -201,6 +201,7 @@ button.rail-gh:hover { color: var(--dim); }
 .tab.shown:not(.on) { color: var(--hi); }
 .tab .tab-ic { flex: none; font-size: 14px; color: var(--dim); }
 .tab.on .tab-ic { color: var(--hi); }
+.tab .tab-ic.tab-busy { color: var(--work); }
 .tab .tab-x { width: 20px; height: 20px; flex: none; display: grid; place-items: center; border-radius: var(--r-small); color: var(--dim); background: none; border: 0; padding: 0; cursor: pointer; font-size: 16px; line-height: 1; font-weight: 400; }
 .tab.on .tab-x { color: var(--ink); }
 .tab .tab-x:hover { color: var(--hi); background: var(--btn-quiet); }

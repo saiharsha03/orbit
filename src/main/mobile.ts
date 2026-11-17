@@ -64,6 +64,8 @@ export type Deps = {
   todos?: () => Promise<{ id: string; text: string; status: string; due?: string }[]>
   todoAdd?: (text: string) => Promise<string>
   todoDone?: (id: string, done: boolean) => Promise<string>
+  // the work log of one day (YYYY-MM-DD), read-only on the phone
+  workDay?: (day: string) => Promise<unknown>
   watchers?: () => Promise<{ id: string; name: string; goal: string; enabled: boolean; status: string; note: string; lastRun: number | null; nextRun: number | null }[]>
   watcherRun?: (id: string) => Promise<string>
   // 3.1: a thread's context, what it waits on, its work in detail (reviews apart), the points to rewind to, its PR gate,
@@ -314,7 +316,7 @@ let staleSaid = 0
 
 // ---- what the 2.0 app asks for, from the optional deps or from the ones every Orbit has ----
 // which optional requests this Orbit answers; the app hides the screens and buttons for the others
-const can = (d: Deps): string[] => ['inbox', 'running', 'stopAll', 'noteButtons', 'attach', ...(d.settings && d.setThread ? ['threadSettings'] : []), ...(d.sendHow ? ['sendHow'] : []), ...(d.notes && d.noteSave ? ['notes'] : []), ...(d.todos ? ['todos'] : []), ...(d.watchers ? ['watchers'] : []), ...(d.threadMore ? ['threadMore'] : []), ...(d.rewind ? ['rewind'] : []), ...(d.versions ? ['versions'] : []), ...(d.stopAll ? ['pause'] : []), ...(d.runWakeNow ? ['runWake'] : []), ...(d.accounts && d.switchAccount ? ['accounts'] : []), ...(d.quietHours ? ['quiet'] : []), ...(d.changes && d.diff ? ['changes'] : []), ...(d.prMerge ? ['prMerge'] : [])]
+const can = (d: Deps): string[] => ['inbox', 'running', 'stopAll', 'noteButtons', 'attach', ...(d.settings && d.setThread ? ['threadSettings'] : []), ...(d.sendHow ? ['sendHow'] : []), ...(d.notes && d.noteSave ? ['notes'] : []), ...(d.todos ? ['todos'] : []), ...(d.watchers ? ['watchers'] : []), ...(d.workDay ? ['worklog'] : []), ...(d.threadMore ? ['threadMore'] : []), ...(d.rewind ? ['rewind'] : []), ...(d.versions ? ['versions'] : []), ...(d.stopAll ? ['pause'] : []), ...(d.runWakeNow ? ['runWake'] : []), ...(d.accounts && d.switchAccount ? ['accounts'] : []), ...(d.quietHours ? ['quiet'] : []), ...(d.changes && d.diff ? ['changes'] : []), ...(d.prMerge ? ['prMerge'] : [])]
 
 async function peekThread(d: Deps, id: string): Promise<PhonePeek | null> {
   if (d.peek) return d.peek(id)
@@ -500,6 +502,7 @@ export async function phoneRequest(deps: Deps, m: Record<string, unknown>, limit
         return reply({ ok: await oncePerMid(m.mid, () => d.todoAdd!(text)) })
       }
       case 'todoDone': return deps.todoDone ? reply({ ok: await deps.todoDone(id, m.done !== false) }) : reply({ error: 'unknown request todoDone' })
+      case 'workDay': return deps.workDay ? reply({ log: await deps.workDay(String(m.day ?? '')) }) : reply({ error: 'unknown request workDay' })
       case 'watchers': return deps.watchers ? reply({ watchers: await deps.watchers() }) : reply({ error: 'unknown request watchers' })
       case 'threadMore': return deps.threadMore ? reply({ more: await deps.threadMore(id) }) : reply({ error: 'unknown request threadMore' })
       case 'rewind': return deps.rewind ? reply({ ok: await deps.rewind(id, String(m.uuid ?? '')) }) : reply({ error: 'unknown request rewind' })

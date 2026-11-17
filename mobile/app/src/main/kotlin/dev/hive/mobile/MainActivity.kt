@@ -320,6 +320,7 @@ private fun App(openThread: MutableState<String?>, openPane: MutableState<String
             "notes" -> NotesRoute(notice, closeDetail)
             "todos" -> TodosRoute(notice, closeDetail)
             "watchers" -> WatchersRoute(notice, closeDetail)
+            "worklog" -> WorkLogRoute(notice, closeDetail)
             "settings" -> SettingsRoute(notice, online, "quiet" in can, closeDetail, onUnpaired = { told ->
                 Drafts.clear()
                 closeDetail()
@@ -599,6 +600,18 @@ private fun TodosRoute(notice: String, onBack: () -> Unit) {
 }
 
 @Composable
+private fun WorkLogRoute(notice: String, onBack: () -> Unit) {
+    var day by remember { mutableStateOf(WorkLog.today()) }
+    var log by remember { mutableStateOf<WorkDay?>(null) }
+    var side by remember { mutableStateOf("all") }
+    var err by remember { mutableStateOf("") }
+    BackHandler(onBack = onBack)
+    val reload = rememberLoader(every = { 60_000L }) { err = attempt("work log") { val d = day; val got = WorkLog.read(Relay.ask("workDay", mapOf("day" to d))); if (got.day == day) log = got } }
+    WorkLogScreen(log?.takeIf { it.day == day }, day, side, notice, err, onBack = onBack, onSide = { side = it },
+        onDay = { n -> val next = WorkLog.shift(day, n); if (next <= WorkLog.today()) { day = next; reload() } })
+}
+
+@Composable
 private fun WatchersRoute(notice: String, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var watchers by remember { mutableStateOf<List<Watcher>?>(null) }
@@ -677,7 +690,7 @@ private fun MoreRoute(notice: String, counts: Counts, canPause: Boolean, account
     MoreScreen(listOf(notice, stop.error).filter { it.isNotEmpty() }.joinToString(" "), stop.asking, canPause, counts.threads, counts.running, counts.scheduled, stop.done, accounts,
         onAskStopAll = stop.ask, onPause = stop.pause, onCancelStopAll = stop.cancel, onStopAll = stop.go,
         onUsage = { onPane("usage") }, onTeams = { onPane("teams") }, onNew = { onPane("new") }, onSettings = { onPane("settings") },
-        onNotes = if ("notes" in can) ({ onPane("notes") }) else null, onTodos = if ("todos" in can) ({ onPane("todos") }) else null, onWatchers = if ("watchers" in can) ({ onPane("watchers") }) else null)
+        onNotes = if ("notes" in can) ({ onPane("notes") }) else null, onTodos = if ("todos" in can) ({ onPane("todos") }) else null, onWatchers = if ("watchers" in can) ({ onPane("watchers") }) else null, onWorkLog = if ("worklog" in can) ({ onPane("worklog") }) else null)
 }
 
 @Composable
