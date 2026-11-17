@@ -4,6 +4,14 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.1] - 2026-11-17
+
+### Changed
+
+- The work log's summaries write themselves: from 10 AM each day, every one of the last 7 days that has no summary,
+  or only one written before that day ended, gets one. A morning Orbit was closed is caught up the next time it runs.
+  A summary you edited is never written over.
+
 ## [4.6.0] - 2026-11-17
 
 ### Added
