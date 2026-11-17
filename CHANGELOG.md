@@ -4,6 +4,20 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.0] - 2026-11-17
+
+### Added
+
+- Work log on the phone (More, Work log), read-only: the day's summary, threads, commits and to-dos done, with
+  Previous / Next and All / Work / Personal. Phone app 4.7.0.
+
+### Changed
+
+- The companion folds to just Orbie with a number on a see-through window: amber when something needs you, red when
+  something failed, grey for the threads working. Nothing opens it by itself any more; a click on Orbie opens the
+  list, and a click anywhere else folds it. Orbie's lines still show in a bubble above it.
+- A thread's tab icon spins while the thread is working.
+
 ## [4.6.1] - 2026-11-17
 
 ### Changed
