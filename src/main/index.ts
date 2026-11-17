@@ -37,6 +37,7 @@ import { cancelSwitch, switchAccount } from './account'
 import { currentEmail, listAccounts, otherClaudeProcesses, realAccountPaths, removeAccount, saveCurrent, switchAccount as switchProfile } from './accounts'
 import { askBtw } from './btw'
 import { deleteNote, listNotes, saveNote, watchNotes } from './notes'
+import { dayLog, saveSummary, writeSummary } from './worklog'
 import { editorMtime, editorRead, editorWrite, vsCodeUrl } from './editorFiles'
 import { lspChange, lspClose, lspOpen, lspRequest, lspSaved, setDiagnosticsSink, stopLanguageServers } from './lsp'
 import type { AllowStatus } from '../shared/allowCore'
@@ -569,6 +570,10 @@ handle('notes:list', () => listNotes())
 handle('notes:save', (_e, id: string | null, text: string) => saveNote(id ? String(id) : null, String(text ?? '')))
 handle('notes:delete', (_e, id: string) => deleteNote(String(id)))
 watchNotes(() => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.isDestroyed()) w.webContents.send('notes:changed') })
+// Work log: one day's threads, commits, finished to-dos and changed notes, and its summary file
+handle('worklog:day', (_e, day: string) => dayLog(String(day), appConfig.config, APP_DIR))
+handle('worklog:save', (_e, day: string, text: string) => saveSummary(String(day), String(text ?? '')))
+handle('worklog:summarize', (_e, day: string) => writeSummary(String(day), appConfig.config, APP_DIR))
 handle('todos:list', () => listTodos())
 handle('todos:add', (_e, text: string, due?: string) => addTodo(text, 'user', due ? { due } : {}))
 handle('todos:done', (_e, id: string, done: boolean) => setDone(id, done))

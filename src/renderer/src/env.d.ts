@@ -123,6 +123,9 @@ interface Window {
     findStop: () => Promise<void>
     onFindResult: (cb: (r: { active: number; total: number }) => void) => () => void
     onNotesChanged: (cb: () => void) => () => void
+    workDay: (day: string) => Promise<import('../../shared/worklogCore').DayLog>
+    saveWorkSummary: (day: string, text: string) => Promise<void>
+    writeWorkSummary: (day: string) => Promise<string>
     listTodos: () => Promise<Todo[]>
     addTodo: (text: string, due?: string) => Promise<Todo>
     setTodoDone: (id: string, done: boolean) => Promise<void>

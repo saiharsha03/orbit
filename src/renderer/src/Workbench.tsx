@@ -15,6 +15,7 @@ import { DevPanel } from './DevPanel'
 import { useDev } from './useDev'
 import { QuarryPage, useQuarry } from './pages/QuarryPage'
 import { TodoPanel } from './TodoPanel'
+import { WorkLogPage } from './pages/WorkLogPage'
 import { useTodos } from './useTodos'
 import { AllowBody, allowOut, useAllow } from './StatusLine'
 import { DeploysPage } from './pages/DeploysPage'
@@ -35,7 +36,7 @@ import { CodexOutput, CodexSide } from './CodexView'
 import './pages/workspace.css'
 import './workbench.css'
 
-export type SideView = 'files' | 'threads' | 'codex' | 'git' | 'env' | 'allow' | 'deploy' | 'notes' | 'todo' | 'watchers' | 'running' | 'scheduled' | 'pull' | 'scripts' | 'dependabot' | 'usage' | 'board' | 'quarry' | 'accounts'
+export type SideView = 'files' | 'threads' | 'codex' | 'git' | 'env' | 'allow' | 'deploy' | 'notes' | 'todo' | 'watchers' | 'running' | 'scheduled' | 'pull' | 'scripts' | 'dependabot' | 'usage' | 'board' | 'quarry' | 'accounts' | 'worklog'
 export const VIEWS: { id: SideView; label: string; icon: string; brand?: 'claude' | 'openai' }[] = [
   { id: 'files', label: 'Files', icon: 'files' },
   { id: 'threads', label: 'Threads', icon: 'comment-discussion', brand: 'claude' },
@@ -46,6 +47,7 @@ export const VIEWS: { id: SideView; label: string; icon: string; brand?: 'claude
   { id: 'deploy', label: 'Deploy', icon: 'rocket' },
   { id: 'notes', label: 'Notes', icon: 'note' },
   { id: 'todo', label: 'To do', icon: 'checklist' },
+  { id: 'worklog', label: 'Work log', icon: 'history' },
   { id: 'watchers', label: 'Watchers', icon: 'eye' },
   { id: 'running', label: 'Running', icon: 'pulse' },
   { id: 'scheduled', label: 'Scheduled', icon: 'clock' },
@@ -79,7 +81,7 @@ sectionRoute.go = (page) => {
 
 // the rail's own destinations; every other section is under More, in these groups
 // (Scripts, Deploy, Pull, Allow IP and the terminal are in the status bar)
-const MAIN: SideView[] = ['threads', 'scheduled', 'files', 'todo', 'notes', 'board']
+const MAIN: SideView[] = ['threads', 'scheduled', 'files', 'todo', 'notes', 'worklog', 'board']
 const MORE: { group: string; ids: SideView[] }[] = [
   { group: 'Code', ids: ['git', 'dependabot'] },
   { group: 'Automation', ids: ['running', 'watchers', 'env'] },
@@ -233,6 +235,7 @@ function FullPage({ view, deploy }: { view: SideView; deploy: ReturnType<typeof 
     case 'allow': return <Page title="Allow IP"><AllowPage /></Page>
     case 'notes': return <Page title="Notes" wide><NotesPanel /></Page>
     case 'todo': return <Page title="To do"><TodoPage /></Page>
+    case 'worklog': return <Page title="Work log" wide><WorkLogPage /></Page>
     default: return null
   }
 }

@@ -71,6 +71,9 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('notes:changed', fn)
     return () => ipcRenderer.removeListener('notes:changed', fn)
   },
+  workDay: (day: string) => ipcRenderer.invoke('worklog:day', day),
+  saveWorkSummary: (day: string, text: string) => ipcRenderer.invoke('worklog:save', day, text),
+  writeWorkSummary: (day: string) => ipcRenderer.invoke('worklog:summarize', day),
   listTodos: () => ipcRenderer.invoke('todos:list'),
   addTodo: (text: string, due?: string) => ipcRenderer.invoke('todos:add', text, due),
   setTodoDone: (id: string, done: boolean) => ipcRenderer.invoke('todos:done', id, done),
