@@ -4,6 +4,12 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1] - 2026-11-18
+
+### Removed
+
+- The Running card in a thread's side bar. Background tasks still show, with Stop, on the Running page (Ctrl Shift R).
+
 ## [5.0.0] - 2026-11-17
 
 ### Changed

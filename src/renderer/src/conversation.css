@@ -392,7 +392,3 @@ button.pick:hover { color: var(--hi); }
 .ttodos li { font-size: 13px; line-height: 1.4; color: var(--ink); overflow-wrap: anywhere; }
 .ttodos li.done { color: var(--dim); text-decoration: line-through; }
 .ttodos li.now { color: var(--hi); font-weight: 500; }
-.trunrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.trunrow code { flex: 1; min-width: 0; font: 12px var(--mono); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tdot { flex: none; width: 7px; height: 7px; background: var(--st-work); animation: pulse 1.6s ease-in-out infinite; }
-.app .tdot { border-radius: 50% !important; }

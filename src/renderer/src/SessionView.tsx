@@ -1180,7 +1180,7 @@ export function SessionView(p: Props) {
         </div>
       </div>
       </div>
-      {sideOn && side.any && <ThreadSide tabId={session.id} items={session.items} side={side} onStopGoal={() => void stopGoal()} onDismissGoal={() => dismissGoal(session.id)} />}
+      {sideOn && side.any && <ThreadSide side={side} onStopGoal={() => void stopGoal()} onDismissGoal={() => dismissGoal(session.id)} />}
     </main>
   )
 }
