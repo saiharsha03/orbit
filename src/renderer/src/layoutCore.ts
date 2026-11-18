@@ -25,7 +25,7 @@ export const CODE_FONTS: { id: CodeFont; label: string; stack: string }[] = [
   { id: 'system', label: 'System monospace', stack: "ui-monospace, Consolas, monospace" },
 ]
 export type Fonts = { ui: UiFont; code: CodeFont }
-export const DEFAULT_FONTS: Fonts = { ui: 'segoe', code: 'consolas' }
+export const DEFAULT_FONTS: Fonts = { ui: 'inter', code: 'consolas' }
 const fontsOf = (v: unknown): Fonts => {
   const f = (v && typeof v === 'object' ? v : {}) as Partial<Fonts>
   return { ui: UI_FONTS.some((x) => x.id === f.ui) ? f.ui! : DEFAULT_FONTS.ui, code: CODE_FONTS.some((x) => x.id === f.code) ? f.code! : DEFAULT_FONTS.code }

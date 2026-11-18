@@ -197,3 +197,15 @@ html.rocket, html.rocket body, html.rocket #root { background: transparent !impo
 .cp-count.busy { background: var(--lift2); color: var(--hi); }
 /* folded, the bubble sits above Orbie at the right edge, its tail pointing down at it */
 .cp:not(.open) .cp-say::after { left: auto; right: 26px; }
+
+/* a permission question: Deny beside a filled Allow */
+.cp-perm .btn.cp-opt { flex: 1 1 auto; justify-content: center; text-align: center; }
+.cp-perm .btn.btn-quiet.cp-allow { background: var(--amber); color: var(--on-amber); font-weight: 600; }
+.cp-perm .btn.btn-quiet.cp-allow:hover { filter: brightness(1.08); }
+/* folded: a second number for the threads working, under the one for what needs you */
+.cp-count2 { top: auto; bottom: 0; box-shadow: inset 0 0 0 1px var(--rule2); color: var(--st-work); }
+/* the foot: the session limit and the next wake-up */
+.cp-foot { display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding: 9px 14px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cp-foot .cp-meter { flex: 0 0 56px; }
+.cp-foot .cp-meter span { background: var(--amber); }
+.cp-next { margin-left: auto; overflow: hidden; text-overflow: ellipsis; }

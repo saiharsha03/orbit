@@ -350,3 +350,49 @@ button.pick:hover { color: var(--hi); }
 /* the time a message was sent, small under its bubble (the read time sits inside, with the ticks) */
 .msg.you { position: relative; margin-bottom: 30px; }
 .msg.you .sent-at { position: absolute; right: 2px; top: calc(100% + 4px); font: 400 11px var(--sans); font-variant-numeric: tabular-nums; color: var(--faint); white-space: nowrap; }
+
+/* ---------- the thread's title block, its state pill and the bar at its right ---------- */
+.session { flex-direction: row; }
+.session-main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+.phead h1 { font: 600 26px/1.2 var(--display); letter-spacing: -.01em; }
+.phead-sub { font-size: 13px; }
+@container pane (max-width: 620px) { .phead h1 { font-size: 20px; } }
+/* the pill: its state's colour as text on a wash of it */
+.state-pill { --c: var(--amber-text); flex: none; font: 600 12px/1 var(--sans); padding: 6px 12px; white-space: nowrap; color: var(--c); background: color-mix(in srgb, var(--c) 13%, var(--bg)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 26%, var(--bg)); }
+.app .state-pill { border-radius: 999px !important; }
+.state-pill.sp-work { --c: var(--st-work); } .state-pill.sp-done { --c: var(--st-done); } .state-pill.sp-fail { --c: var(--st-fail); }
+.phead-r { gap: 6px; }
+
+.tside, .pact-side { display: none; }
+@container pane (min-width: 940px) {
+  .pact-side { display: inline-flex; }
+  .has-side .tside { display: flex; }
+  /* the bar carries these while it is there */
+  .has-side .goal-chip, .has-side .recap-inline { display: none; }
+}
+.tside { flex: 0 0 320px; flex-direction: column; gap: 14px; padding: 20px 16px; border-left: 1px solid var(--rule); overflow-y: auto; min-height: 0; }
+.tcard { background: var(--raised); box-shadow: inset 0 0 0 1px var(--rule2); padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: none; }
+.app .tcard { border-radius: 18px !important; }
+.tcard-h { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--hi); }
+.tcard-h b { font-weight: 600; }
+.tcard-n { margin-left: auto; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.tcard p { font-size: 14px; line-height: 1.5; color: var(--hi); overflow-wrap: anywhere; }
+.tcard p.trecap { font-size: 13px; line-height: 1.55; color: var(--ink); }
+.tcard-goal .tcard-h b { color: var(--amber-soft); }
+.tcard-goal .tcard-h .codicon { color: var(--amber-text); }
+.tcard-goal.met .tcard-h b, .tcard-goal.met .tcard-h .codicon { color: var(--st-done); }
+.tcard-acts { display: flex; justify-content: flex-end; }
+.tbtn { flex: none; min-height: 28px; padding: 0 10px; font: 500 12px var(--sans); color: var(--hi); box-shadow: inset 0 0 0 1px var(--rule2); }
+.tbtn:hover { background: color-mix(in srgb, var(--hi) 7%, transparent); }
+.app .tbtn { border-radius: 8px !important; }
+.tbar { height: 6px; background: var(--rule2); overflow: hidden; }
+.tbar i { display: block; height: 100%; background: var(--st-work); transition: width .2s; }
+.app .tbar, .app .tbar i { border-radius: 99px !important; }
+.ttodos { list-style: none; display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; }
+.ttodos li { font-size: 13px; line-height: 1.4; color: var(--ink); overflow-wrap: anywhere; }
+.ttodos li.done { color: var(--dim); text-decoration: line-through; }
+.ttodos li.now { color: var(--hi); font-weight: 500; }
+.trunrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.trunrow code { flex: 1; min-width: 0; font: 12px var(--mono); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tdot { flex: none; width: 7px; height: 7px; background: var(--st-work); animation: pulse 1.6s ease-in-out infinite; }
+.app .tdot { border-radius: 50% !important; }

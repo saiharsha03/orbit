@@ -15,7 +15,7 @@ import { useWatchers } from './useWatchers'
 import { isDependabotTab } from '../../shared/dependabotCore'
 import { nextRunLabel } from '../../shared/threadsCore'
 import { groupTeams, pastTeamPeople, teamThreadIds, type Roster, type RosterPerson } from '../../shared/teamSidebarCore'
-import { live as liveStore, activate, newSession, offerUndo, openBeside, openSession, closeSession, recomputeLive, send, notice } from './actions'
+import { live as liveStore, activate, offerUndo, openBeside, openSession, closeSession, recomputeLive, send, notice } from './actions'
 import { panes, sessions as sessionStore, setSessions, useStore, shallowEq } from './store'
 import { onWakeupsChanged, wakeupsList } from './api/next'
 import { buildAnswers, parseQuestions } from '../../shared/askCore'
@@ -156,7 +156,6 @@ export function Rail(_props: { currentPage: ToolTab | null }) {
   const shown = useMemo(() => new Set(scr.shown.split(' ').filter(Boolean)), [scr.shown])
   return (
     <aside className="rail" data-testid="sidebar" aria-label="Threads">
-      <button className="rail-new" onClick={() => newSession()} data-testid="top-new"><span>New thread</span><span className="keys">Ctrl N</span></button>
       <RailList live={live} focus={scr.focus} shown={shown} />
     </aside>
   )

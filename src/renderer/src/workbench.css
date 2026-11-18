@@ -536,3 +536,18 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 .guard-row .guard-sw.on { background: var(--done); }
 .guard-row .guard-sw.on i { transform: translateX(12px); }
 .app .guard-row .guard-sw { border-radius: 8px !important; } .app .guard-row .guard-sw i { border-radius: 50% !important; }
+
+/* ---------- the title bar's right end: the session limit as a pill, New thread, the account ---------- */
+.tb-right { display: flex; align-items: center; gap: 10px; padding-left: 14px; }
+.tb-use { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 11px; font: 400 12.5px var(--sans); color: var(--ink); background: var(--raised); box-shadow: inset 0 0 0 1px var(--rule2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tb-use:hover { color: var(--hi); }
+.tb-use.out { color: var(--st-fail); }
+.tb-use-g { width: 56px; height: 6px; background: var(--rule2); overflow: hidden; }
+.tb-use-g i { display: block; height: 100%; background: var(--amber); }
+.app .tb-use, .app .tb-use-g, .app .tb-use-g i { border-radius: 99px !important; }
+.tb-new { height: 26px; padding: 0 13px; background: var(--amber); color: var(--on-amber); font: 600 12.5px var(--sans); white-space: nowrap; }
+.tb-new:hover { filter: brightness(1.08); }
+.app .tb-new { border-radius: 8px !important; }
+.app .tb-acct { padding-left: 4px; }
+@media (max-width: 900px) { .tb-use-g { display: none; } }
+@media (max-width: 760px) { .tb-use { display: none; } }

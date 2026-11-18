@@ -41,6 +41,8 @@ import { untilText } from '../../shared/cronCore'
 import { RunningBar } from './RunningBar'
 import { needsNote } from './background'
 import { ComingBar } from './ComingBar'
+import { ThreadSide, useThreadSide } from './ThreadSide'
+import { modelLabel } from '../../shared/statusCore'
 import { threadPrs } from '../../shared/prLinkCore'
 
 export type Attachment = { url: string; mediaType: string; data: string }
@@ -964,17 +966,32 @@ export function SessionView(p: Props) {
   }, [prUrls])
   const running =session.items.filter((i) => i.kind === 'tool' && i.status === 'running').at(-1)
   const stopGoal = async () => { if (session.busy) { p.onStop(); p.onSend('/goal clear', [], 'queue') } else p.onSend('/goal clear', []) }
+  // the bar at the right (goal, to-dos, running, recap): on unless it was put away, drawn only where the pane has room
+  const side = useThreadSide(session.id, session.items, showRecap ? recap!.text : '')
+  const [sideOn, setSideOn] = useState(() => getPref<boolean>('thread.side', true))
+  const flipSide = () => setSideOn((v) => { setPref('thread.side', !v); return !v })
+  // the thread's state as one pill at the top right: what it waits for wins, then a failure, then work
+  const lastItem = session.items.at(-1)
+  const pill: { k: 'wait' | 'fail' | 'work' | 'done'; text: string } | null =
+    session.asks?.length || needsNote(session) ? { k: 'wait', text: 'Needs you' }
+      : !session.busy && lastItem?.kind === 'error' ? { k: 'fail', text: 'Failed' }
+      : session.busy && status.retry ? { k: 'wait', text: `Retrying ${status.retry.attempt}/${status.retry.max}` }
+      : session.busy ? { k: 'work', text: 'Working' }
+      : goal?.status === 'met' ? { k: 'done', text: 'Goal met' } : null
+  const model = modelLabel(status.model)
   const pinRows: [string, ReactNode][] = [
     ...pins.map((x, i): [string, ReactNode] => ['Pinned', <span key={i}>{x} <button className="pin-x" aria-label="Unpin" onClick={() => savePins(pins.filter((_, j) => j !== i))}>×</button></span>]),
   ]
 
   return (
-    <main className={focused ? 'session focused' : 'session'} data-testid={`chat-${session.id}`}>
+    <main className={`session${focused ? ' focused' : ''}${sideOn && side.any ? ' has-side' : ''}`} data-testid={`chat-${session.id}`}>
+      <div className="session-main">
       <header className="phead">
         {/* what is coming up for the thread sits on the title's line, at the right */}
         <div className="phead-h">
           <h1 title={session.title}>{session.title}</h1>
           <span className="phead-r">
+            {pill && <span className={`state-pill sp-${pill.k}`} data-testid="thread-state">{pill.text}</span>}
             {goal && (
               <span className={`goal-chip${goal.status === 'met' ? ' met' : ''}`} title={`Goal: ${goal.condition}`} data-testid="goal-chip">
                 <b>Goal</b><span className="goal-t">{goal.condition}</span>
@@ -989,7 +1006,7 @@ export function SessionView(p: Props) {
         </div>
         <div className="phead-t">
           <div className="phead-l">
-            {folder && <div className="phead-sub" title={session.cwd} data-testid="folder-picker">{wt ? <>{wt.repo} on <b>{wt.branch}</b></> : folder}</div>}
+            {folder && <div className="phead-sub" title={session.cwd} data-testid="folder-picker">{wt ? <>{wt.repo} · <b>{wt.branch}</b></> : folder}{model && <span data-testid="head-model"> · {model}</span>}</div>}
             {/* each PR as a pill: its icon, number and a circle for its checks (green passing, red failing, amber running);
                 merged, closed or draft said in a word */}
             {prs.map((x) => {
@@ -1012,6 +1029,7 @@ export function SessionView(p: Props) {
             <AdvisorPicker tabId={session.id} />
             <button type="button" className="btn pact pact-icon" aria-label="Move to the background" onClick={p.onRunInBackground} title="Move to the background: the thread keeps working off screen" data-testid="chat-run-background"><Icon name="layers" /></button>
             {p.onSplit && <button type="button" className="btn pact pact-icon" aria-label="Split" onClick={p.onSplit} title="Split: a new thread beside this one (Ctrl+\)" data-testid="chat-split"><Icon name="split-horizontal" /></button>}
+            {side.any && <button type="button" className="btn pact pact-icon pact-side" aria-label="Thread details" aria-pressed={sideOn} onClick={flipSide} title="Thread details: goal, to-dos, what runs and the recap, at the right" data-testid="chat-side"><Icon name="layout-sidebar-right" /></button>}
             <button type="button" className="btn pact pact-icon" aria-label="Export" aria-haspopup="dialog" aria-pressed={hp?.k === 'export'} onClick={(e) => openHp('export', e.currentTarget)} title="Export this conversation as Markdown" data-testid="chat-export"><Icon name="export" /></button>
             {/* each header icon opens its own small card right under it */}
             {hp && (
@@ -1055,7 +1073,7 @@ export function SessionView(p: Props) {
         <Transcript session={session} limit={limit} setLimit={setLimit} st={st} startRewind={startRewind} />
         {session.streaming && <div className="msg cl streaming"><MdBody text={session.streaming} copy={false} /></div>}
         {/* drawn as the ★ Insight callouts are, so it reads as a note beside the conversation, not a reply */}
-        {showRecap && <div className="msg cl" data-testid="since-recap"><div className="body md"><blockquote className="insight"><p>★ Recap</p><p>{recap!.text}</p></blockquote></div></div>}
+        {showRecap && <div className="msg cl recap-inline" data-testid="since-recap"><div className="body md"><blockquote className="insight"><p>★ Recap</p><p>{recap!.text}</p></blockquote></div></div>}
       </div>
 
       {session.busy && (
@@ -1161,6 +1179,8 @@ export function SessionView(p: Props) {
         </div>
         </div>
       </div>
+      </div>
+      {sideOn && side.any && <ThreadSide tabId={session.id} items={session.items} side={side} onStopGoal={() => void stopGoal()} onDismissGoal={() => dismissGoal(session.id)} />}
     </main>
   )
 }

@@ -425,6 +425,69 @@ await page.mouse.move(700, 880)
 if (await tid('drawer').isVisible().catch(() => false)) await tid('drawer-close').click()
 await shot('A-main')
 
+// THREAD=<folder>: one thread alone with the bar at its right (goal, to-dos, running, recap), then the companion
+// window open and folded, with invented state; the run ends there
+if (process.env.THREAD) {
+  const T = resolve(process.env.THREAD)
+  mkdirSync(T, { recursive: true })
+  const t = async (pg, name) => { await pg.waitForTimeout(700); await pg.screenshot({ path: join(T, `${name}.png`) }); console.log('thread', name) }
+  // the whole window in the picture: the app's own zoom would crop its right and bottom
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1))
+  await t(page, 'main')
+  await page.locator('[data-testid="tab"][data-id="t-ship"]').dragTo(page.locator('[data-testid="tab"][data-id="t-invoice"]')).catch(() => {})
+  await page.waitForTimeout(300)
+  await page.locator('[data-testid="tab"][data-id="t-invoice"]').click()
+  await send([
+    ['chat:event', 't-invoice', assistant(tool('td1', 'TodoWrite', { todos: [
+      { content: 'Find where the number is assigned', status: 'completed' }, { content: 'Store the retry key on the invoice', status: 'completed' },
+      { content: 'Add the unique constraint', status: 'completed' }, { content: 'Run the billing tests', status: 'in_progress', activeForm: 'Running the billing tests' },
+      { content: 'Cover the refund path', status: 'pending' }, { content: 'Open a draft PR', status: 'pending' }] }))],
+    ['chat:event', 't-invoice', { type: 'assistant', message: { model: '<synthetic>', content: [{ type: 'text', text: 'Goal set: a retried payment never gets a second invoice number' }] } }],
+  ])
+  await page.waitForTimeout(2500)
+  await t(page, 'thread')
+  await send([['chat:event', 't-invoice', { type: 'result', subtype: 'success' }]])
+  await page.locator('[data-testid="tab"][data-id="t-invoice"]').click()
+  await t(page, 'thread-idle')
+
+  const companion = {
+    needs: [
+      { kind: 'waiting', thread: 't-ship', title: 'Ship ledger-web 4.18 to prod', note: 'Promote ledger-web 4.18 to prod?', at: NOW - 4 * M, ask: { id: 'q1', question: 'Promote ledger-web 4.18 to prod?', options: ['Promote now', 'Wait for the freeze', 'Show me the commits'] } },
+      { kind: 'waiting', thread: 't-sync', title: 'Offline sync spike for fieldbook', note: 'Permission: Bash', at: NOW - 9 * M, ask: { id: 'q2', question: 'Allow Bash? npm run migrate', options: ['Allow', 'Allow for this thread', 'Deny'] } },
+    ],
+    working: [
+      { id: 't-invoice', title: 'Fix duplicate invoice numbers on retry', folder: 'ledger-api', note: '', updated: NOW - 12 * M },
+      { id: 't-lead', title: 'Move report exports onto the job queue', folder: 'ledger-api', note: '1 shell', updated: NOW - 3 * M },
+      { id: 't-node', title: 'Bump node to 22 in CI images', folder: 'infra', note: '', updated: NOW - M },
+    ],
+    coming: [{ kind: 'wakeup', id: 'w1', title: 'Check CI on fix/invoice-retry', at: NOW + 40 * M, open: 't-invoice', prompt: 'check CI' }],
+    running: [{ thread: 't-lead', id: 'k-b2', title: 'pytest tests/reports -q', kind: 'shell', threadTitle: 'Move report exports onto the job queue', now: '' }],
+    prs: [{ thread: 't-invoice', threadTitle: 'Fix duplicate invoice numbers on retry', repo: 'example-org/ledger-api', num: 208, url: 'https://example.invalid/pr/208', state: 'failing' }],
+    usage: fixtures['status:get'].usage, goals: [],
+    extra: { 't-invoice': { todos: { done: 3, total: 6, now: 'Running the billing tests' } }, 't-node': { retry: { attempt: 2, max: 10, error: 'overloaded' } } },
+  }
+  const deploysSeen = [{ id: 'd1', repo: 'ledger-web', target: 'staging', landed: true, stuck: false, note: '' }]
+  await app.evaluate(({ ipcMain, BrowserWindow }, { companion, deploysSeen, root }) => {
+    const set = (ch, fn) => { ipcMain.removeHandler(ch); ipcMain.handle(ch, fn) }
+    set('companion:state', () => companion)
+    set('deploy:watchers', () => deploysSeen)
+    for (const ch of ['companion:size', 'companion:launch', 'companion:open', 'companion:answer', 'companion:reply', 'companion:stopTask', 'companion:dismiss', 'companion:hide']) set(ch, () => true)
+    set('companion:voice', () => true)
+    const w = new BrowserWindow({ width: 380, height: 640, useContentSize: true, show: false, backgroundColor: '#2B2D31', webPreferences: { preload: root + '/out/preload/index.js', offscreen: true } })
+    void w.loadFile(root + '/out/renderer/index.html', { search: 'view=companion' })
+  }, { companion, deploysSeen, root: ROOT.split(String.fromCharCode(92)).join(String.fromCharCode(47)) })
+  let cp = null
+  for (let i = 0; i < 40 && !cp; i++) { await page.waitForTimeout(250); cp = app.windows().find((w) => w.url().includes('view=companion')) ?? null }
+  if (!cp) { console.log('thread: the companion window did not open'); await app.close(); process.exit(1) }
+  await cp.getByTestId('companion-orbie').waitFor({ timeout: 15_000 })
+  await cp.waitForTimeout(3500)
+  await t(cp, 'companion-folded')
+  await cp.getByTestId('companion-orbie').click()
+  await t(cp, 'companion-open')
+  await app.close()
+  process.exit(0)
+}
+
 // SIDE=<folder>: the main window with each side bar view open, then with the side bar closed
 if (process.env.SIDE) {
   const D = resolve(process.env.SIDE)

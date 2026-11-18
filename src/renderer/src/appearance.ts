@@ -20,8 +20,8 @@ sheet.textContent = themeCss()
 document.head.prepend(sheet)
 
 let state: Appearance = migrate({ appearance: getPref<unknown>('appearance', undefined), ui: getPref<unknown>('ui', undefined), themeByUI: getPref<unknown>('themeByUI', undefined) })
-// once: the fonts become the code editor's own (Segoe UI and Consolas); a later choice in Settings is kept
-if (!getPref<boolean>('fonts.editor', false)) { state = { ...state, fonts: DEFAULT_FONTS }; setPref('appearance', state); setPref('fonts.editor', true) }
+// once: the UI font becomes Inter (4.9, the code font is left as it is); a later choice in Settings is kept
+if (!getPref<boolean>('fonts.inter', false)) { state = { ...state, fonts: { ...state.fonts, ui: DEFAULT_FONTS.ui } }; setPref('appearance', state); setPref('fonts.inter', true); setPref('fonts.editor', true) }
 const listeners = new Set<() => void>()
 const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
 

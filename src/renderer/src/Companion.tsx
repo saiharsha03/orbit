@@ -22,6 +22,9 @@ function Need({ n, refresh }: { n: PhoneNeed; refresh: () => void }) {
   const [err, setErr] = useState('')
   const run = async (f: () => Promise<unknown>) => { setBusy(true); setErr(''); try { const r = await f(); if (r === false) setErr('That question is no longer open') } catch (e) { setErr(String((e as Error).message ?? e)) } finally { setBusy(false); refresh() } }
   const fail = n.kind === 'failed'
+  // a permission question (Allow / Allow for this thread / Deny): Deny first, the filled Allow last
+  const perm = !!n.ask && n.ask.options.includes('Allow') && n.ask.options.includes('Deny')
+  const opts = n.ask ? (perm ? [...n.ask.options].sort((a, b) => Number(a === 'Allow') - Number(b === 'Allow') || Number(b === 'Deny') - Number(a === 'Deny')) : n.ask.options) : []
   return (
     <div className="cp-need">
       <div className="cp-row cp-click" onClick={() => void window.api.companionOpen(n.thread)} title="Open in Orbit">
@@ -33,8 +36,8 @@ function Need({ n, refresh }: { n: PhoneNeed; refresh: () => void }) {
       {n.ask && (
         <div className="cp-ask">
           <div className="cp-q">{n.ask.question}</div>
-          <div className="cp-opts">
-            {n.ask.options.map((o) => <button key={o} className="btn btn-quiet cp-opt" disabled={busy} onClick={() => void run(() => window.api.companionAnswer(n.thread, n.ask!.id, n.ask!.question, o))}>{o}</button>)}
+          <div className={perm ? 'cp-opts cp-perm' : 'cp-opts'}>
+            {opts.map((o) => <button key={o} className={`btn btn-quiet cp-opt${perm && o === 'Allow' ? ' cp-allow' : ''}`} disabled={busy} onClick={() => void run(() => window.api.companionAnswer(n.thread, n.ask!.id, n.ask!.question, o))}>{o}</button>)}
           </div>
         </div>
       )}
@@ -137,6 +140,8 @@ export function Companion() {
   const rocket: Rocket = running.length ? 'pad' : happy && landed ? 'launch' : 'none'
   const summary = companionSummary({ ...s, goalsActive }, running.length)
   const limits = s.usage.slice(0, 3)
+  const session = limits.find((u) => u.key === 'five_hour')
+  const nextUp = s.coming[0]
   // the folded number: what needs you (red when one failed), else the threads working (quiet)
   const count = s.needs.length || s.working.length
   const face = <Orbie mood={mood} moons={s.working.length} weather={weather} rocket={rocket} stars={s.coming.length} drawn={said?.face} party={!!party} goal={goalsActive > 0} />
@@ -152,7 +157,8 @@ export function Companion() {
         <div className="cp-mini">
           <button className="cp-mini-b" onClick={() => setOpen(true)} title={`${summary}. Click to open`} data-testid="companion-orbie">
             {face}
-            {count > 0 && <span className={`cp-count ${s.needs.length ? (failed ? 'fail' : 'wait') : 'busy'}`}>{count}</span>}
+            {count > 0 && <span className={`cp-count ${s.needs.length ? (failed ? 'fail' : 'wait') : 'busy'}`} data-testid="companion-count">{count}</span>}
+            {s.needs.length > 0 && s.working.length > 0 && <span className="cp-count cp-count2 busy" data-testid="companion-working">{s.working.length}</span>}
           </button>
         </div>
       )}
@@ -218,8 +224,8 @@ export function Companion() {
                 : t.note && <span className="cp-time cp-dnote">{t.note}</span>}
             </div>
           ))}
-          {!!limits.length && <div className="cp-sec">Plan limits</div>}
-          {limits.map((u, i) => (
+          {limits.some((u) => u !== session) && <div className="cp-sec">Plan limits</div>}
+          {limits.map((u, i) => u !== session && (
             <div key={u.key} className="cp-row cp-lim" title={u.resetsAt ? `Resets ${new Date(u.resetsAt).toLocaleString()}` : ''}>
               <span className="cp-title">{u.label}</span>
               <span className="cp-meter"><span style={{ width: `${Math.min(100, Math.max(0, u.pct))}%` }} className={['five', 'seven', 'model'][i]} /></span>
@@ -234,6 +240,15 @@ export function Companion() {
               <span className="cp-time">{at(w.at)}</span>
             </div>
           ))}
+        </div>
+      )}
+      {open && (session || nextUp) && (
+        <div className="cp-foot" data-testid="companion-foot">
+          {session && <>
+            <span className="cp-meter"><span style={{ width: `${Math.min(100, Math.max(0, session.pct))}%` }} /></span>
+            <span className={session.pct >= 90 ? 'cp-bad' : ''}>{Math.round(session.pct)}%{session.resetsAt ? ` · resets ${at(Date.parse(session.resetsAt))}` : ''}</span>
+          </>}
+          {nextUp && <span className="cp-next" title={nextUp.title}>Next wake-up {at(nextUp.at)}</span>}
         </div>
       )}
     </div>

@@ -43,3 +43,18 @@ error card (`ErrorCard`, `.errcard`), the header cards (`.hpop`) and the status 
 - Two stacked labels that collide (e.g. "Seen by" over "Rewind").
 - Text on a long command line in a header; raw IDs where names exist.
 - Popups that are full-width modals for two buttons: use a small card under the button.
+
+## 4.9 pieces from the owner's redesign (2026-11-17)
+These five come from the owner's own mock-up and override the rules above where they differ; everything else keeps
+the v3 look.
+- **Type**: Inter is the UI font (`DEFAULT_FONTS`); the thread title is Space Grotesk 600 26px (`--display`).
+- **One amber**: `--amber` (#F5B544) with `--on-amber` (#1A1305) fills the one primary button of the window, New thread
+  in the title bar, and the companion's Allow. As text it is `--amber-text` ("Needs you"). State colours beside it:
+  `--st-work` blue, `--st-done` green, `--st-fail` red.
+- **Title bar, right end**: the session limit as a pill (thin amber bar, "Session 62%", opens Usage), then New thread.
+- **Thread title block**: the big title, under it `repo · branch · model`, and one state pill at the top right
+  (Needs you, Working, Retrying n/m, Failed, Goal met): the state colour as text on a wash of it, fully round.
+- **Thread side bar** (`ThreadSide.tsx`): cards at the right of a thread, radius 18px, 16px padding, a 13px 600 heading:
+  Goal, To-dos (a 6px blue bar, done items struck through, the current one in the main text colour), Running (each
+  with Stop), Recap. A card shows only when the thread has that thing; the bar needs a pane 940px wide and can be put
+  away from the header.

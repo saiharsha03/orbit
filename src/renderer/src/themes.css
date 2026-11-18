@@ -9,6 +9,7 @@
 @font-face { font-family: 'IBM Plex Sans'; font-weight: 700; font-display: swap; src: url('./assets/fonts/ibm-plex-sans-latin-700.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Mono'; font-weight: 400; font-display: swap; src: url('./assets/fonts/ibm-plex-mono-latin-400.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Mono'; font-weight: 600; font-display: swap; src: url('./assets/fonts/ibm-plex-mono-latin-600.woff2') format('woff2'); }
+@font-face { font-family: 'Space Grotesk'; font-weight: 300 700; font-display: swap; src: url('./assets/fonts/space-grotesk-latin-wght.woff2') format('woff2-variations'); }
 @font-face { font-family: 'Geist Variable'; font-weight: 100 900; font-display: swap; src: url('./assets/fonts/geist-latin-wght.woff2') format('woff2-variations'); }
 
 /* The colour tokens of the ten themes are written by themesCore.ts (one block per [data-theme], the same names in
@@ -27,7 +28,13 @@
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 14px; --s5: 18px; --s6: 22px; --s7: 26px;
   --pane-pad: 28px; --row-pad: 6px 14px; --radius: var(--r-row);
   --rule-w: 1px; --active-bar: 3px; --tab-top: 2px; --q-top: 2px;
+  /* the display face (the thread title) and the state colours of the 4.9 pieces: the amber of "New thread" and
+     "Needs you", blue working, green done, red failed. The same in every theme; light themes darken the text ones below. */
+  --display: 'Space Grotesk', var(--sans);
+  --amber: #F5B544; --on-amber: #1A1305; --amber-text: #F5B544; --amber-soft: #E9D2A6;
+  --st-work: #7AA7FF; --st-done: #5FD39A; --st-fail: #FF8A7A;
 }
+[data-theme='light'], [data-theme='paper'] { --amber-text: #8A5A00; --amber-soft: #8A5A00; --st-work: #1F56B5; --st-done: #1D7A43; --st-fail: #C5352B; }
 
 /* the names older components use, mapped onto the set (one place, every theme). State words other than waiting and
    failed carry no colour; --mark is the neutral "this one" (the main text), never the signal. */

@@ -7,7 +7,8 @@ import { OrbitMark } from './OrbitMark'
 import { useEscape } from './ui'
 import { matchRank } from '../../shared/paletteRank'
 import { filterCommands, type Command as EngineCommand } from '../../shared/composerCore'
-import { openSession } from './actions'
+import { newSession, openPage, openSession } from './actions'
+import { gaugeOf, type UsageRow } from '../../shared/limitsCore'
 import { AccountSwitcher, useAccountSummary } from './AccountSwitcher'
 import { ActivityBar } from './Workbench'
 
@@ -127,6 +128,25 @@ function AccountButton({ open, setOpen }: { open: boolean; setOpen: (b: boolean)
   )
 }
 
+// the session (5-hour) limit as a pill: a thin bar and the share used; a click opens the Usage page
+function SessionPill() {
+  const [row, setRow] = useState<UsageRow | null>(null)
+  useEffect(() => {
+    let alive = true
+    const load = () => void window.api.getStatus().then((s) => { if (alive) setRow(s?.usage?.find((u) => u.key === 'five_hour') ?? null) }).catch(() => {})
+    load()
+    const t = setInterval(load, 15_000)
+    return () => { alive = false; clearInterval(t) }
+  }, [])
+  if (!row) return null
+  const g = gaugeOf(row, Date.now())
+  return (
+    <button type="button" className={`tb-use${g.used >= 90 ? ' out' : ''}`} onClick={() => openPage('status')} title={`${g.says}. Click for the Usage page`} data-testid="top-usage">
+      <span className="tb-use-g"><i style={{ width: `${g.used}%` }} /></span>Session {Math.round(g.used)}%
+    </button>
+  )
+}
+
 export function TitleBar({ src, paletteN, accountsOpen, setAccountsOpen }: { src: PaletteSources; paletteN: number; accountsOpen: boolean; setAccountsOpen: (b: boolean) => void }) {
   const name = useAppName()
   const [open, setOpen] = useState(false)
@@ -134,7 +154,11 @@ export function TitleBar({ src, paletteN, accountsOpen, setAccountsOpen }: { src
     <header className="tb" data-testid="titlebar">
       <span className="tb-brand" data-testid="brand" title={name} aria-label={name}><OrbitMark size={20} /><ActivityBar /></span>
       <CommandField src={src} open={open} setOpen={setOpen} focusN={paletteN} />
-      <AccountButton open={accountsOpen} setOpen={setAccountsOpen} />
+      <span className="tb-right">
+        <SessionPill />
+        <button type="button" className="tb-new" onClick={() => newSession()} title="New thread (Ctrl+N)" data-testid="top-new">New thread</button>
+        <AccountButton open={accountsOpen} setOpen={setAccountsOpen} />
+      </span>
     </header>
   )
 }
