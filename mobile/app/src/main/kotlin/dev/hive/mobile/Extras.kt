@@ -5,6 +5,7 @@ package dev.hive.mobile
 // computer says it can do it (hello's "can").
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,13 +13,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.json.JSONObject
+import java.time.LocalDate
 
 data class Pick(val value: String, val label: String)
 data class ThreadSettings(val live: Boolean = false, val mode: String = "", val model: String = "", val effort: String = "", val modes: List<Pick> = emptyList(), val models: List<Pick> = emptyList(), val efforts: List<String> = emptyList(), val advisor: String = "")
@@ -46,19 +55,12 @@ fun modelName(id: String): String {
 
 // ---------------------------------------------------------------- a thread's mode, model and effort
 
-// One line above the message box: the three values, each a word to tap. Tapping one opens its choices under the line.
-// open: "", "mode", "model" or "effort".
+// One row of small buttons above the message box: the mode, model, effort and advisor, each with its value. Tapping
+// one opens its choices in a card over the row. open: "", "mode", "model", "effort" or "advisor".
 @Composable
 fun ThreadSettingsBar(s: ThreadSettings, open: String, onOpen: (String) -> Unit, onPick: (String, String) -> Unit) {
     val modeLabel = s.modes.firstOrNull { it.value == s.mode }?.label ?: s.mode.ifEmpty { "default" }
-    Column(Modifier.fillMaxWidth().background(C.side)) {
-        Rule()
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            SettingWord("Mode", modeLabel, open == "mode", if (s.mode == "bypassPermissions") C.fail else C.hi) { onOpen(if (open == "mode") "" else "mode") }
-            SettingWord("Model", if (s.model.isEmpty()) "default" else modelName(s.model), open == "model") { onOpen(if (open == "model") "" else "model") }
-            SettingWord("Effort", s.effort.ifEmpty { "default" }, open == "effort") { onOpen(if (open == "effort") "" else "effort") }
-            SettingWord("Advisor", if (s.advisor.isEmpty()) "off" else modelName(s.advisor), open == "advisor") { onOpen(if (open == "advisor") "" else "advisor") }
-        }
+    Column(Modifier.fillMaxWidth().background(C.bg)) {
         val rows: List<Pick> = when (open) {
             "mode" -> s.modes
             "model" -> s.models
@@ -67,26 +69,23 @@ fun ThreadSettingsBar(s: ThreadSettings, open: String, onOpen: (String) -> Unit,
             else -> emptyList()
         }
         val now = when (open) { "mode" -> s.mode; "model" -> s.model; "advisor" -> s.advisor.ifEmpty { "off" }; else -> s.effort }
-        if (open.isNotEmpty()) {
-            Rule()
-            if (open != "mode" && !s.live) Text("Send this thread a message first: its $open can be changed once it is running.", Modifier.padding(horizontal = 14.dp, vertical = 8.dp), style = T.note)
+        if (open.isNotEmpty()) Panel(pad = 6.dp, gap = 0.dp) {
+            if (open != "mode" && !s.live) Text("Send this thread a message first: its $open can be changed once it is running.", Modifier.padding(10.dp), style = T.note)
             else Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
                 rows.forEach { p ->
-                    Row(Modifier.fillMaxWidth().background(if (p.value == now) C.sel else C.side).clickable { onPick(open, p.value) }.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    Row(Modifier.fillMaxWidth().clip(Sh.option).clickable(role = Role.RadioButton) { onPick(open, p.value) }.selected(p.value == now).heightIn(min = 44.dp).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(p.label, Modifier.weight(1f), style = T.title, color = if (p.value == now) C.hi else C.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (p.value == now) Text("in use", style = T.label)
+                        if (p.value == now) Ico(Ic.check, C.accent, 18.dp, desc = "in use")
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SettingWord(name: String, value: String, on: Boolean, color: androidx.compose.ui.graphics.Color = C.hi, onClick: () -> Unit) {
-    Column(Modifier.clickable(onClick = onClick)) {
-        Text(name, style = T.label, color = if (on) C.link else C.dim)
-        Text(value, style = T.note.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Chip("Mode", open == "mode", modeLabel, if (s.mode == "bypassPermissions") C.fail else C.hi) { onOpen(if (open == "mode") "" else "mode") }
+            Chip("Model", open == "model", if (s.model.isEmpty()) "default" else modelName(s.model)) { onOpen(if (open == "model") "" else "model") }
+            Chip("Effort", open == "effort", s.effort.ifEmpty { "default" }) { onOpen(if (open == "effort") "" else "effort") }
+            Chip("Advisor", open == "advisor", if (s.advisor.isEmpty()) "off" else modelName(s.advisor)) { onOpen(if (open == "advisor") "" else "advisor") }
+        }
     }
 }
 
@@ -100,71 +99,92 @@ fun NotesScreen(
 ) {
     Column(Modifier.fillMaxSize()) {
         if (editing != null) {
-            Head(if (editing.isEmpty()) "New note" else "Note", sub = true, onBack = onBack, right = if (saving) "Saving" else "Save", rightColor = C.link, onRight = onSave)
-            Notice(notice); Notice(error)
-            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Pad, vertical = 10.dp)) {
-                UnderlineInput(draft, onDraft, "Title on the first line, then anything", minLines = 12, maxLines = 400)
+            Head(if (editing.isEmpty()) "New note" else "Note", onBack = onBack)
+            Column(Modifier.weight(1f).fillMaxWidth().clipToBounds().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 8.dp)) {
+                Notice(notice); Notice(error)
+                UnderlineInput(draft, onDraft, "Title on the first line, then anything", Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 5.dp), minLines = 12, maxLines = 400)
             }
+            Btn(if (saving) "Saving" else "Save", Modifier.fillMaxWidth().padding(start = Pad, end = Pad, top = 8.dp, bottom = 12.dp), primary = true, enabled = draft.isNotBlank() && !saving, onClick = onSave)
         } else {
-            Head("Notes", count = notes?.size?.toString() ?: "", sub = true, onBack = onBack, right = "New", rightColor = C.link, onRight = onNew)
+            Head("Notes", count = notes?.size?.let { Words.plural(it, "note") } ?: "", onBack = onBack) { IconBtn(Ic.plus, "New note", primary = true, onClick = onNew) }
             Notice(notice); Notice(error)
             if (notes == null) Empty("Reading your notes.")
-            else if (notes.isEmpty()) Empty("No notes yet. New starts one.")
-            else LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+            else if (notes.isEmpty()) Empty("No notes yet. The plus starts one.")
+            else LazyColumn(Modifier.weight(1f).fillMaxWidth().clipToBounds(), contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)) {
                 items(notes, key = { it.id }) { n ->
-                    Column(Modifier.fillMaxWidth().clickable { onOpen(n) }.padding(horizontal = Pad, vertical = 11.dp)) {
+                    Panel(pad = 14.dp, gap = 4.dp, onClick = { onOpen(n) }) {
                         Text(n.title.ifEmpty { "Untitled" }, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val rest = n.text.lineSequence().drop(1).map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: ""
-                        if (rest.isNotEmpty()) Text(rest, style = T.note, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val rest = n.text.lineSequence().drop(1).map { it.trim() }.filter { it.isNotEmpty() }.take(2).joinToString(" ")
+                        if (rest.isNotEmpty()) Text(rest, style = T.note, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    Rule()
                 }
             }
         }
     }
 }
 
-// ---------------------------------------------------------------- To do
+// ---------------------------------------------------------------- To-dos
 
+// The to-dos: Open, Need to talk and Holding as one choice of three; the open ones grouped by when they are due.
+// onBack: null when this is a tab. today: for the groups (the tests fix it).
 @Composable
 fun TodosScreen(
     todos: List<Todo>?, draft: String = "", notice: String = "", error: String = "", showDone: Boolean = false,
-    onBack: () -> Unit = {}, onDraft: (String) -> Unit = {}, onAdd: () -> Unit = {}, onToggle: (Todo) -> Unit = {}, onShowDone: () -> Unit = {},
+    onBack: (() -> Unit)? = null, onDraft: (String) -> Unit = {}, onAdd: () -> Unit = {}, onToggle: (Todo) -> Unit = {}, onShowDone: () -> Unit = {},
+    today: LocalDate = LocalDate.now(),
 ) {
+    var side by rememberSaveable { mutableStateOf("todo") }
+    var adding by rememberSaveable { mutableStateOf(false) }
+    val all = todos ?: emptyList()
+    val open = all.filter { it.status != "done" && it.status != "talk" && it.status != "holding" }
+    val talk = all.filter { it.status == "talk" }
+    val holding = all.filter { it.status == "holding" }
+    val done = all.filter { it.status == "done" }
     Column(Modifier.fillMaxSize()) {
-        val open = todos?.filter { it.status != "done" } ?: emptyList()
-        val done = todos?.filter { it.status == "done" } ?: emptyList()
-        Head("To do", count = if (todos == null) "" else open.size.toString(), sub = true, onBack = onBack)
-        Notice(notice); Notice(error)
-        Row(Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Head("To-dos", onBack = onBack) { IconBtn(if (adding) Ic.close else Ic.plus, if (adding) "Close" else "Add a to-do", primary = !adding) { adding = !adding } }
+        if (adding || draft.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(start = Pad, end = Pad, top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             UnderlineInput(draft, onDraft, "Add a to-do", Modifier.weight(1f), maxLines = 3)
-            Text("Add", Modifier.clickable(enabled = draft.isNotBlank(), onClick = onAdd).padding(start = 14.dp, top = 6.dp, bottom = 6.dp), style = T.action.copy(fontWeight = FontWeight.SemiBold), color = if (draft.isNotBlank()) C.accent else C.faint)
+            Btn("Add", primary = true, enabled = draft.isNotBlank(), onClick = onAdd)
         }
-        Rule()
-        if (todos == null) Empty("Reading your to-dos.")
-        else LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-            if (open.isEmpty()) item { Empty("Nothing open.") }
-            items(open, key = { it.id }) { t -> TodoRow(t, onToggle) }
-            if (done.isNotEmpty()) {
-                item { Row(Modifier.fillMaxWidth().clickable(onClick = onShowDone)) { Group(if (showDone) "Done" else "Done (tap to show)", done.size.toString()) } }
-                if (showDone) items(done, key = { it.id }) { t -> TodoRow(t, onToggle) }
+        Segmented(listOf("todo" to "Open · ${open.size}", "talk" to "Need to talk · ${talk.size}", "holding" to "Holding · ${holding.size}"), side, Modifier.padding(top = 14.dp)) { side = it }
+        if (todos == null) { Notice(notice); Notice(error); Empty(if (error.isEmpty()) "Reading your to-dos." else ""); return@Column }
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().clipToBounds(), contentPadding = PaddingValues(top = 4.dp, bottom = 12.dp)) {
+            if (notice.isNotEmpty() || error.isNotEmpty()) item(key = "notice") { Notice(notice); Notice(error) }
+            val shown = when (side) { "talk" -> talk; "holding" -> holding; else -> open }
+            if (shown.isEmpty()) item(key = "none") { Empty(when (side) { "talk" -> "Nothing to talk about."; "holding" -> "Nothing on hold."; else -> "Nothing open." }) }
+            if (side != "todo") { if (shown.isNotEmpty()) item(key = "side") { Spacer(Modifier.height(12.dp)); TodoGroup(shown, today, onToggle) } }
+            else listOf("overdue" to "Overdue", "today" to "Today", "week" to "This week", "later" to "Later", "none" to "No date").forEach { (k, name) ->
+                val group = shown.filter { Words.dueGroup(it.due, today) == k }
+                if (group.isNotEmpty()) item(key = "group:$k") {
+                    Group(name, color = when (k) { "overdue" -> C.fail; "today" -> C.accent; else -> C.dim })
+                    TodoGroup(group, today, onToggle)
+                }
             }
+            if (done.isNotEmpty()) item(key = "done") {
+                Row(Modifier.fillMaxWidth().clickable(onClick = onShowDone)) { Group(if (showDone) "Done" else "Done · tap to show", done.size.toString()) }
+                if (showDone) TodoGroup(done, today, onToggle)
+            }
+            item(key = "foot") { Text("Claude can tick these off, move them to Need to talk or Holding, or change a due date for you.", Modifier.padding(horizontal = 24.dp, vertical = 14.dp), style = T.note.copy(lineHeight = 19.sp)) }
         }
     }
 }
 
 @Composable
-private fun TodoRow(t: Todo, onToggle: (Todo) -> Unit) {
-    val done = t.status == "done"
-    Row(Modifier.fillMaxWidth().clickable { onToggle(t) }.padding(horizontal = Pad, vertical = 11.dp), verticalAlignment = Alignment.Top) {
-        Text(if (done) "[x]" else "[ ]", Modifier.padding(end = 12.dp), style = T.mono.copy(color = if (done) C.done else C.dim))
-        Column(Modifier.weight(1f)) {
-            Text(t.text, style = T.body.copy(color = if (done) C.dim else C.hi, textDecoration = if (done) TextDecoration.LineThrough else null))
-            val words = listOf(if (t.status == "talk") "talk about" else if (t.status == "holding") "on hold" else "", t.due).filter { it.isNotEmpty() }.joinToString(", ")
-            if (words.isNotEmpty()) Text(words, style = T.label)
+private fun TodoGroup(todos: List<Todo>, today: LocalDate, onToggle: (Todo) -> Unit) {
+    Panel(pad = 6.dp, gap = 0.dp) {
+        todos.forEachIndexed { i, t ->
+            val done = t.status == "done"
+            if (i > 0) RowRule()
+            Row(Modifier.fillMaxWidth().clip(Sh.option).clickable(role = Role.Checkbox) { onToggle(t) }.heightIn(min = 44.dp).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Check(done)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(t.text, style = T.title.copy(color = if (done) C.dim else C.hi, textDecoration = if (done) TextDecoration.LineThrough else null))
+                    val due = if (t.due.isEmpty()) "" else Words.due(t.due, today)
+                    if (due.isNotEmpty() && !done) Text(due, style = T.label, color = if (due.startsWith("was due")) C.fail else C.dim)
+                }
+            }
         }
     }
-    Rule()
 }
 
 // ---------------------------------------------------------------- Watchers
@@ -176,26 +196,25 @@ fun WatchersScreen(
     onBack: () -> Unit = {}, onRun: (Watcher) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
-        Head("Watchers", count = watchers?.size?.toString() ?: "", sub = true, onBack = onBack)
+        Head("Watchers", count = watchers?.size?.let { Words.plural(it, "watcher") } ?: "", onBack = onBack)
         Notice(notice); Notice(error); Notice(done, C.done)
         if (watchers == null) Empty("Reading the watchers.")
         else if (watchers.isEmpty()) Empty("No watchers on this computer.")
-        else LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+        else LazyColumn(Modifier.weight(1f).fillMaxWidth().clipToBounds(), contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)) {
             items(watchers, key = { it.id }) { w ->
-                Row(Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            StateWord(if (!w.enabled) "OFF" else w.status.ifEmpty { "idle" }, Modifier.padding(end = 8.dp))
-                            Text(w.name, style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        if (w.goal.isNotEmpty()) Text(w.goal, style = T.note, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        val times = listOf(if (w.lastRun > 0) "last ${Words.age(w.lastRun, now)} ago" else "", if (w.nextRun > 0) "next ${Words.until(w.nextRun, now)}" else "").filter { it.isNotEmpty() }.joinToString(", ")
-                        if (times.isNotEmpty()) Text(times, style = T.label)
-                        if (w.note.isNotEmpty()) Text(w.note, style = T.label.copy(color = C.wait), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Panel(gap = 8.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(w.name, Modifier.weight(1f), style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        StateWord(if (!w.enabled) "OFF" else w.status.ifEmpty { "idle" })
                     }
-                    Act(if (busy == w.id) "Starting" else "Run now", enabled = w.enabled && busy.isEmpty()) { onRun(w) }
+                    if (w.goal.isNotEmpty()) Text(w.goal, style = T.body, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    if (w.note.isNotEmpty()) Text(w.note, style = T.note, color = C.accentInk, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        val times = listOf(if (w.lastRun > 0) "last ${Words.age(w.lastRun, now)} ago" else "", if (w.nextRun > 0) "next in ${Words.until(w.nextRun, now)}" else "").filter { it.isNotEmpty() }.joinToString(" · ")
+                        Text(times, Modifier.weight(1f), style = T.label)
+                        Act(if (busy == w.id) "Starting" else "Run now", enabled = w.enabled && busy.isEmpty()) { onRun(w) }
+                    }
                 }
-                Rule()
             }
         }
     }

@@ -3,7 +3,9 @@ package dev.hive.mobile
 // The work log, read-only: one day's summary (Work and Personal bullets), the threads you typed in and your commits,
 // as Orbit on the computer puts them together (worklog.ts). Days move with Previous and Next; All / Work / Personal
 // picks a side.
-import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -65,10 +67,10 @@ object WorkLog {
     fun keep(personal: Boolean, side: String) = side == "all" || personal == (side == "personal")
 }
 
-// "- **Orbit**: did a thing" with the bold part bold
+// "- **Orbit**: did a thing" with the bold part bold; a "## Work" line is a small label inside the card
 @Composable
 private fun SummaryLine(line: String) {
-    if (line.startsWith("## ")) { Group(line.removePrefix("## ").trim()); return }
+    if (line.startsWith("## ")) { Text(line.removePrefix("## ").trim().uppercase(), Modifier.padding(top = 4.dp), style = T.caps.copy(fontSize = 12.sp)); return }
     val body = line.removePrefix("- ").removePrefix("* ")
     val text = buildAnnotatedString {
         var rest = body
@@ -81,9 +83,9 @@ private fun SummaryLine(line: String) {
             rest = rest.substring(b + 2)
         }
     }
-    Row(Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 4.dp)) {
-        Text("-", Modifier.padding(end = 10.dp), style = T.body.copy(color = C.faint))
-        Text(text, style = T.body)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.padding(top = 8.dp)) { Dot(C.rule2, 5.dp) }
+        Text(text, style = T.body.copy(lineHeight = 21.sp))
     }
 }
 
@@ -93,50 +95,62 @@ fun WorkLogScreen(
     onBack: () -> Unit = {}, onSide: (String) -> Unit = {}, onDay: (Int) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize()) {
-        Head("Work log", sub = true, onBack = onBack)
+        val last = day >= WorkLog.today()
+        Head("Work log", onBack = onBack, subtitle = WorkLog.label(day)) {
+            IconBtn(Ic.back, "The day before") { onDay(-1) }
+            IconBtn(Ic.next, "The day after", enabled = !last) { onDay(1) }
+        }
+        Segmented(listOf("all" to "All", "work" to "Work", "personal" to "Personal"), side, Modifier.padding(top = 12.dp), onPick = onSide)
         Notice(notice); Notice(error)
-        Row(Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Previous", Modifier.clickable { onDay(-1) }.padding(end = 14.dp, top = 4.dp, bottom = 4.dp), style = T.action)
-            Text(WorkLog.label(day), Modifier.weight(1f), style = T.title)
-            val last = day >= WorkLog.today()
-            Text("Next", Modifier.clickable(enabled = !last) { onDay(1) }.padding(start = 14.dp, top = 4.dp, bottom = 4.dp), style = T.action.copy(color = if (last) C.faint else C.link))
-        }
-        Row(Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            for ((id, label) in listOf("all" to "All", "work" to "Work", "personal" to "Personal"))
-                Text(label, Modifier.clickable { onSide(id) }.padding(vertical = 4.dp), style = T.action.copy(color = if (side == id) C.hi else C.dim, fontWeight = if (side == id) FontWeight.SemiBold else FontWeight.Normal))
-        }
-        Rule()
         if (log == null) { Empty("Reading the day."); return@Column }
         val threads = log.threads.filter { WorkLog.keep(it.personal, side) }
         val commits = log.commits.filter { WorkLog.keep(it.personal, side) }
         val summary = WorkLog.summaryLines(log.summary, side)
-        LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-            item { Group("Summary") }
-            if (summary.isEmpty()) item { Empty(if (log.summary.isBlank()) "No summary yet. Orbit writes it the next morning." else "Nothing on this side.") }
-            items(summary) { SummaryLine(it) }
-            item { Group("Threads", threads.size.toString()) }
-            if (threads.isEmpty()) item { Empty("No prompts typed this day.") }
-            items(threads, key = { "t" + it.id }) { t ->
-                Column(Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 9.dp)) {
-                    Text(t.title, style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    val span = if (t.last - t.first > 60_000) "${WorkLog.time(t.first)} to ${WorkLog.time(t.last)}" else WorkLog.time(t.first)
-                    Text(listOf(span, t.project, Words.plural(t.prompts, "prompt"), if (side == "all") (if (t.personal) "personal" else "work") else "").filter { it.isNotEmpty() }.joinToString(", "), style = T.label)
-                }
-                Rule()
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().clipToBounds(), contentPadding = PaddingValues(bottom = 16.dp)) {
+            item(key = "summary") {
+                Group("Summary")
+                if (summary.isEmpty()) Empty(if (log.summary.isBlank()) "No summary yet. Orbit writes it the next morning." else "Nothing on this side.")
+                else Panel(gap = 8.dp) { summary.forEach { SummaryLine(it) } }
             }
-            item { Group("Commits", commits.size.toString()) }
-            if (commits.isEmpty()) item { Empty("No commits this day.") }
-            items(commits, key = { "c" + it.hash + it.repo }) { c ->
-                Column(Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 8.dp)) {
-                    Text(c.subject, style = T.body, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("${WorkLog.time(c.at)}, ${c.repo}", style = T.label)
+            item(key = "threads") {
+                Group("Threads", threads.size.toString())
+                if (threads.isEmpty()) Empty("No prompts typed this day.")
+                else Panel(pad = 6.dp, gap = 0.dp) {
+                    threads.forEachIndexed { i, t ->
+                        if (i > 0) RowRule()
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(t.title, style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            val span = if (t.last - t.first > 60_000) "${WorkLog.time(t.first)} to ${WorkLog.time(t.last)}" else WorkLog.time(t.first)
+                            Text(listOf(span, t.project, Words.plural(t.prompts, "prompt"), if (side == "all") (if (t.personal) "personal" else "work") else "").filter { it.isNotEmpty() }.joinToString(" · "), style = T.label)
+                        }
+                    }
                 }
             }
-            if (log.done.isNotEmpty()) {
-                item { Group("To-dos done", log.done.size.toString()) }
-                items(log.done) { Text(it, Modifier.fillMaxWidth().padding(horizontal = Pad, vertical = 6.dp), style = T.body) }
+            item(key = "commits") {
+                Group("Commits", commits.size.toString())
+                if (commits.isEmpty()) Empty("No commits this day.")
+                else Panel(pad = 6.dp, gap = 0.dp) {
+                    commits.forEachIndexed { i, c ->
+                        if (i > 0) RowRule()
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(c.subject, style = T.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text("${WorkLog.time(c.at)} · ${c.repo}", style = T.label)
+                        }
+                    }
+                }
             }
-            item { Spacer(Modifier.height(24.dp)) }
+            if (log.done.isNotEmpty()) item(key = "done") {
+                Group("To-dos done", log.done.size.toString())
+                Panel(pad = 6.dp, gap = 0.dp) {
+                    log.done.forEachIndexed { i, d ->
+                        if (i > 0) RowRule()
+                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Check(true, size = 20.dp)
+                            Text(d, style = T.body.copy(color = C.dim, textDecoration = TextDecoration.LineThrough))
+                        }
+                    }
+                }
+            }
         }
     }
 }

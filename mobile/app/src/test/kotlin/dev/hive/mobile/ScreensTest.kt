@@ -7,7 +7,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -26,7 +28,7 @@ import java.util.TimeZone
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w360dp-h760dp-xhdpi")
+@Config(sdk = [35], qualifiers = "w390dp-h844dp-xhdpi")
 class ScreensTest {
     private val now = Instant.parse("2026-11-09T13:27:00Z").toEpochMilli()
     private fun at(hhmm: String, day: String = "2026-11-09") = Instant.parse("${day}T$hhmm:00Z").toEpochMilli()
@@ -52,27 +54,50 @@ class ScreensTest {
         Wake("wake", "44", "s-pay", "Payout reconciliation", at("09:00", "2026-11-10"), "Compare payouts with the bank file", null),
     )
 
-    @Test fun inbox() = shot("inbox", 0) {
-        InboxScreen(Inbox(listOf(
+    private val needsBox get() = Inbox(listOf(
             Need("waiting", "t-ship", "Ship ledger-web 4.18 to prod", "Promote now or after the 14:00 freeze?", ago(6), "a1", "Promote ledger-web 4.18 to prod?", listOf("Wait to 14:00", "Promote now", "Show me the 14 commits first")),
             Need("waiting", "t-sweep", "Nightly error sweep", "502s on /v2/payouts since 02:10, 1.8% of calls. Start a thread on it?", ago(41)),
             Need("failed", "t-node", "Bump node to 22 in CI images", "docker build failed at step 7 of 12", ago(183)),
-        ), wakes.take(2) + wakes[3], counts), now)
+        ), wakes.take(2) + wakes[3], counts)
+
+    @Test fun inbox() = shot("inbox", 0) { InboxScreen(needsBox, now, threads = rows, usage = limits) }
+
+    // the whole of Home and of a thread, taller than a phone, to set beside the design
+    @Config(sdk = [35], qualifiers = "w390dp-h1400dp-xhdpi")
+    @Test fun inboxTall() = shot("inbox-tall", 0) { InboxScreen(needsBox, now, threads = rows, usage = limits) }
+
+    @Config(sdk = [35], qualifiers = "w884dp-h1104dp-xhdpi")
+    @Test fun unfolded() = captureRoboImage("build/shots/phone-unfolded.png") {
+        HiveTheme {
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxSize().background(C.bg)) {
+                Column(Modifier.width(380.dp).fillMaxHeight()) { Box(Modifier.weight(1f)) { InboxScreen(needsBox, now, threads = rows, usage = limits, open = "t-ship") }; Tabs(counts, 0) { } }
+                Box(Modifier.width(1.dp).fillMaxHeight().background(C.headRule))
+                Box(Modifier.weight(1f).fillMaxHeight()) { ThreadScreen(shipThread, folder = "ledger-web", onAttach = {}) }
+            }
+        }
     }
 
-    @Test fun threads() = shot("threads", 1) {
-        ThreadsScreen(listOf(
+    @Test fun inboxQuiet() = shot("inbox-quiet", 0) { InboxScreen(Inbox(counts = Counts(threads = 8)), now, usage = limits) }
+
+    private val limits = listOf(
+        Limit("five_hour", "Current session (5 hours)", 64.0, "2026-11-09T15:00:00Z"),
+        Limit("seven_day", "Current week (all models)", 41.0, "2026-11-12T09:00:00Z"),
+        Limit("seven_day_opus", "Current week (Opus)", 28.0, "2026-11-12T09:00:00Z"),
+    )
+
+    private val rows = listOf(
             ThreadRow("t-ship", "Ship ledger-web 4.18 to prod", "ledger-web", "waiting", "Promote now or after the 14:00 freeze?", ago(6), "waiting"),
             ThreadRow("t-sweep", "Nightly error sweep", "ledger-api", "waiting", "next run 02:00", ago(41), "watchers"),
-            ThreadRow("t-inv", "Fix duplicate invoice numbers", "ledger-api", "working", "", ago(1), "working"),
+            ThreadRow("t-inv", "Fix duplicate invoice numbers", "ledger-api", "working", "Waiting on a review", ago(12), "working"),
             ThreadRow("t-exp", "Report exports team", "reports", "working", "", ago(2), "working"),
             ThreadRow("t-sync", "Offline sync spike", "ledger-android", "working", "", ago(4), "working"),
             ThreadRow("t-drafts", "Android app drops drafts on relock", "ledger-android", "idle", "", ago(95), "pinned", continues = at("15:00")),
             ThreadRow("t-node", "Bump node to 22 in CI images", "infra", "idle", "", ago(183), "recent"),
             ThreadRow("t-pay", "Payout reconciliation", "ledger-api", "idle", "", ago(300), "recent", wakes = at("14:00")),
             ThreadRow("t-csv", "CSV export loses the header row", "reports", "idle", "", ago(60 * 26), "recent"),
-        ), now, drafts = setOf("t-drafts"))
-    }
+        )
+
+    @Test fun threads() = shot("threads", 1) { ThreadsScreen(rows, now, drafts = setOf("t-drafts"), open = "t-inv") }
 
     private val shipThread = ThreadView(
         "Ship ledger-web 4.18 to prod",
@@ -85,7 +110,7 @@ class ScreensTest {
         asks = listOf(Ask("a1", listOf(Question("Promote ledger-web 4.18 to prod?", "", listOf(Choice("Promote now", ""), Choice("Wait for the freeze, promote at 14:00", ""), Choice("Show me the 14 commits first", "")), false)))),
     )
 
-    @Test fun thread() = shot("thread") { ThreadScreen(shipThread, draft = "") }
+    @Test fun thread() = shot("thread") { ThreadScreen(shipThread, draft = "", folder = "ledger-web", onAttach = {}) }
     private val more = ThreadMore(112_000, 1_000_000, "Waiting on a review: Reviewer: check the retry path",
         listOf(Work("t1", "Subagent", true, "Reviewer: check the retry path", "Reading billing/webhooks.py", 1_700_000_000_000, 48_000, "reviewer", "claude-fable-5-2", "Review the retry change in billing/invoice.py for races and missing tests."),
             Work("t2", "Shell", false, "Run the billing tests", "pytest tests/billing", 1_700_000_000_000, 0, "", "", "pytest tests/billing -q")),
@@ -107,24 +132,76 @@ class ScreensTest {
             ),
             working = true,
             tasks = listOf(Task("b1", "Shell", "pytest tests/billing -x -q", "test_second_retry_returns_same_invoice PASSED")),
-        ), draft = "when tests pass open a draft PR and ask the reviewer to look")
+        ), draft = "when tests pass open a draft PR and ask the reviewer to look", folder = "ledger-api", onAttach = {}, onQueue = {}, onInterrupt = {})
     }
 
-    @Test fun running() = shot("running", 2) {
+    // a message on its way: one bubble, marked sending
+    @Test fun threadSending() = shot("thread-sending") {
+        val v = ThreadView("Fix duplicate invoice numbers", listOf(Item("you", "Find it and fix it, with a test.", seen = true, at = at("13:05")), Item("claude", "On it."), Item("you", "Also cover the refund path.", seen = false)), working = true)
+        ThreadScreen(Read.withOutgoing(v, listOf(Read.outgoing(v, emptyList(), "m1", "And the credit note path.", "And the credit note path."))), folder = "ledger-api", onAttach = {})
+    }
+
+    @Test fun running() = shot("running") {
         RunningScreen(listOf(
             RunRow("t-inv", "Fix duplicate invoice numbers", "a1", "Subagent", "Reviewer: check the retry path for races", "Reading billing/webhooks.py, line 140", "working"),
             RunRow("t-inv", "Fix duplicate invoice numbers", "b1", "Shell", "pytest tests/billing -x -q", "test_second_retry_returns_same_invoice PASSED", "working"),
             RunRow("t-ship", "Ship ledger-web 4.18", "m1", "Monitor", "Tail staging logs for 5xx", "0 errors in the last 5 minutes", "working"),
             RunRow("t-exp", "Report exports team", "a2", "Subagent", "Builder 2: port the CSV writer to the job queue", "Edit reports/csv_writer.py +44 -19", "working"),
             RunRow("t-exp", "Report exports team", "c1", "Codex", "Write the export_jobs migration", "Running makemigrations --check", "working"),
-        ), threads = 4, scheduled = 5)
+        ), threads = 4, scheduled = 5, onBack = {})
     }
 
-    @Test fun stopAll() = shot("stop", 4) { MoreScreen(stopAll = false, canPause = true, threads = 4, tasks = 6, scheduled = 5, accounts = true) }
+    @Test fun stopAll() = shot("stop") { MoreScreen(stopAll = false, canPause = true, threads = 4, tasks = 6, scheduled = 5, accounts = true, onBack = {}, onRunning = {}, onNotes = {}, onWatchers = {}, onWorkLog = {}) }
 
-    @Test fun more() = shot("more", 4) { MoreScreen(accounts = true) }
+    @Test fun more() = shot("more") { MoreScreen(accounts = true, tasks = 5, onBack = {}, onRunning = {}, onNotes = {}, onWatchers = {}, onWorkLog = {}) }
 
-    @Test fun scheduled() = shot("wake", 3) { ScheduledScreen(wakes, now, canRun = true) }
+    @Test fun scheduled() = shot("wake", 3) { ScheduledScreen(wakes, now, canRun = true, usage = limits) }
+
+    @Test fun todos() = shot("todos", 2) {
+        TodosScreen(listOf(
+            Todo("1", "Send the export report to ops", "todo", "2026-11-09"),
+            Todo("2", "Review the 4.18 changelog", "todo", "2026-11-09"),
+            Todo("3", "Tune the retry backoff", "todo", "2026-11-12"),
+            Todo("4", "Record the onboarding walkthrough", "todo", "2026-11-13"),
+            Todo("5", "Chase the bank file format", "todo", "2026-11-06"),
+            Todo("6", "Try a new export queue", "todo", ""),
+            Todo("7", "Pricing for the reports add-on", "talk", ""),
+            Todo("8", "Offline sync design", "talk", ""),
+            Todo("9", "Move CI to the new runners", "holding", ""),
+            Todo("10", "Bump node to 22", "done", ""),
+        ), today = java.time.LocalDate.parse("2026-11-09"))
+    }
+
+    @Test fun notes() = shot("notes") {
+        NotesScreen(listOf(Note("n1", "Release checklist", "Release checklist\nFreeze at 14:00, landed check, then prod.", now), Note("n2", "Ideas", "Ideas\nA queue for exports.\nA smaller PDF writer.", now)))
+    }
+
+    @Test fun watchers() = shot("watchers") {
+        WatchersScreen(listOf(
+            Watcher("w1", "Nightly error sweep", "Look for new 5xx spikes and open a thread when one starts.", true, "idle", "", ago(600), now + 3 * 3_600_000),
+            Watcher("w2", "Dependency updates", "Review the bot's open pull requests.", true, "working", "2 findings last run", ago(40), now + 86_400_000),
+            Watcher("w3", "Staging smoke test", "", false, "", "", 0, 0),
+        ), now = now)
+    }
+
+    @Test fun workLog() = shot("worklog") {
+        WorkLogScreen(WorkDay("2026-11-09", "## Work\n- **Ledger**: fixed the duplicate invoice numbers on retry\n- **Reports**: moved the CSV writer to the job queue\n## Personal\n- **Blog**: drafted the post on idempotency keys",
+            listOf(LogThread("t1", "Fix duplicate invoice numbers", "ledger-api", false, 7, at("09:10"), at("11:40"), emptyList()), LogThread("t2", "Draft the idempotency post", "blog", true, 3, at("12:05"), at("12:30"), emptyList())),
+            listOf(LogCommit("ledger-api", "a91f3c2", at("11:42"), "Unique constraint on payment and retry key", false)), listOf("Send the export report to ops")), "2026-11-09", "all")
+    }
+
+    private val pr = PrCard(212, "", "Unique constraint on payment and retry key", "OPEN", false, "a".repeat(40), "main", "passing", "6 of 6 checks passed", "tallgrass/ledger-api", "squash", "")
+    private val changes = Changes("fix/invoice-retry", "origin/fix/invoice-retry", 2, 0, listOf(
+        ChangeFile("billing/invoice.py", 44, 19, false, "branch"), ChangeFile("billing/migrations/0042_retry_key.py", 28, 0, false, "branch"),
+        ChangeFile("tests/billing/test_retry.py", 61, 2, false, "unstaged"), ChangeFile("docs/retry.png", 0, 0, true, "untracked")), 0, "", pr, "")
+
+    @Test fun changes() = shot("changes") { ChangesScreen(changes, canMerge = true) }
+    @Test fun changesMerge() = shot("changes-merge") { ChangesScreen(changes, canMerge = true, confirming = pr) }
+    @Test fun diff() = shot("diff") {
+        DiffScreen(changes.files[0], DiffView("@@ -12,7 +12,9 @@ def create_invoice(payment, retry_key):\n     number = next_number()\n-    return Invoice.objects.create(payment=payment, number=number)\n+    invoice, made = Invoice.objects.get_or_create(\n+        payment=payment, retry_key=retry_key, defaults={\"number\": number})\n+    return invoice", 6, 6, false))
+    }
+
+    @Test fun update() = shot("update") { UpdateOffer("4.9.0", "4.5.1") }
 
     @Test fun usage() = shot("usage") {
         UsageScreen(listOf(
@@ -164,6 +241,8 @@ class ScreensTest {
     @Test fun settingsUnpair() = shot("settings-unpair") { SettingsScreen(Quiet(false, "22:00", "07:00"), buttons = true, relay = "relay.tallgrass.dev", linkWord = "online", clock = "clock within 0.4 s", unpair = true) }
 
     @Test fun pair() = shot("pair") { PairScreen(paste = true, text = "") }
+
+    @Test fun newThreadLeaving() = shot("new-leaving") { NewThreadScreen(listOf("C:\\work\\ledger"), "C:\\work\\ledger", "Find the 502", leaving = true) }
 
     @Test fun locked() = shot("locked") { LockedScreen() }
 

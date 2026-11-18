@@ -14,15 +14,36 @@ import java.time.ZoneOffset
 
 class ModelTest {
     @Test fun sendsShowAtOnceUntilOrbitListsThem() {
-        val v = ThreadView(items = listOf(Item("you", "go", true), Item("claude", "ok"), Item("you", "and this", false)))
-        // "and this" is listed back; "go" twice: the second one is still on its way
-        val shown = Read.withOutgoing(v, listOf("and this", "go", "go"))
-        assertEquals(listOf("you", "claude", "you", "sending"), shown.items.map { it.k })
-        assertEquals("go", shown.items.last().t)
+        val v = ThreadView(items = listOf(Item("you", "go", true), Item("claude", "ok")))
+        // an old "go" is not taken for the new one: both new sends show as sending
+        val a = Read.outgoing(v, emptyList(), "m1", "go", "go")
+        val b = Read.outgoing(v, listOf(a), "m2", "go", "go")
+        val c = Read.outgoing(v, listOf(a, b), "m3", "and this", "and this")
+        assertEquals(listOf(1, 2, 0), listOf(a.base, b.base, c.base))
+        assertEquals(listOf("you", "claude", "sending", "sending", "sending"), Read.withOutgoing(v, listOf(a, b, c)).items.map { it.k })
+        // Orbit lists one "go" and "and this": each is shown once, from Orbit; the second "go" is still on its way
+        val v2 = v.copy(items = v.items + Item("you", "go", false) + Item("you", "and this", false))
+        val shown = Read.withOutgoing(v2, listOf(a, b, c))
+        assertEquals(listOf("you", "claude", "you", "you", "sending"), shown.items.map { it.k })
+        assertEquals(listOf(b), Read.settle(v2, listOf(a, b, c), 0))
         assertEquals(v, Read.withOutgoing(v, emptyList()))
-        // a long message Orbit cut short still counts as listed
+        // one Orbit took but never lists is let go after 20 s; one still on its way stays
+        assertEquals(emptyList<Outgoing>(), Read.settle(v, listOf(a.copy(sentAt = 1000)), 1000 + Read.SENDING_KEEP_MS))
+        assertEquals(listOf(a), Read.settle(v, listOf(a), 1_000_000))
+        // a long message Orbit cut short, and one with a file's line after it, still count as listed
         val long = "x".repeat(4100)
-        assertEquals(1, Read.withOutgoing(ThreadView(items = listOf(Item("you", "x".repeat(4000) + "…", false))), listOf(long)).items.size)
+        assertEquals(1, Read.withOutgoing(ThreadView(items = listOf(Item("you", "x".repeat(4000) + "…", false))), listOf(Outgoing("m", long, long, 0))).items.size)
+        assertTrue(Read.sameMessage("see this\nAttached from the phone: C:/tmp/a.pdf", "see this"))
+        assertTrue(Read.sameMessage("Attached from the phone: C:/tmp/a.pdf", ""))
+        assertFalse(Read.sameMessage("ok", "ok then"))
+    }
+
+    @Test fun aMessageInBothListsShowsOnce() {
+        val t = JSONObject("""{"title":"t","items":[{"k":"claude","t":"hi"},{"k":"you","t":"go","seen":true},{"k":"you","t":"go","seen":false},{"k":"you","t":"more","seen":false}]}""")
+        assertEquals(listOf("hi", "go", "more"), Read.thread(t).items.map { it.t })
+        // the same words sent again after Claude answered are two messages
+        val two = JSONObject("""{"title":"t","items":[{"k":"you","t":"go","seen":true},{"k":"claude","t":"ok"},{"k":"you","t":"go","seen":false}]}""")
+        assertEquals(3, Read.thread(two).items.size)
     }
 
     private val utc = ZoneOffset.UTC

@@ -3,7 +3,11 @@ package dev.hive.mobile
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
@@ -85,10 +89,23 @@ fun UpdateCard() {
     var offer by remember { mutableStateOf<PhoneUpdate.Available?>(null) }
     LaunchedEffect(Unit) { offer = PhoneUpdate.check(ctx) }
     val a = offer ?: return
-    Card("Orbit Phone ${a.version} is available", C.work, actions = {
-        Btn("Later") { PhoneUpdate.later(ctx, a.version); offer = null }
-        Btn("Update", primary = true) { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(a.apk)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
-    }) {
-        Text("You have ${PhoneUpdate.installed(ctx)}. Update downloads the new app; Android then asks to install it.", style = T.note.copy(fontSize = 13.5.sp))
+    UpdateOffer(a.version, PhoneUpdate.installed(ctx), onLater = { PhoneUpdate.later(ctx, a.version); offer = null },
+        onUpdate = { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(a.apk)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } })
+}
+
+@Composable
+fun UpdateOffer(version: String, installed: String, onLater: () -> Unit = {}, onUpdate: () -> Unit = {}) {
+    Panel(Modifier.padding(top = 8.dp), pad = 14.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            IconChip(Ic.download, C.ink)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Orbit Phone $version is out", style = T.title)
+                Text("You have $installed. Android asks to install it after the download.", style = T.label.copy(lineHeight = 17.sp))
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Btn("Later", Modifier.weight(1f), onClick = onLater)
+            Btn("Update", Modifier.weight(1f), primary = true, onClick = onUpdate)
+        }
     }
 }

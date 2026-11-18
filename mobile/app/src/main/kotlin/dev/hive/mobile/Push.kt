@@ -40,7 +40,8 @@ object Notes {
         return PendingIntent.getActivity(ctx, code, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
-    private fun base(ctx: Context, channel: String): Notification.Builder = Notification.Builder(ctx, channel).setSmallIcon(R.drawable.ic_orbit).setAutoCancel(true)
+    // the accent tints the small icon and the action buttons
+    private fun base(ctx: Context, channel: String): Notification.Builder = Notification.Builder(ctx, channel).setSmallIcon(R.drawable.ic_orbit).setColor(0xFFF5B544.toInt()).setAutoCancel(true)
         // on the lock screen only "Claude sent you something"; the text and the buttons show once the phone is unlocked
         .setVisibility(Notification.VISIBILITY_PRIVATE)
         .setPublicVersion(Notification.Builder(ctx, channel).setSmallIcon(R.drawable.ic_orbit).setContentTitle("Orbit").setContentText("Claude sent you something").build())

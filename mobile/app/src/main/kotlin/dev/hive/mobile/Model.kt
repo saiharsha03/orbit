@@ -35,6 +35,9 @@ data class Question(val question: String, val header: String, val options: List<
 data class Ask(val id: String, val questions: List<Question>)
 data class Task(val id: String, val kind: String, val title: String, val now: String)
 data class ThreadView(val title: String = "", val items: List<Item> = emptyList(), val working: Boolean = false, val asks: List<Ask> = emptyList(), val tasks: List<Task> = emptyList())
+// a message sent from this phone that Orbit has not listed back yet. text: what was typed; shown: that plus a line per
+// attached file; sentAt: when Orbit took it (0 = still on its way)
+data class Outgoing(val mid: String, val text: String, val shown: String, val base: Int, val sentAt: Long = 0)
 data class Quiet(val on: Boolean = false, val from: String = "22:00", val to: String = "07:00")
 
 object Read {
@@ -68,18 +71,48 @@ object Read {
             objs(t.optJSONArray("posts")).map { Post(it.optString("from"), it.optString("text")) })
     }.distinctBy { it.id }
 
-    // your sends still on their way, after the thread: each one Orbit already lists among your last messages is shown
-    // once, from Orbit (Orbit cuts a long message at 4000 characters)
-    fun withOutgoing(v: ThreadView, outgoing: List<String>): ThreadView {
-        if (outgoing.isEmpty()) return v
-        val listed = v.items.takeLast(40).filter { it.k == "you" }.map { it.t.removeSuffix("…") }.toMutableList()
-        val sending = outgoing.filter { o -> val i = listed.indexOfFirst { o.startsWith(it) && it.isNotEmpty() }; if (i >= 0) { listed.removeAt(i); false } else true }
-        return if (sending.isEmpty()) v else v.copy(items = v.items + sending.map { Item("sending", it) })
+    // Whether a message Orbit lists is the one typed here: the same text, or Orbit's shape of it (cut at 4000
+    // characters; with a line per attached file after it).
+    private const val ATTACHED = "Attached from the phone: "
+    fun sameMessage(listed: String, typed: String): Boolean {
+        val l = listed.removeSuffix("…")
+        if (typed.isEmpty()) return l.startsWith(ATTACHED)
+        return l == typed || (l.length >= 4000 && typed.startsWith(l)) || l.startsWith(typed + "\n" + ATTACHED)
+    }
+
+    fun listed(v: ThreadView, text: String): Int = v.items.count { it.k == "you" && sameMessage(it.t, text) }
+
+    // A new send from this phone. base: how many of your messages with this text are already there (listed by Orbit,
+    // or sent a moment ago), so "yes" sent twice is two messages and an old "yes" is not taken for the new one.
+    fun outgoing(v: ThreadView, pending: List<Outgoing>, mid: String, text: String, shown: String): Outgoing =
+        Outgoing(mid, text, shown, listed(v, text) + pending.count { it.text == text })
+
+    // Your sends still on their way, after the thread. Each message is on screen exactly once: as "sending" from the
+    // tap until Orbit lists it, from Orbit after that (not seen, then seen).
+    fun withOutgoing(v: ThreadView, outgoing: List<Outgoing>): ThreadView {
+        val sending = outgoing.filter { listed(v, it.text) <= it.base }
+        return if (sending.isEmpty()) v else v.copy(items = v.items + sending.map { Item("sending", it.shown) })
+    }
+
+    // The sends to keep after Orbit listed the thread again: the ones it does not list yet. One Orbit took
+    // (sentAt > 0) that it still does not list after 20 s is let go, so a bubble never stays "sending" for good.
+    const val SENDING_KEEP_MS = 20_000L
+    fun settle(v: ThreadView, outgoing: List<Outgoing>, now: Long): List<Outgoing> =
+        outgoing.filter { listed(v, it.text) <= it.base && (it.sentAt == 0L || now - it.sentAt < SENDING_KEEP_MS) }
+
+    // Orbit lists what Claude has not read yet (seen = false) after the conversation. For a moment a message can be
+    // in both (just written to the conversation, not yet off Orbit's unread list): it is shown once, as read.
+    fun once(items: List<Item>): List<Item> {
+        val firstUnread = items.indexOfLast { !(it.k == "you" && it.seen == false) && it.k != "note" } + 1
+        val last = items.take(firstUnread).lastOrNull() ?: return items
+        if (last.k != "you" || last.seen != true) return items
+        val dup = items.withIndex().firstOrNull { (i, it) -> i >= firstUnread && it.k == "you" && it.seen == false && sameMessage(last.t, it.t) } ?: return items
+        return items.filterIndexed { i, _ -> i != dup.index }
     }
 
     fun thread(t: JSONObject): ThreadView = ThreadView(
         t.optString("title"),
-        objs(t.optJSONArray("items")).map { Item(it.optString("k"), it.optString("t"), if (it.has("seen") && !it.isNull("seen")) it.optBoolean("seen") else null, it.optLong("at")) },
+        once(objs(t.optJSONArray("items")).map { Item(it.optString("k"), it.optString("t"), if (it.has("seen") && !it.isNull("seen")) it.optBoolean("seen") else null, it.optLong("at")) }),
         t.optBoolean("working"),
         objs(t.optJSONArray("asks")).map { a ->
             Ask(a.optString("id"), objs(a.optJSONArray("questions")).map { q ->
@@ -148,6 +181,58 @@ object Words {
         else -> "WAKE-UP"
     }
 
+    // the same, in the words of a row's grey line: once, every 10 min, continues after the limit
+    fun wakeKind(w: Wake): String = when {
+        w.kind == "continue" -> "continues after the limit"
+        w.every != null -> "every ${w.every} min"
+        else -> "once"
+    }
+
+    // Home's greeting, by the hour
+    fun greeting(now: Long, zone: ZoneId = ZoneId.systemDefault()): String = when (Instant.ofEpochMilli(now).atZone(zone).hour) {
+        in 5..11 -> "Good morning"
+        in 12..16 -> "Good afternoon"
+        else -> "Good evening"
+    }
+
+    // Home's one or two sentences: what needs you, then what is working. Counts only, nothing made up.
+    fun homeSummary(waiting: Int, failed: Int, working: Int, loaded: Boolean = true): String {
+        if (!loaded) return "Checking in with the desk."
+        val need = "${plural(waiting, "thread")} ${if (waiting == 1) "needs" else "need"} you"
+        val first = when {
+            waiting > 0 && failed > 0 -> "$need and ${plural(failed, "turn")} failed."
+            waiting > 0 -> "$need."
+            failed > 0 -> "${plural(failed, "turn")} failed."
+            else -> "Nothing needs you."
+        }
+        val second = when {
+            working > 0 -> " ${plural(working, "thread")} ${if (working == 1) "is" else "are"} working."
+            waiting + failed == 0 -> " All quiet on the desk."
+            else -> ""
+        }
+        return first + second
+    }
+
+    // a due date ("2026-11-12") beside a to-do: today, tomorrow, Thu within a week, 12 Nov after that ("" when it is no date)
+    fun due(due: String, today: LocalDate): String {
+        val d = runCatching { LocalDate.parse(due.take(10)) }.getOrNull() ?: return due
+        val days = java.time.temporal.ChronoUnit.DAYS.between(today, d)
+        return when {
+            days < 0 -> "was due ${d.format(date)}"
+            days == 0L -> "due today"
+            days == 1L -> "due tomorrow"
+            days < 7 -> "due ${d.format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH))}"
+            else -> "due ${d.format(date)}"
+        }
+    }
+
+    // which group an open to-do falls in by its due date: overdue, today, week, later, none
+    fun dueGroup(due: String, today: LocalDate): String {
+        val d = runCatching { LocalDate.parse(due.take(10)) }.getOrNull() ?: return "none"
+        val days = java.time.temporal.ChronoUnit.DAYS.between(today, d)
+        return when { days < 0 -> "overdue"; days == 0L -> "today"; days < 7 -> "week"; else -> "later" }
+    }
+
     // a folder path's last part
     fun folderName(path: String): String = path.trimEnd('/', '\\').substringAfterLast('\\').substringAfterLast('/')
 
@@ -162,6 +247,13 @@ object Usage {
         key.startsWith("seven_day") -> 7 * 86_400_000L
         else -> null
     }
+
+    // the session's window and the week's (all models), when Orbit sends them
+    fun session(limits: List<Limit>): Limit? = limits.firstOrNull { it.key.startsWith("five_hour") }
+    fun week(limits: List<Limit>): Limit? = limits.firstOrNull { it.key == "seven_day" } ?: limits.firstOrNull { it.key.startsWith("seven_day") }
+
+    // the weather beside the session's use on Home
+    fun sky(pct: Double): String = when { pct >= GUARD_AT -> "nearly out"; pct >= 60 -> "filling up"; else -> "clear skies" }
 
     fun resetMs(l: Limit): Long? = l.resetsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
 

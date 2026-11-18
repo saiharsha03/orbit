@@ -1,7 +1,7 @@
 package dev.hive.mobile
 
-// The app: a fingerprint to open it, pairing (scan the QR Orbit shows, or paste it), then five tabs (Needs me,
-// Threads, Running, Scheduled, More) and the screens behind them. This file is the wiring: it asks Orbit on the
+// The app: a fingerprint to open it, pairing (scan the QR Orbit shows, or paste it), then four tabs (Home, Threads,
+// To-dos, Scheduled) and the screens behind them (More, from the head of Home, leads to the rest). This file is the wiring: it asks Orbit on the
 // computer through the relay (sealed) and hands plain values to the screens in Screens.kt.
 import android.Manifest
 import android.content.Intent
@@ -270,15 +270,20 @@ private fun App(openThread: MutableState<String?>, openPane: MutableState<String
     val online = state == Relay.State.Online
     val notice = linkNotice()
     var paired by remember { mutableStateOf(Vault.session != null) }
-    var tab by rememberSaveable { mutableStateOf(0) }
-    var pane by rememberSaveable { mutableStateOf("") } // "new", "usage", "teams", "settings", or "" for the open thread
+    var tab by rememberSaveable { mutableStateOf(0) } // Home, Threads, To-dos, Scheduled
+    var pane by rememberSaveable { mutableStateOf("") } // "more", "new", "usage", "running", "teams", "settings" ..., or "" for the open thread
+    // a screen opened from More goes back to More
+    var fromMore by rememberSaveable { mutableStateOf(false) }
     var pairNote by remember { mutableStateOf("") }
     // a notification that opens a screen: only the ones it may name
-    LaunchedEffect(openPane.value) { if (openPane.value == "usage") pane = "usage"; openPane.value = "" }
-    // the inbox is loaded here, not in its tab: its counts sit on the tab bar under every screen
+    LaunchedEffect(openPane.value) { if (openPane.value == "usage") { pane = "usage"; fromMore = false }; openPane.value = "" }
+    // the inbox and the threads are loaded here, not in their tabs: Home shows both, and the count of what needs you
+    // sits on the tab bar under every screen
     var box by remember { mutableStateOf(Inbox()) }
     var boxLoaded by remember { mutableStateOf(false) }
     var boxError by remember { mutableStateOf("") }
+    var rows by remember { mutableStateOf<List<ThreadRow>>(emptyList()) }
+    var rowsError by remember { mutableStateOf("") }
     val reloadBox = rememberLoader(paired, every = { 15_000L }) {
         if (!paired) return@rememberLoader
         boxError = attempt {
@@ -287,26 +292,36 @@ private fun App(openThread: MutableState<String?>, openPane: MutableState<String
             boxLoaded = true
         }
         // an Orbit from before the inbox: the tabs still work, their counts come from the lists
-        if (boxError.contains("unknown request", true)) { boxError = "Update Orbit on the computer for the Needs me inbox."; boxLoaded = true }
+        if (boxError.contains("unknown request", true)) { boxError = "Update Orbit on the computer for Home's inbox."; boxLoaded = true }
+        rowsError = attempt { rows = Read.threads(Relay.ask("threads")) }
+    }
+    // the plan's limits, for Home's usage pill and the ring on Scheduled
+    var limits by remember { mutableStateOf<List<Limit>?>(null) }
+    rememberLoader(paired, every = { 60_000L }) {
+        if (paired) attempt { limits = Read.limits(Relay.ask("usage").optJSONObject("usage")) }
     }
     // Android 13+ asks before an app may show notifications
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(Unit) { if (android.os.Build.VERSION.SDK_INT >= 33) notifications.launch(Manifest.permission.POST_NOTIFICATIONS) }
     // a row without a thread opens nothing
-    val open: (String) -> Unit = { id -> if (id.isNotEmpty()) { pane = ""; openThread.value = id } }
+    val open: (String) -> Unit = { id -> if (id.isNotEmpty()) { pane = ""; fromMore = false; openThread.value = id } }
     val hasDetail = pane.isNotEmpty() || openThread.value != null
-    val closeDetail = { pane = ""; openThread.value = null }
+    val closeDetail: () -> Unit = { pane = ""; fromMore = false; openThread.value = null }
+    // Back on a screen: to More when it was opened from there, else to the tabs
+    val back: () -> Unit = { if (fromMore && pane != "more") pane = "more" else closeDetail() }
+    val toPane: (String) -> Unit = { p -> fromMore = pane == "more"; pane = p }
 
     val lists: @Composable () -> Unit = {
+        // each part has its own place: the update card, the open tab's screen, the tab bar. Nothing is drawn over another.
         Column(Modifier.fillMaxSize()) {
             UpdateCard() // a newer phone app on the latest release, when there is one
             Box(Modifier.weight(1f)) {
                 when (tab) {
-                    0 -> InboxRoute(box, boxLoaded, listOf(notice, boxError).filter { it.isNotEmpty() }.joinToString(" "), open, reloadBox)
-                    1 -> ThreadsRoute(notice, online, openThread.value ?: "", open, onNew = { pane = "new" })
-                    2 -> RunningRoute(notice, box.counts, "pause" in can, open, reloadBox)
-                    3 -> ScheduledRoute(notice, "runWake" in can, open, reloadBox)
-                    else -> MoreRoute(notice, box.counts, "pause" in can, "accounts" in can, can, reloadBox, onPane = { pane = it })
+                    0 -> InboxRoute(box, boxLoaded, listOf(notice, boxError).filter { it.isNotEmpty() }.joinToString(" "), rows, limits, state, openThread.value ?: "", open, reloadBox,
+                        onMore = { toPane("more") }, onUsage = { toPane("usage") }, onThreads = { tab = 1 }, onRunning = { toPane("running") })
+                    1 -> ThreadsRoute(rows, listOf(notice, rowsError).filter { it.isNotEmpty() }.joinToString(" "), online, openThread.value ?: "", open, onNew = { toPane("new") })
+                    2 -> TodosRoute(notice, null)
+                    else -> ScheduledRoute(notice, "runWake" in can, limits, open, reloadBox, onUsage = { toPane("usage") })
                 }
             }
             Tabs(box.counts, tab) { tab = it }
@@ -315,22 +330,23 @@ private fun App(openThread: MutableState<String?>, openPane: MutableState<String
     // the one place that decides what is beside (or instead of) the tabs
     val detail: @Composable () -> Unit = {
         when (pane) {
-            "usage" -> UsageRoute(notice, "accounts" in can, box.counts.working, closeDetail)
-            "teams" -> TeamsRoute(notice, open, closeDetail)
-            "notes" -> NotesRoute(notice, closeDetail)
-            "todos" -> TodosRoute(notice, closeDetail)
-            "watchers" -> WatchersRoute(notice, closeDetail)
-            "worklog" -> WorkLogRoute(notice, closeDetail)
-            "settings" -> SettingsRoute(notice, online, "quiet" in can, closeDetail, onUnpaired = { told ->
+            "more" -> MoreRoute(notice, box.counts, "pause" in can, "accounts" in can, can, reloadBox, onPane = toPane, onBack = closeDetail)
+            "running" -> RunningRoute(notice, box.counts, "pause" in can, open, reloadBox, back)
+            "usage" -> UsageRoute(notice, "accounts" in can, box.counts.working, back)
+            "teams" -> TeamsRoute(notice, open, back)
+            "notes" -> NotesRoute(notice, back)
+            "watchers" -> WatchersRoute(notice, back)
+            "worklog" -> WorkLogRoute(notice, back)
+            "settings" -> SettingsRoute(notice, online, "quiet" in can, back, onUnpaired = { told ->
                 Drafts.clear()
                 closeDetail()
                 tab = 0
                 pairNote = if (told) "" else "Orbit on the computer could not be told. Unpair there too: Settings, General, Phone app."
                 paired = false
             })
-            "new" -> NewThreadRoute(notice, online, onDone = { id -> pane = ""; if (id != null) openThread.value = id })
+            "new" -> NewThreadRoute(notice, online, onDone = { id -> if (id != null) { closeDetail(); openThread.value = id } else back() })
             // keyed: another thread is another screen, never this one's text box with a different id behind it
-            else -> { val id = openThread.value; if (id != null) key(id) { ThreadRoute(id, notice, online, can) { openThread.value = null } } }
+            else -> { val id = openThread.value; if (id != null) key(id) { ThreadRoute(id, notice, online, can, rows.firstOrNull { it.id == id }?.folder ?: "") { openThread.value = null } } }
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -378,7 +394,8 @@ private fun PairRoute(note: String, onPaired: () -> Unit) {
 }
 
 @Composable
-private fun InboxRoute(box: Inbox, loaded: Boolean, notice: String, onOpen: (String) -> Unit, reload: () -> Unit) {
+private fun InboxRoute(box: Inbox, loaded: Boolean, notice: String, threads: List<ThreadRow>, limits: List<Limit>?, link: Relay.State, open: String, onOpen: (String) -> Unit, reload: () -> Unit,
+    onMore: () -> Unit, onUsage: () -> Unit, onThreads: () -> Unit, onRunning: () -> Unit) {
     val scope = rememberCoroutineScope()
     val now = rememberNow()
     var err by remember { mutableStateOf("") }
@@ -387,35 +404,41 @@ private fun InboxRoute(box: Inbox, loaded: Boolean, notice: String, onOpen: (Str
         busy = n.thread
         scope.launch { err = attempt { what() }; busy = ""; reload() }
     }
-    InboxScreen(box, now, notice = listOf(notice, err).filter { it.isNotEmpty() }.joinToString(" "), busy = busy, loaded = loaded,
+    val (word, color) = when (link) {
+        Relay.State.Online -> "Desk connected" to C.done
+        Relay.State.RelayOnly -> "Desk offline" to C.faint
+        Relay.State.Connecting -> "Connecting" to C.accent
+        Relay.State.Off -> "Not connected" to C.fail
+        Relay.State.Unpaired -> "Not paired" to C.fail
+    }
+    InboxScreen(box, now, notice = listOf(notice, err).filter { it.isNotEmpty() }.joinToString(" "), busy = busy, loaded = loaded, threads = threads, usage = limits, link = word, linkColor = color, open = open,
         // the app is unlocked here, so any of the choices may be picked, not only the ones a notification allows
         onAnswer = { n, o -> act(n) { Relay.ask("answer", mapOf("id" to n.thread, "ask" to n.askId, "answers" to JSONObject().put(n.question, o))) } },
         onOpen = onOpen,
         onRetry = { n -> act(n) { val text = "Try that again."; Relay.ask("send", mapOf("id" to n.thread, "text" to text, "mid" to Drafts.midFor(n.thread, text))); Drafts.pending.remove(n.thread) } },
-        onDismiss = { n -> act(n) { Relay.ask("dismiss", mapOf("id" to n.thread)) } })
+        onDismiss = { n -> act(n) { Relay.ask("dismiss", mapOf("id" to n.thread)) } },
+        onMore = onMore, onUsage = onUsage, onThreads = onThreads, onRunning = onRunning)
 }
 
 @Composable
-private fun ThreadsRoute(notice: String, online: Boolean, open: String, onOpen: (String) -> Unit, onNew: () -> Unit) {
+private fun ThreadsRoute(rows: List<ThreadRow>, notice: String, online: Boolean, open: String, onOpen: (String) -> Unit, onNew: () -> Unit) {
     val now = rememberNow()
-    var rows by remember { mutableStateOf<List<ThreadRow>>(emptyList()) }
-    var err by remember { mutableStateOf("") }
     var query by rememberSaveable { mutableStateOf("") }
-    rememberLoader(every = { 15_000L }) { err = attempt { rows = Read.threads(Relay.ask("threads")) } }
     val drafts = Drafts.text.filter { it.value.isNotBlank() }.keys
-    ThreadsScreen(rows, now, query, drafts, open, listOf(notice, err).filter { it.isNotEmpty() }.joinToString(" "), canNew = online, onQuery = { query = it }, onOpen = onOpen, onNew = onNew)
+    ThreadsScreen(rows, now, query, drafts, open, notice, canNew = online, onQuery = { query = it }, onOpen = onOpen, onNew = onNew)
 }
 
 @Composable
-private fun ThreadRoute(id: String, notice: String, online: Boolean, can: Collection<String>, onBack: () -> Unit) {
+private fun ThreadRoute(id: String, notice: String, online: Boolean, can: Collection<String>, folder: String, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var v by remember { mutableStateOf(ThreadView()) }
     var loaded by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf("") }
     var leaving by remember { mutableStateOf(false) }
     var sentAsks by remember { mutableStateOf(emptySet<String>()) }
-    // what you sent from here that Orbit has not listed back yet: shown at once, marked SENDING
-    var outgoing by remember(id) { mutableStateOf(listOf<String>()) }
+    // what you sent from here that Orbit has not listed back yet: shown at once as sending. One leaves this list when
+    // Orbit lists it (the same bubble goes on as sent, then seen), when its send failed, or 20 s after Orbit took it.
+    var outgoing by remember(id) { mutableStateOf(listOf<Outgoing>()) }
     // photos and files picked with +, sent with the next message
     var attachments by remember(id) { mutableStateOf(listOf<Attachment>()) }
     val ctx = LocalContext.current
@@ -435,15 +458,17 @@ private fun ThreadRoute(id: String, notice: String, online: Boolean, can: Collec
     // no notification for the thread that is on screen
     DisposableEffect(id) { Relay.viewing = id; onDispose { if (Relay.viewing == id) Relay.viewing = null } }
     // while Claude or its background work runs, look again every few seconds
-    val reload = rememberLoader(id, every = { if (v.working || v.tasks.isNotEmpty()) 4000L else 0L }) {
+    val reload = rememberLoader(id, every = { if (v.working || v.tasks.isNotEmpty() || outgoing.isNotEmpty()) 4000L else 0L }) {
         err = attempt {
             val t = Relay.ask("thread", mapOf("id" to id)).optJSONObject("thread") ?: throw RelayError("That thread is gone")
             val seen = list.layoutInfo
             if ((seen.visibleItemsInfo.lastOrNull()?.index ?: -1) >= seen.totalItemsCount - 2) follow = true
             v = Read.thread(t)
+            outgoing = Read.settle(v, outgoing, System.currentTimeMillis())
             loaded = true
         }
-        if (follow && v.items.isNotEmpty()) list.scrollToItem(v.items.size - 1 + v.asks.size)
+        // to the end of the list, whatever it holds (messages, running work, a question)
+        if (follow && v.items.isNotEmpty()) list.scrollToItem(100_000)
         follow = false
     }
     // an action and its failure, said: Stop that did not reach Orbit must not look like it worked
@@ -473,7 +498,8 @@ private fun ThreadRoute(id: String, notice: String, online: Boolean, can: Collec
         val mid = Drafts.midFor(id, text + files.joinToString("") { it.name })
         follow = true
         val shown = listOf(text, files.joinToString("\n") { "Attached ${it.name}" }).filter { it.isNotBlank() }.joinToString("\n")
-        outgoing = outgoing + shown
+        // the same send tapped again while the first is on its way (same mid) is the same bubble, not a second one
+        if (outgoing.none { it.mid == mid }) outgoing = outgoing + Read.outgoing(v, outgoing, mid, text, shown)
         // not this screen's own scope: a send that fails after the screen is left still puts the text back
         appScope.launch {
             val req = buildMap<String, Any> {
@@ -482,15 +508,18 @@ private fun ThreadRoute(id: String, notice: String, online: Boolean, can: Collec
                 if (files.isNotEmpty()) put("files", Attachments.json(files))
             }
             val failed = attempt { Relay.ask("send", req) }
-            if (failed.isEmpty()) { Drafts.pending.remove(id); v = v.copy(working = true) }
-            else {
+            if (failed.isEmpty()) {
+                Drafts.pending.remove(id); v = v.copy(working = true)
+                // Orbit has it: it stays "sending" until the thread, read again, lists it
+                outgoing = outgoing.map { if (it.mid == mid) it.copy(sentAt = System.currentTimeMillis()) else it }
+            } else {
                 if (Drafts.text[id].isNullOrEmpty()) Drafts.text[id] = text // unless something new was typed meanwhile
                 if (attachments.isEmpty()) attachments = files
+                // it did not go: the text is back in the box, so its bubble leaves
+                outgoing = outgoing.filter { it.mid != mid }
             }
             err = failed
             reload()
-            // listed back by Orbit (or failed, with the text back in the box): no longer shown as sending
-            outgoing = outgoing - shown
         }
     }
     val send: (String) -> Unit = { text -> sendHow(text, "") }
@@ -512,7 +541,7 @@ private fun ThreadRoute(id: String, notice: String, online: Boolean, can: Collec
         onSetting = { what, value -> settingsOpen = ""; scope.launch { err = attempt { Relay.ask("setThread", mapOf("id" to id, "what" to what, "value" to value)) }; loadSettings() } },
         onQueue = if (how) ({ val text = draft.trim(); Drafts.text.remove(id); sendHow(text, "queue") }) else null,
         onInterrupt = if (how) ({ val text = draft.trim(); Drafts.text.remove(id); sendHow(text, "interrupt") }) else null,
-        onChanges = if ("changes" in can) ({ changesOpen = true }) else null)
+        onChanges = if ("changes" in can) ({ changesOpen = true }) else null, folder = folder)
 }
 
 // A thread's branch, PR and files; a file's diff; the merge. Merge sends what the confirm showed (the PR's head sha as
@@ -585,13 +614,13 @@ private fun NotesRoute(notice: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun TodosRoute(notice: String, onBack: () -> Unit) {
+private fun TodosRoute(notice: String, onBack: (() -> Unit)?) {
     val scope = rememberCoroutineScope()
     var todos by remember { mutableStateOf<List<Todo>?>(null) }
     var err by remember { mutableStateOf("") }
     var draft by remember { mutableStateOf("") }
     var showDone by remember { mutableStateOf(false) }
-    BackHandler(onBack = onBack)
+    if (onBack != null) BackHandler(onBack = onBack)
     val reload = rememberLoader(every = { 15_000L }) { err = attempt("todos") { todos = ReadMore.todos(Relay.ask("todos")) } }
     TodosScreen(todos, draft, notice, err, showDone, onBack = onBack, onDraft = { draft = it },
         onAdd = { val text = draft.trim(); draft = ""; scope.launch { err = attempt { Relay.ask("todoAdd", mapOf("text" to text, "mid" to java.util.UUID.randomUUID().toString())) }; reload() } },
@@ -650,12 +679,13 @@ private fun rememberStopAll(after: () -> Unit): StopAll {
 }
 
 @Composable
-private fun RunningRoute(notice: String, counts: Counts, canPause: Boolean, onOpen: (String) -> Unit, reloadBox: () -> Unit) {
+private fun RunningRoute(notice: String, counts: Counts, canPause: Boolean, onOpen: (String) -> Unit, reloadBox: () -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var rows by remember { mutableStateOf<List<RunRow>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(emptySet<String>()) }
+    BackHandler(onBack = onBack)
     val reload = rememberLoader(every = { 5_000L }) { err = attempt("what is running") { rows = Read.running(Relay.ask("running")); loaded = true } }
     val stop = rememberStopAll { reload(); reloadBox() }
     RunningScreen(rows, listOf(notice, err, stop.error, stop.done).filter { it.isNotEmpty() }.joinToString(" "), busy, stop.asking, canPause, counts.threads, counts.scheduled, loaded,
@@ -664,11 +694,11 @@ private fun RunningRoute(notice: String, counts: Counts, canPause: Boolean, onOp
             busy = busy + k
             scope.launch { err = attempt { Relay.ask("stopTask", mapOf("id" to r.thread, "task" to r.id)) }; busy = busy - k; reload(); reloadBox() }
         },
-        onOpen = onOpen, onAskStopAll = stop.ask, onPause = stop.pause, onCancelStopAll = stop.cancel, onStopAll = stop.go)
+        onOpen = onOpen, onAskStopAll = stop.ask, onPause = stop.pause, onCancelStopAll = stop.cancel, onStopAll = stop.go, onBack = onBack)
 }
 
 @Composable
-private fun ScheduledRoute(notice: String, canRun: Boolean, onOpen: (String) -> Unit, reloadBox: () -> Unit) {
+private fun ScheduledRoute(notice: String, canRun: Boolean, limits: List<Limit>?, onOpen: (String) -> Unit, reloadBox: () -> Unit, onUsage: () -> Unit) {
     val scope = rememberCoroutineScope()
     val now = rememberNow()
     var wakes by remember { mutableStateOf<List<Wake>>(emptyList()) }
@@ -681,16 +711,18 @@ private fun ScheduledRoute(notice: String, canRun: Boolean, onOpen: (String) -> 
         busy = busy + k
         scope.launch { err = attempt { Relay.ask(op, mapOf("kind" to w.kind, "id" to w.id)) }; busy = busy - k; reload(); reloadBox() }
     }
-    ScheduledScreen(wakes, now, canRun, listOf(notice, err).filter { it.isNotEmpty() }.joinToString(" "), busy, loaded, onRun = { act(it, "runWake") }, onCancel = { act(it, "cancelWakeup") }, onOpen = onOpen)
+    ScheduledScreen(wakes, now, canRun, listOf(notice, err).filter { it.isNotEmpty() }.joinToString(" "), busy, loaded, onRun = { act(it, "runWake") }, onCancel = { act(it, "cancelWakeup") }, onOpen = onOpen, usage = limits, onUsage = onUsage)
 }
 
 @Composable
-private fun MoreRoute(notice: String, counts: Counts, canPause: Boolean, accounts: Boolean, can: Collection<String>, reloadBox: () -> Unit, onPane: (String) -> Unit) {
+private fun MoreRoute(notice: String, counts: Counts, canPause: Boolean, accounts: Boolean, can: Collection<String>, reloadBox: () -> Unit, onPane: (String) -> Unit, onBack: () -> Unit) {
     val stop = rememberStopAll { reloadBox() }
+    BackHandler(onBack = onBack)
     MoreScreen(listOf(notice, stop.error).filter { it.isNotEmpty() }.joinToString(" "), stop.asking, canPause, counts.threads, counts.running, counts.scheduled, stop.done, accounts,
         onAskStopAll = stop.ask, onPause = stop.pause, onCancelStopAll = stop.cancel, onStopAll = stop.go,
         onUsage = { onPane("usage") }, onTeams = { onPane("teams") }, onNew = { onPane("new") }, onSettings = { onPane("settings") },
-        onNotes = if ("notes" in can) ({ onPane("notes") }) else null, onTodos = if ("todos" in can) ({ onPane("todos") }) else null, onWatchers = if ("watchers" in can) ({ onPane("watchers") }) else null, onWorkLog = if ("worklog" in can) ({ onPane("worklog") }) else null)
+        onNotes = if ("notes" in can) ({ onPane("notes") }) else null, onWatchers = if ("watchers" in can) ({ onPane("watchers") }) else null, onWorkLog = if ("worklog" in can) ({ onPane("worklog") }) else null,
+        onRunning = { onPane("running") }, onBack = onBack)
 }
 
 @Composable
