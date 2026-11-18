@@ -4,6 +4,24 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-11-17
+
+### Changed
+
+- Phone app redesigned on every screen: a new home with Orbie's greeting, Needs you / Working / Background counts
+  and answer cards; four tabs (Home, Threads, To-dos, Scheduled) with More from the home header; one warm accent,
+  Inter and Space Grotesk, real icons. Phone app 5.0.0.
+- Desktop: a side bar in each thread with its goal, to-dos, running tasks (with Stop) and recap; a bigger thread
+  title with folder, branch and model under it and a state pill; a session meter and New thread in the title bar;
+  Inter as the UI font.
+- Companion: a foot with the session meter and the next wake-up, Deny / Allow on permission questions, and a
+  second count when folded.
+
+### Fixed
+
+- Phone: a sent message no longer shows twice, vanishes and comes back, or matches an older message with the same
+  words; nothing shows through the tab bar or the message box.
+
 ## [4.8.0] - 2026-11-17
 
 ### Added
