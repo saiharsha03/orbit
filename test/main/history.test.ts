@@ -33,3 +33,14 @@ test('messages carry when they were sent / written, from the transcript timestam
   const items = await loadHistory(file)
   assert.deepEqual(items.map((i) => [i.kind, (i as { at?: number }).at]), [['user', Date.parse('2026-11-02T15:01:00.000Z')], ['assistant', Date.parse('2026-11-02T15:02:30.000Z')]])
 })
+
+test("a subagent's own transcript (every line a sidechain) is read only when asked for", async () => {
+  const file = join(mkdtempSync(join(tmpdir(), 'hive-history-')), 'agent-a1.jsonl')
+  writeFileSync(file, [
+    JSON.stringify({ type: 'user', isSidechain: true, message: { role: 'user', content: 'find the bug' } }),
+    JSON.stringify({ type: 'assistant', isSidechain: true, message: { id: 'm1', role: 'assistant', content: [{ type: 'text', text: 'looking' }, { type: 'tool_use', id: 't1', name: 'Grep', input: { pattern: 'x' } }] } }),
+  ].join('\n'))
+  assert.deepEqual((await loadRecentHistory(file)).items, [])
+  const items = (await loadRecentHistory(file, undefined, undefined, true)).items
+  assert.deepEqual(items.map((i) => i.kind), ['user', 'assistant', 'tool'])
+})

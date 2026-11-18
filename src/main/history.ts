@@ -49,17 +49,18 @@ export async function loadHistory(path: string): Promise<Item[]> {
 // The end of a long transcript only, so a reopened thread shows at once: the last `bytes` from the first whole line on,
 // doubled until it holds `minItems` (tool output makes some lines huge). more = earlier lines were left out
 // (loadHistory reads them all when asked).
-export async function loadRecentHistory(path: string, bytes = RECENT_BYTES, minItems = RECENT_ITEMS): Promise<{ items: Item[]; more: boolean }> {
+// sidechain: a subagent's own transcript (subagents/agent-<id>.jsonl), whose every line is marked as one
+export async function loadRecentHistory(path: string, bytes = RECENT_BYTES, minItems = RECENT_ITEMS, sidechain = false): Promise<{ items: Item[]; more: boolean }> {
   let fh
   try { fh = await open(path, 'r') } catch { return { items: [], more: false } }
   try {
     const { size } = await fh.stat()
     for (let n = bytes; ; n *= 2) {
-      if (size <= n) return { items: parseHistory(await fh.readFile('utf8')), more: false }
+      if (size <= n) return { items: parseHistory(await fh.readFile('utf8'), sidechain), more: false }
       const buf = Buffer.alloc(n)
       await fh.read(buf, 0, n, size - n)
       const text = buf.toString('utf8')
-      const items = parseHistory(text.slice(text.indexOf('\n') + 1))
+      const items = parseHistory(text.slice(text.indexOf('\n') + 1), sidechain)
       if (items.length >= minItems) return { items, more: true }
     }
   } finally {
@@ -69,14 +70,14 @@ export async function loadRecentHistory(path: string, bytes = RECENT_BYTES, minI
 export const RECENT_BYTES = 2 * 1024 * 1024
 const RECENT_ITEMS = 150
 
-export function parseHistory(text: string): Item[] {
-  const p = historyParser()
+export function parseHistory(text: string, sidechain = false): Item[] {
+  const p = historyParser(sidechain)
   for (const line of text.split('\n')) p.line(line)
   return p.done()
 }
 
 // the transcript one line at a time; done() settles what was left open and returns the items
-function historyParser(): { line: (line: string) => void; done: () => Item[] } {
+function historyParser(sidechain = false): { line: (line: string) => void; done: () => Item[] } {
   const items: Item[] = []
   const tools = new Map<string, Extract<Item, { kind: 'tool' }>>()
   const seen = new Set<string>() // assistant content blocks repeat across streamed lines
@@ -87,7 +88,7 @@ function historyParser(): { line: (line: string) => void; done: () => Item[] } {
     if (!line.startsWith('{')) return
     let e: any
     try { e = JSON.parse(line) } catch { return }
-    if (e.isSidechain || e.isMeta) return
+    if ((e.isSidechain && !sidechain) || e.isMeta) return
     if (e.type === 'system' && e.subtype === 'compact_boundary') {
       items.push({ kind: 'note', text: `Conversation ${e.compactMetadata?.trigger === 'manual' ? 'compacted' : 'auto-compacted'} to free up context` })
       return

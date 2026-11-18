@@ -7,6 +7,7 @@ import { Btn, clock, dur, tokens as fmtTokens } from './kit'
 import { taskHeading, type Task } from '../../shared/taskCore'
 import { kindName, rowType, runKind, type TaskDetail } from '../../shared/runningBarCore'
 import { modelLabel } from '../../shared/statusCore'
+import { openAgentPanel } from './AgentPanel'
 
 const ENDED: Record<Task['status'], string> = { running: 'running', completed: 'done', failed: 'failed', stopped: 'stopped' }
 
@@ -39,7 +40,7 @@ export function TaskItem({ t, tabId, thread, busy, elsewhere, detail, bar, send,
     <div className={`item tk st-${t.status}${open ? ' open' : ''}${t.status === 'failed' ? ' failed' : ''}`} data-testid={bar ? undefined : 'activity-item'}>
       <div className="tm">{running ? dur(now - t.startedAt) : bar ? ENDED[t.status] : clock(t.endedAt ?? t.startedAt)}</div>
       <div>
-        <button className="tk-head" onClick={() => (elsewhere ? onOpen?.() : setOpen(!open))} aria-expanded={open} title={taskHeading(t)} data-testid={bar ? `running-row-${t.id}` : 'task-toggle'}>
+        <button className="tk-head" onClick={() => (elsewhere ? onOpen?.() : bar && isAgent ? openAgentPanel(tabId, t.id) : setOpen(!open))} aria-expanded={open} title={taskHeading(t)} data-testid={bar ? `running-row-${t.id}` : 'task-toggle'}>
           {!elsewhere && <i className={`codicon codicon-chevron-${open ? 'down' : 'right'}`} aria-hidden />}
           <span className="nm">{elsewhere ? `${taskHeading(t)}${t.status === 'failed' ? ' failed' : ''} in ${thread}` : taskHeading(t)}</span>
           {bar && <span className="tk-ty">{command ? rowType(t, detail) : `${rowType(t, detail)}, ${modelWord}`}</span>}

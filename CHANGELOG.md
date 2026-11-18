@@ -4,6 +4,15 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.1.0] - 2026-11-18
+
+### Added
+
+- Click a subagent (in the bar above the message box, the run card or the tasks dock) and it opens at the right of
+  its thread: what it was asked, each step it takes and what it says, read again every 2 seconds while it runs, with
+  Stop, a close button and a box to message it. Claude passes your message on to the subagent; the panel shows when
+  it has.
+
 ## [5.0.2] - 2026-11-18
 
 ### Changed

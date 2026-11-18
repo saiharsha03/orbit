@@ -701,6 +701,14 @@ registerStatusIpc(handle, { liveQuery, stopCodex })
 registerClaudeConfigIpc(handle, { liveQuery, idle, transcriptPath })
 // one thread's background work as main knows it (the window's own copy is empty after a reload)
 handle('chat:tasks', (_e, tabId: string) => threadTasks(String(tabId ?? '')))
+// a subagent's own conversation (its transcript next to the thread's), for its panel; empty until it has written one
+handle('chat:agentLog', async (_e, tabId: string, taskId: string) => {
+  const f = threadFacts(String(tabId ?? ''))
+  const id = String(taskId ?? '')
+  if (!f?.sessionId || !/^[\w-]+$/.test(id)) return []
+  const path = join(transcriptPath(f.cwd, f.sessionId).replace(/\.jsonl$/, ''), 'subagents', `agent-${id}.jsonl`)
+  return (await loadRecentHistory(path, 512 * 1024, 120, true)).items
+})
 // /status and /usage for one thread, live (statusView.ts): the tab's folder and session for a thread with no process yet
 handle('chat:statusView', (_e, tabId: string, known?: { cwd?: string; sessionId?: string }) =>
   threadStatusView({ liveQuery, facts: threadFacts, transcript: transcriptPath, defaultAdvisor: () => sessionFlags().advisorModel ?? null }, String(tabId ?? ''), {

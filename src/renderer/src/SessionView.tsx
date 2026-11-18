@@ -42,6 +42,7 @@ import { RunningBar } from './RunningBar'
 import { needsNote } from './background'
 import { ComingBar } from './ComingBar'
 import { ThreadSide, useThreadSide } from './ThreadSide'
+import { AgentPanel, useOpenAgent } from './AgentPanel'
 import { modelLabel } from '../../shared/statusCore'
 import { threadPrs } from '../../shared/prLinkCore'
 
@@ -970,6 +971,8 @@ export function SessionView(p: Props) {
   const side = useThreadSide(session.id, session.items, showRecap ? recap!.text : '')
   const [sideOn, setSideOn] = useState(() => getPref<boolean>('thread.side', true))
   const flipSide = () => setSideOn((v) => { setPref('thread.side', !v); return !v })
+  // a subagent clicked open takes the right side until it is closed
+  const agentOpen = useOpenAgent(session.id)
   // the thread's state as one pill at the top right: what it waits for wins, then a failure, then work
   const lastItem = session.items.at(-1)
   const pill: { k: 'wait' | 'fail' | 'work' | 'done'; text: string } | null =
@@ -1180,7 +1183,9 @@ export function SessionView(p: Props) {
         </div>
       </div>
       </div>
-      {sideOn && side.any && <ThreadSide side={side} onStopGoal={() => void stopGoal()} onDismissGoal={() => dismissGoal(session.id)} />}
+      {agentOpen
+        ? <AgentPanel key={agentOpen} tabId={session.id} taskId={agentOpen} busy={session.busy} items={session.items} onSend={p.onSend} />
+        : sideOn && side.any && <ThreadSide side={side} onStopGoal={() => void stopGoal()} onDismissGoal={() => dismissGoal(session.id)} />}
     </main>
   )
 }

@@ -392,6 +392,7 @@ contextBridge.exposeInMainWorld('api', {
   chatStatusView: (tabId: string, known?: { cwd?: string; sessionId?: string }) => ipcRenderer.invoke('chat:statusView', tabId, known),
   chatStopTask: (tabId: string, taskId: string) => ipcRenderer.invoke('chat:stopTask', tabId, taskId),
   chatTasks: (tabId: string) => ipcRenderer.invoke('chat:tasks', tabId),
+  chatAgentLog: (tabId: string, taskId: string) => ipcRenderer.invoke('chat:agentLog', tabId, taskId),
   // /mcp, /agents, /permissions, /hooks, /memory, /branch, /add-dir screens (main/claudeConfig.ts; typed in ClaudePanels.tsx)
   ccMcp: (tabId: string, cwd: string) => ipcRenderer.invoke('cc:mcp', tabId, cwd),
   ccMcpDo: (tabId: string, server: string, action: string) => ipcRenderer.invoke('cc:mcpDo', tabId, server, action),

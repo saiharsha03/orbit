@@ -319,5 +319,6 @@ interface Window {
     chatMcp: (tabId?: string) => Promise<McpServerRow[]>
     chatStopTask: (tabId: string, taskId: string) => Promise<boolean>
     chatTasks: (tabId: string) => Promise<import('../../shared/taskCore').Task[]>
+    chatAgentLog: (tabId: string, taskId: string) => Promise<Item[]>
   }
 }

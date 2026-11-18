@@ -10,6 +10,7 @@ import { inThreadList, shellName, type Task } from '../../shared/taskCore'
 import { GoalLoop, TaskRow, describer, openAgentsView, useNow } from './ThreadStatus'
 import { useThreadStatus } from './statusStore'
 import { Icon } from './ui'
+import { openAgentPanel } from './AgentPanel'
 
 type Send = (text: string, images: never[], mode?: 'steer' | 'queue') => void
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
@@ -42,7 +43,7 @@ export function RunCard({ tabId, busy, onSend, onInterrupt }: { tabId: string; b
       {open && (
         <div className="rc-body">
           {st.tasks.filter((t) => t.status === 'running').map((t) => (
-            <div key={t.id} className="rc-task"><span className="rc-k">{t.kind === 'codex' ? 'Codex' : t.name ?? t.kind.replace(/^local_/, '')}</span><span className="rc-t" title={t.title}>{t.now ?? t.title}</span><span className="rc-d">{untilText(now - t.startedAt)}</span></div>
+            <div key={t.id} className={/agent/.test(t.kind) ? 'rc-task rc-open' : 'rc-task'} onClick={/agent/.test(t.kind) ? () => openAgentPanel(tabId, t.id) : undefined} title={/agent/.test(t.kind) ? 'Open this subagent' : undefined}><span className="rc-k">{t.kind === 'codex' ? 'Codex' : t.name ?? t.kind.replace(/^local_/, '')}</span><span className="rc-t" title={t.title}>{t.now ?? t.title}</span><span className="rc-d">{untilText(now - t.startedAt)}</span></div>
           ))}
           {st.nextWake && !st.wakeRunning && <div className="rc-task"><span className="rc-k">wake-up</span><span className="rc-t">next turn starts by itself</span><span className="rc-d">{new Date(st.nextWake).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div>}
           <GoalLoop tabId={tabId} busy={busy} onSend={onSend} onInterrupt={onInterrupt} />
@@ -54,8 +55,8 @@ export function RunCard({ tabId, busy, onSend, onInterrupt }: { tabId: string; b
 
 // what you sent to each subagent in this app session (tab -> task -> messages)
 const sentTo = new Map<string, Map<string, { text: string; at: number }[]>>()
-const sentOf = (tabId: string, taskId: string) => sentTo.get(tabId)?.get(taskId) ?? []
-function remember(tabId: string, taskId: string, text: string) {
+export const sentOf = (tabId: string, taskId: string) => sentTo.get(tabId)?.get(taskId) ?? []
+export function remember(tabId: string, taskId: string, text: string) {
   const m = sentTo.get(tabId) ?? new Map()
   m.set(taskId, [...(m.get(taskId) ?? []), { text, at: Date.now() }])
   sentTo.set(tabId, m)
@@ -70,7 +71,7 @@ function sendsOf(items: Item[]): string[] {
   if (!v) { v = items.flatMap((it) => (it.kind === 'tool' && it.name === 'SendMessage' ? [JSON.stringify(it.input ?? {})] : [])); sends.set(items, v) }
   return v
 }
-const passedOn = (items: Item[], text: string) => { const start = JSON.stringify(text.slice(0, 40)).slice(1, -1); return sendsOf(items).some((s) => s.includes(start)) }
+export const passedOn = (items: Item[], text: string) => { const start = JSON.stringify(text.slice(0, 40)).slice(1, -1); return sendsOf(items).some((s) => s.includes(start)) }
 
 function AgentChat({ tabId, t, items, busy, onSend }: { tabId: string; t: Task; items: Item[]; busy: boolean; onSend: Send }) {
   const [text, setText] = useState('')
@@ -126,6 +127,7 @@ export function AgentsDock({ tabId, items, busy, onSend, onPromote, onDequeue }:
           {tasks.map((t) => (
             <div key={t.id}>
               <TaskRow t={t} tabId={tabId} />
+              {/agent/.test(t.kind) && <button className="link ad-open" onClick={() => openAgentPanel(tabId, t.id)} data-testid={`agent-open-${t.id}`}>Open</button>}
               {/agent/.test(t.kind) && (t.status === 'running' || sentOf(tabId, t.id).length > 0) && <AgentChat tabId={tabId} t={t} items={items} busy={busy} onSend={onSend} />}
             </div>
           ))}
