@@ -1,7 +1,7 @@
 {
   "name": "orbit",
   "productName": "Orbit",
-  "version": "5.0.1",
+  "version": "5.0.2",
   "private": true,
   "description": "One desk, many agents: a desktop orchestrator for Claude Code agents",
   "keywords": [
@@ -48,7 +48,7 @@
     "dist:dir": "npm run build && electron-builder --win --dir --publish never"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.326",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.327",
     "@fontsource-variable/inter": "^5.3.0",
     "@vue/language-server": "^2.2.12",
     "@xterm/addon-fit": "^0.11.0",
