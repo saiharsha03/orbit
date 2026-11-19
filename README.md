@@ -449,6 +449,22 @@ The phone needs a **screen lock** (PIN, pattern or password): the pairing key is
 it, and the app does not open without one. Pairing needs an **`https://` relay address**; the app refuses a code with
 a plain `http://` relay.
 
+## Linked machines
+
+Threads in Orbit on two of your computers can talk to each other: `list_threads` also shows the other computer's
+threads (ids `<machine>/<id>`), and `message_thread` and `wait_for_thread` take those ids. A message arrives labelled
+with the thread and the machine that sent it, so the receiver can answer the same way.
+
+It goes through the same relay as the phone. On the computer that has the relay address and admin token (Settings >
+General > Phone app), press **Linked machines > Make a link code**, and paste the code into Orbit on the other computer
+(same place, **Link**). The code holds a fresh random key and token for that one link: send it only to yourself and
+close it once linked. Without it, a copy of Orbit cannot reach yours: the relay refuses its token and it has no key.
+Every message is sealed (AES-256-GCM) and carries a counter and a time, so the relay can neither read, replay nor hold
+one back. **Remove** ends the link on both computers (and on the relay, from the computer that made it).
+
+A linked machine can put messages into your threads, which then run in their usual mode, so link only your own
+computers.
+
 ## How it works
 
 ```

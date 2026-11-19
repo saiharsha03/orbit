@@ -5,6 +5,8 @@ type SessionInfo = { id: string; title: string; project: string; cwd: string; up
 type SearchResult = { indexing: { indexed: number; total: number } | null; results: { sessionId: string; score: number; snippet: string }[] }
 type SearchStatus = { indexed: number; total: number; done: boolean }
 
+type MachinesStatus = { canCreate: boolean; me: string; links: { name: string; host: boolean; connected: boolean; peerOnline: boolean | null; error: string; at: number }[] }
+
 type Limit = { pct: number | null; resetsAt: string | null } | null
 type Status = {
   account: string | null
@@ -115,6 +117,11 @@ interface Window {
     mobilePair: () => Promise<{ image: string }>
     mobileUnpair: () => Promise<void>
     mobileTest: () => Promise<string>
+    machinesStatus: () => Promise<MachinesStatus>
+    machinesCreate: () => Promise<string>
+    machinesJoin: (code: string) => Promise<string>
+    machinesRemove: (name: string) => Promise<void>
+    onMachinesStatus: (cb: (s: MachinesStatus) => void) => () => void
     onMobileStatus: (cb: (s: { configured: boolean; paired: boolean; connected: boolean; error: string }) => void) => () => void
     listNotes: () => Promise<import('../../shared/notesCore').NoteInfo[]>
     saveNote: (id: string | null, text: string) => Promise<string>

@@ -7,6 +7,7 @@ import {
   type Draft, type General, type Problem, type SettingsView,
 } from '../../shared/settingsCore'
 import { PhonePairing } from './PhonePairing'
+import { MachineLinks } from './MachineLinks'
 import { HooksMenu } from './HooksMenu'
 import { PluginsMenu } from './PluginsMenu'
 import { Btn, Unavailable } from './kit'
@@ -471,6 +472,7 @@ export function SettingsPanel({ onClose, onWatchers, onAccounts }: { onClose?: (
         {field('HIVE_MOBILE_RELAY', 'Relay', 'The relay the Orbit phone app and this computer both connect to (https://...). See Phone app in README.md: on a server, or on this computer behind cloudflared.', 'https://hive-relay.example.com')}
         {field('HIVE_MOBILE_ADMIN_TOKEN', 'Relay admin token', 'The HIVE_RELAY_ADMIN_TOKEN the relay runs with, so this computer can register a paired phone.', '')}
         <Row label="Phone app" hint="Pair once by scanning a code with the phone app. Claude can then notify the phone (notify_phone), and you get a notification when a thread waits for you or a background thread finishes."><PhonePairing /></Row>
+        <Row label="Linked machines" hint="Let threads here and on your other computer list, message and wait for each other. One computer makes a link code (it needs the relay and admin token above); paste it once into Orbit on the other. Without the code no other copy of Orbit can reach you."><MachineLinks /></Row>
       </>
     ),
     claude: (

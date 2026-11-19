@@ -4,6 +4,14 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.0] - 2026-11-19
+
+### Added
+
+- Linked machines: threads in Orbit on two of your computers can list, message and wait for each other. One computer
+  makes a link code (Settings > General > Linked machines) and you paste it once into Orbit on the other; it goes
+  through the phone's relay, sealed with the link's own key, so no other copy of Orbit can reach yours.
+
 ## [5.1.0] - 2026-11-18
 
 ### Added

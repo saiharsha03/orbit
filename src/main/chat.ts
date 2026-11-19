@@ -36,6 +36,8 @@ import { readOnlyOptions } from './readOnly'
 import { isWatcherTab, isWatcherTranscript } from '../shared/readOnlyCore'
 import { createWatcher, deleteWatcher, formatWatchers, runWatcherNow, setWatcherEnabled, updateWatcher } from './watchers'
 import { notifyPhone, turnEnded } from './mobile'
+import { isLinkedMachine, listRemote, messageRemote, waitRemote } from './machineLink'
+import { parseRemoteRef } from '../shared/machineLinkCore'
 import { notifyDesktop } from './desktopNotify'
 import { voiceEvent } from './companionVoice'
 import { askRecap } from './btw'
@@ -150,7 +152,7 @@ const append = () => [
   `never in the main checkout and never with git worktree add by hand. ${appName()} deletes that worktree when the user closes or archives this thread (uncommitted changes are first saved as a WIP commit; the branch stays). Never push unless the user asks.`,
   'mcp__orbit__dev_stack starts, stops or reports a configured dev stack (docker databases plus local servers) and mcp__orbit__dev_stack_logs reads the logs of one service; use them to test your changes, pass a branch only for the repo you changed, and never touch services another thread started.',
   "Call mcp__orbit__organize_thread with action \"waiting\" and a one-line reason when you are blocked on the user's decision or input, so the sidebar shows this session as waiting for them. Do this whenever a turn ends with a question the user must answer before you can go on, even one asked in plain text: it is what sends the user's phone a notification, and once your turn ends you cannot come back to check whether they replied.",
-  `${appName()} threads can talk to each other: mcp__orbit__list_threads, start_thread, message_thread and wait_for_thread let you hand parallel work to a new background thread, or ask a thread that already holds the context, and use its answer.`,
+  `${appName()} threads can talk to each other: mcp__orbit__list_threads, start_thread, message_thread and wait_for_thread let you hand parallel work to a new background thread, or ask a thread that already holds the context, and use its answer. Threads on the user's other computers (linked machines) show in list_threads with ids "<machine>/<id>" and take message_thread and wait_for_thread the same way; a message from one is labelled with that machine.`,
   'Before you tell the user whether a subagent, workflow or background command is running, finished or stopped, call mcp__orbit__agent_status and report what it says, never from memory: an interrupt or crash can end one without a notification.',
   'Teams: when the user asks for a team (several threads working on one job together), mcp__orbit__start_team starts one, with you as its Lead or (lead "new") as its Owner with a separate Lead thread; team_post, team_note, team_status, add_teammate and end_team run it. A message starting "[Team" is a post from a teammate. mcp__orbit__list_roles shows the role library (each role carries its own instructions and a memory kept across teams); a Lead picks how many of each role the job needs.',
   'A message starting "[To subagent" is the user talking to one of your subagents: pass the text on with SendMessage to that agent, word for word, then carry on with what you were doing.',
@@ -1068,9 +1070,10 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
       ),
       tool(
         'list_threads',
-        `List the live ${appName()} threads (each a Claude session like this one): id, title, folder, whether it is working, waiting for the user or idle, and whether it is in the background.`,
+        `List the live ${appName()} threads (each a Claude session like this one): id, title, folder, whether it is working, waiting for the user or idle, and whether it is in the background. `
+          + 'Threads on a linked machine (Settings > General > Linked machines) follow under that machine\'s name, with ids "<machine>/<id>" that message_thread and wait_for_thread take.',
         {},
-        async () => ok(formatThreads(listThreads([...live].map(([id, t]) => [id, threadInfo(id, t)]), tabId))),
+        async () => ok([formatThreads(listThreads([...live].map(([id, t]) => [id, threadInfo(id, t)]), tabId)), ...await listRemote()].join('\n\n')),
       ),
       tool(
         'start_thread',
@@ -1103,6 +1106,8 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
         },
         async ({ thread, text, mode }) => {
           try {
+            const remote = !resolveThread(thread, live) && parseRemoteRef(thread)
+            if (remote && isLinkedMachine(remote.machine)) return ok(await messageRemote(remote.machine, remote.thread, text, mode ?? 'queue', { id: tabId, title: titleOf(tabId) }))
             return ok(await messageThread(thread, text, mode ?? 'queue', { id: tabId, title: titleOf(tabId) }, web))
           } catch (e: any) {
             return fail(`message_thread failed: ${e?.message ?? e}`)
@@ -1120,20 +1125,13 @@ function start({ tabId, cwd, resume, web, background }: Start): Live {
         async ({ thread, timeout_s }, extra) => {
           const id = resolveThread(thread, live)
           if (id === tabId) return fail('That is this thread itself; it cannot wait for its own turn to end.')
-          if (!id) {
-            const g = findGone(thread)
-            if (!g) return fail(`No thread "${thread}". list_threads shows the live ones.`)
-            return ok(`${formatWait({ title: g.title, id: g.tabId, status: 'closed', reply: g.lastReply, timedOut: false })}\nmessage_thread resumes it.`)
+          const remote = !id && parseRemoteRef(thread)
+          try {
+            if (remote && isLinkedMachine(remote.machine)) return ok(await waitRemote(remote.machine, remote.thread, (timeout_s ?? 600) * 1000))
+            return ok(await waitForThread(thread, (timeout_s ?? 600) * 1000, (extra as { signal?: AbortSignal } | undefined)?.signal))
+          } catch (e: any) {
+            return fail(e?.message ?? String(e))
           }
-          const t = live.get(id)!
-          const title = titleOf(id)
-          const r = await waitIdle(
-            { busy: () => live.get(id) === t && t.turns.isBusy(), onIdle: (cb) => { t.onIdle.add(cb); return () => t.onIdle.delete(cb) } },
-            (timeout_s ?? 600) * 1000,
-            (extra as { signal?: AbortSignal } | undefined)?.signal,
-          )
-          const status = live.get(id) !== t ? 'closed' : statusOf(threadInfo(id, t))
-          return ok(formatWait({ title, id, status, reply: t.lastReply, timedOut: r === 'timeout' }))
         },
       ),
     ]),
@@ -1806,6 +1804,29 @@ export function teamStates(team: Team): Record<string, MemberStatus> {
 const threadInfo = (id: string, t: Live) => ({ sessionId: t.sessionId, title: titleOf(id), cwd: t.cwd, busy: t.turns.isBusy(), waitingReason: t.waitingReason, waitingOn: waitingOn(t.status), background: t.background, goal: t.status.goal, todos: t.status.todos ?? null, retry: t.status.retry ?? null })
 // every live thread, for the phone app's list
 export const liveThreads = () => [...live.entries()].map(([id, t]) => ({ tabId: id, ...threadInfo(id, t) }))
+
+// Wait for a live thread to go idle and give its last reply; a thread that stopped gives its last reply at once.
+// The wait_for_thread tool and a linked machine's wait (machineLink.ts) both come here.
+export async function waitForThread(ref: string, timeoutMs: number, signal?: AbortSignal): Promise<string> {
+  const id = resolveThread(ref, live)
+  if (!id) {
+    const g = findGone(ref)
+    if (!g) throw new Error(`No thread "${ref}". list_threads shows the live ones.`)
+    return `${formatWait({ title: g.title, id: g.tabId, status: 'closed', reply: g.lastReply, timedOut: false })}\nmessage_thread resumes it.`
+  }
+  const t = live.get(id)!
+  const title = titleOf(id)
+  const r = await waitIdle(
+    { busy: () => live.get(id) === t && t.turns.isBusy(), onIdle: (cb) => { t.onIdle.add(cb); return () => t.onIdle.delete(cb) } },
+    timeoutMs,
+    signal,
+  )
+  const status = live.get(id) !== t ? 'closed' : statusOf(threadInfo(id, t))
+  return formatWait({ title, id, status, reply: t.lastReply, timedOut: r === 'timeout' })
+}
+// this computer's live threads, for a linked machine's list_threads
+export const threadRowsForMachine = () => listThreads([...live].map(([id, t]) => [id, threadInfo(id, t)]), '')
+  .map(({ id, title, cwd, status, reason, background }) => ({ id, title, cwd, status, reason, background }))
 
 // One thread's message into another: the receiving tab shows it as from that thread; a busy receiver gets it queued
 // (or steered in); a thread that is not running is resumed from its Claude session.

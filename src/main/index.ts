@@ -11,7 +11,7 @@ import { pathToFileURL } from 'node:url'
 import icon from '../../build/icon.png?asset'
 import trayIco from '../../build/icon.ico?asset'
 import { background, closeAll, closeTab, contextUsage, dequeue, interrupt, liveUsage, promote, PERMISSION_MODE, setThreadMode, THREAD_MODES, recycleThreads, rewindApply, rewindPreview, runInThread, sendMessage, sendNow, setBackground, startBackgroundThread, threadRecap, threadState, transcriptPath, type BackgroundThread, type Outgoing } from './chat'
-import { busyTranscript, configureChat, liveQuery, resumeEverything, runningEverywhere, stopEverything, stoppedQueues, threadFacts, unreadOf, liveTabOf, liveThreads, messageThread, pauseTeam, resumeTeam, setWatcherStop, stopCodex, teamStates, threadTasks } from './chat'
+import { busyTranscript, configureChat, liveQuery, resumeEverything, runningEverywhere, stopEverything, stoppedQueues, threadFacts, unreadOf, liveTabOf, liveThreads, messageThread, threadRowsForMachine, waitForThread, pauseTeam, resumeTeam, setWatcherStop, stopCodex, teamStates, threadTasks } from './chat'
 import { getTeam, listTeams, onTeamChange, readLog, readTeamFile } from './teams'
 import { cancelWakeup, initThreadWakeups, listWakeups, onWakeupsChanged, pauseWakeups, runWakeupNow, setWakeupsOff, tick as wakeupsTick, wakeupsPaused } from './threadWakeups'
 import { quietHours, setQuietHours } from './quietHours'
@@ -19,6 +19,7 @@ import type { PhoneAsk, QuietHours } from '../shared/phoneCore'
 import { phoneTasks, phoneTeams, phoneWakeups } from '../shared/phoneCore'
 import { pendingResent, resendGroups, takePending } from './pending'
 import { initDesktopNotify } from './desktopNotify'
+import { createLinkCode, initMachines, joinLink, machineStatus, removeLink, type MachineDeps } from './machineLink'
 import { clearPhone, dismissFail, failsNow, initMobile, setAtDesk, mobileStatus, notifyPhone, pairPhone, unpairPhone, type PhoneItem, type PhoneThread } from './mobile'
 import { companionBounds, companionState, type CompanionPr } from '../shared/companionCore'
 import { greet, happenedSince, initVoice, voiceEvent } from './companionVoice'
@@ -190,6 +191,19 @@ initThreadWakeups((sessionId, text) => {
   const w = appWindow()
   if (!w) return Promise.reject(new Error('window not ready'))
   return messageThread(sessionId, text, 'queue', { id: 'hive-wakeup', title: 'Scheduled wake-up' }, w.webContents)
+})
+
+// Linked machines (another computer's Orbit, through the same relay): its threads list, message and wait for these
+const machinesChanged = () => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.isDestroyed()) w.webContents.send('machines:status', machineStatus()) }
+const machineDeps = (): MachineDeps => ({
+  list: () => threadRowsForMachine(),
+  send: (thread, text, mode, from) => {
+    const w = appWindow()
+    if (!w) return Promise.reject(new Error('Orbit is starting; try again in a moment'))
+    return messageThread(thread, text, mode, from, w.webContents)
+  },
+  wait: (thread, ms) => waitForThread(thread, ms),
+  changed: machinesChanged,
 })
 
 // The phone app (through the relay): its requests map onto the same threads the window shows
@@ -417,6 +431,7 @@ const mobileDeps = () => ({
   cancelWakeup: (kind: string, id: string) => (kind === 'wake' ? /^\d+$/.test(id) && cancelWakeup(Number(id)) : kind === 'continue' ? cancelContinue(id) : false),
 })
 initMobile(appConfig.env, mobileDeps())
+initMachines(appConfig.env, machineDeps())
 // Wake-ups and automatic continues, for the window's list: every pending one, cancel one, and a nudge on any change
 const wakeupsChanged = () => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.isDestroyed()) w.webContents.send('wakeups:changed') }
 onWakeupsChanged(wakeupsChanged)
@@ -484,6 +499,7 @@ function applySettings() {
   configureChat(appConfig.env, chatRoots())
   void configureQuarry(settings.general.quarryPath)
   initMobile(appConfig.env, mobileDeps())
+  initMachines(appConfig.env, machineDeps())
 }
 const draftOf = (d: unknown): Draft => {
   const n = normalizeSettings(d) ?? normalizeSettings({})!
@@ -895,6 +911,10 @@ handle('app:quit', () => { quitting = true; app.quit() })
 handle('mobile:status', () => mobileStatus())
 handle('mobile:pair', async () => { const { qr } = await pairPhone(); return { image: await QRCode.toDataURL(qr, { margin: 1, width: 320, errorCorrectionLevel: 'M' }) } })
 handle('mobile:unpair', () => unpairPhone())
+handle('machines:status', () => machineStatus())
+handle('machines:create', () => createLinkCode())
+handle('machines:join', (_e, code: string) => joinLink(String(code ?? '')))
+handle('machines:remove', (_e, name: string) => removeLink(String(name ?? '')))
 handle('mobile:test', () => notifyPhone(`Test from ${appName()}`, 'Notifications reach this phone.'))
 handle('editor:read', (_e, path: string) => editorRead(String(path)))
 handle('editor:mtime', (_e, path: string) => editorMtime(String(path)))

@@ -51,6 +51,15 @@ contextBridge.exposeInMainWorld('api', {
   mobilePair: () => ipcRenderer.invoke('mobile:pair'),
   mobileUnpair: () => ipcRenderer.invoke('mobile:unpair'),
   mobileTest: () => ipcRenderer.invoke('mobile:test'),
+  machinesStatus: () => ipcRenderer.invoke('machines:status'),
+  machinesCreate: () => ipcRenderer.invoke('machines:create'),
+  machinesJoin: (code: string) => ipcRenderer.invoke('machines:join', code),
+  machinesRemove: (name: string) => ipcRenderer.invoke('machines:remove', name),
+  onMachinesStatus: (cb: (s: unknown) => void) => {
+    const fn = (_e: unknown, s: unknown) => cb(s)
+    ipcRenderer.on('machines:status', fn)
+    return () => ipcRenderer.removeListener('machines:status', fn)
+  },
   onMobileStatus: (cb: (s: unknown) => void) => {
     const fn = (_e: unknown, s: unknown) => cb(s)
     ipcRenderer.on('mobile:status', fn)
