@@ -46,7 +46,7 @@ type Item =
   // a message another Orbit thread sent in (message_thread / start_thread)
   | { kind: 'thread'; fromId: string; fromTitle: string; text: string; steer?: boolean; queue?: { id: string; pending: boolean } }
   // a Codex subagent run started through the codex tool, streamed live
-  | { kind: 'codex'; id: string; task: string; model: string; allowEdits: boolean; status: 'running' | 'done' | 'error'; lines: string[]; answer: string }
+  | { kind: 'codex'; id: string; agent?: string; task: string; model: string; allowEdits: boolean; status: 'running' | 'done' | 'error'; lines: string[]; answer: string }
   | { kind: 'summary'; text: string } // the compaction summary a continued conversation starts from, shown collapsed
   | { kind: 'warning'; event: string; name: string; text: string } // what a hook said (e.g. a security warning on an edit)
 type RewindFiles = { canRewind: boolean; error?: string; filesChanged?: string[]; insertions?: number; deletions?: number; skippedLinks?: number }

@@ -4,6 +4,15 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.4.0] - 2026-11-19
+
+### Added
+
+- Gemini as a subagent, next to Codex: Claude can hand a task to Google Gemini (`mcp__orbit__gemini`) for a second
+  opinion, a review or research, through Google's Antigravity CLI (`agy`, sign in once by running it). It shows in the
+  same live box as Codex, labelled Gemini, and its answer comes back when it finishes. It is read-only unless edits
+  are allowed, and never runs commands, MCP tools or the browser (deny rules for that run only).
+
 ## [5.3.1] - 2026-11-19
 
 ### Changed

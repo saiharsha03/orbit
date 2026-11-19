@@ -51,6 +51,7 @@ export type Session = {
 
 export const SHOW = 'mcp__orbit__show_to_user'
 export const CODEX = 'mcp__orbit__codex'
+export const GEMINI = 'mcp__orbit__gemini' // like Codex: its live box stands for the call
 
 // what the main area shows for a tool call, one line
 export function toolLine(name: string, input: any): { verb: string; what: string } {
@@ -69,6 +70,7 @@ export function toolLine(name: string, input: any): { verb: string; what: string
     case 'TodoWrite': return { verb: 'Updated the plan', what: '' }
     case SHOW: return { verb: 'Showed you', what: file(input?.path) }
     case CODEX: return { verb: 'Codex', what: short(input?.task) }
+    case GEMINI: return { verb: 'Gemini', what: short(input?.task) }
     case ADVISOR_TOOL: return { verb: 'Advisor', what: 'asked for advice on the conversation so far' }
     case 'mcp__orbit__list_threads': return { verb: 'Listed threads', what: '' }
     case 'mcp__orbit__agent_status': return { verb: 'Checked background work', what: '' }
@@ -98,7 +100,7 @@ export function cleanAgentText(t: string): string {
 
 // what Claude is doing right now, one line (shown on a message that steered it)
 export function workingOn(items: Item[]): string | undefined {
-  const t = items.filter((i) => i.kind === 'tool' && i.status === 'running' && i.name !== SHOW && i.name !== CODEX).at(-1)
+  const t = items.filter((i) => i.kind === 'tool' && i.status === 'running' && i.name !== SHOW && i.name !== CODEX && i.name !== GEMINI).at(-1)
   if (t?.kind !== 'tool') return undefined
   const { verb, what } = toolLine(t.name, t.input)
   return nowLine(verb, what, t.input)
@@ -167,7 +169,7 @@ export function applyEvent(s: Session, ev: any): Session {
     }
     case 'hive_codex': {
       if (ev.phase === 'start') {
-        const box: Item = { kind: 'codex', id: ev.id, task: ev.task, model: ev.model, allowEdits: ev.allowEdits, status: 'running', lines: [], answer: '' }
+        const box: Item = { kind: 'codex', id: ev.id, ...(ev.agent ? { agent: ev.agent } : {}), task: ev.task, model: ev.model, allowEdits: ev.allowEdits, status: 'running', lines: [], answer: '' }
         return { ...s, items: [...s.items, box] }
       }
       const items = s.items.map((it) => {

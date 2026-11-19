@@ -8,7 +8,7 @@ import { saveDraft, savedDrafts } from './restore'
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { toolLine, workingOn, SHOW, CODEX, type Session } from './chat'
+import { toolLine, workingOn, SHOW, CODEX, GEMINI, type Session } from './chat'
 import { kindOf, usePreviewUrl } from './Preview'
 import { counts, FILE_TOOLS, toolHunks, type Hunk } from '../../shared/diffCore'
 import type { ClipOffer } from '../../shared/clipboardCore'
@@ -147,7 +147,7 @@ function CodexBox({ it }: { it: Extract<Item, { kind: 'codex' }> }) {
   return (
     <div className="toolbox">
       <button className="trow" onClick={() => setOpen((o) => !o)} aria-expanded={open} data-testid="codex-steps">
-        <span className="tv t-agent">Codex</span><span className="tp">{first}</span>
+        <span className="tv t-agent">{it.agent ?? 'Codex'}</span><span className="tp">{first}</span>
         <span className="tr">{it.status === 'running' && last && !open ? <span className="dimt">{last.slice(0, 50)} </span> : null}{w}</span>
       </button>
       {open && (
@@ -481,7 +481,7 @@ const Transcript = memo(function Transcript({ session, limit, setLimit, st, star
   session.items.forEach((it, i) => {
     if (i < session.items.length - limit) return
     const key = keyOf(it, i)
-    if (it.kind === 'tool' && it.name !== SHOW && it.name !== CODEX && it.name !== 'AskUserQuestion' && it.name !== 'ExitPlanMode') {
+    if (it.kind === 'tool' && it.name !== SHOW && it.name !== CODEX && it.name !== GEMINI && it.name !== 'AskUserQuestion' && it.name !== 'ExitPlanMode') {
       const bg = bgOf.get(it.id)
       const status = bg === 'running' ? 'running' : bg === 'failed' ? 'error' : it.status
       const row = <ToolRow key={key} it={it} status={status} bg={bg} cwd={session.cwd} onDiff={st.diff} onBackground={st.background} />
@@ -495,7 +495,7 @@ const Transcript = memo(function Transcript({ session, limit, setLimit, st, star
     // a note a hook printed after a tool call goes with that call, inside the run (open it to read); a hook that blocks
     // a call (PreToolUse) stays in view
     if (it.kind === 'warning' && it.event === 'PostToolUse' && tools.length) { tools.push({ key, word: 'hook', failed: false, running: false, hook: true, node: <WarningRow key={key} event={it.event} text={it.text} /> }); return }
-    if (it.kind === 'codex') { tools.push({ key, word: 'Codex', failed: it.status === 'error', running: it.status === 'running', node: <CodexBox key={key} it={it} /> }); return }
+    if (it.kind === 'codex') { tools.push({ key, word: it.agent ?? 'Codex', failed: it.status === 'error', running: it.status === 'running', node: <CodexBox key={key} it={it} /> }); return }
     flush()
     if (it.kind === 'user') {
       if (it.queue?.pending) return
