@@ -287,6 +287,10 @@ const events = [
   ['t-invoice', result('r1', Array.from({ length: 212 }, (_, i) => `${i + 1}  line`).join('\n'))],
   ['t-invoice', result('g1', 'billing/invoice.py:3\nbilling/invoice.py:11\nbilling/webhooks.py:2\nreports/pdf.py:40\nreports/csv.py:12\ntests/billing/test_numbers.py:5\ntests/billing/test_retry.py:9')],
   ['t-invoice', result('a1', 'Found 7 callers in 4 files')],
+  // threads talking: one asks this thread, it answers (Incoming / Outgoing rows)
+  ['t-invoice', { type: 'hive_thread_msg', fromId: 't-ship', fromTitle: 'Ship ledger-web 4.18', text: 'Is the retry fix safe to ship with 4.18, or should it wait?\nI need to know before 14:00.' }],
+  ['t-invoice', assistant(tool('m1', 'mcp__orbit__message_thread', { thread: 't-ship', text: 'Wait for it: the migration is not on staging yet. I will tell you when it is.' }))],
+  ['t-invoice', result('m1', 'Sent to thread "Ship ledger-web 4.18" (t-ship).')],
   ['t-invoice', task('task_started', 'k-explore', { task_type: 'local_agent', description: 'Explore: map every caller', subagent_type: 'Explore' })],
   ['t-invoice', task('task_notification', 'k-explore', { status: 'completed', summary: 'Found 7 callers in 4 files, 1m 12s' })],
   ['t-invoice', assistant(tool('e1', 'Edit', { file_path: P('billing/invoice.py'), old_string: 'a', new_string: 'b' }), tool('e2', 'Edit', { file_path: P('billing/models.py'), old_string: 'a', new_string: 'b' }), tool('w1', 'Write', { file_path: P('migrations/0142_invoice_retry_key.py'), content: 'x' }))],

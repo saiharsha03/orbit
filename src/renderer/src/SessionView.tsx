@@ -35,7 +35,7 @@ import { PlanCard } from './PlanCard'
 import { nextMode } from '../../shared/planCore'
 import { PATH_MIME } from './FileTree'
 import { wakeLabel, CONTINUE_PROMPT } from '../../shared/continueCore'
-import { sinceSummary, toolVerb, toolResult, errorLine, exitOnly, historyStep, promptHistory, imageTag, dropImageTag } from './conversationCore'
+import { sinceSummary, toolVerb, incomingLine, outgoingLine, toolResult, errorLine, exitOnly, historyStep, promptHistory, imageTag, dropImageTag } from './conversationCore'
 import { State, Btn, Pins, clock, tokens as fmtTokens } from './kit'
 import { untilText } from '../../shared/cronCore'
 import { RunningBar } from './RunningBar'
@@ -161,6 +161,20 @@ function CodexBox({ it }: { it: Extract<Item, { kind: 'codex' }> }) {
   )
 }
 
+// a message another thread sent in: a row like a tool call (Incoming, from whom, its first line) that opens to the text
+function IncomingRow({ it }: { it: Extract<Item, { kind: 'thread' }> }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className={`toolbox${open ? ' open' : ''}`} data-testid="msg-thread">
+      <button className="trow can" onClick={() => setOpen((o) => !o)} aria-expanded={open} title={`Message from thread ${it.fromTitle}`}>
+        <span className="tv t-agent">Incoming</span><span className="tp">{incomingLine(it.fromTitle, it.text)}</span>
+        <span className="tr">{it.steer ? <span className="dimt">steered while Claude worked</span> : null}</span>
+      </button>
+      {open && <div className="toolout"><div className="md"><Markdown remarkPlugins={[remarkGfm]}>{it.text}</Markdown></div></div>}
+    </div>
+  )
+}
+
 // an agent's file change, worked out once per tool item
 const hunkCache = new WeakMap<object, Hunk[]>()
 export function hunksOf(it: Extract<Item, { kind: 'tool' }>): Hunk[] {
@@ -204,7 +218,8 @@ function ToolRow({ it, status, bg, cwd, onDiff, onBackground }: { it: Extract<It
   const label = file ? shortPath(file, cwd) : ''
   const line = toolLine(it.name, it.input)
   // a connector's tool says its own name in the row (the first word only names the connector)
-  const what = it.name.startsWith('mcp__') ? [line.verb, line.what].filter(Boolean).join(': ') : line.what
+  const what = it.name === 'mcp__orbit__message_thread' ? outgoingLine(it.input, it.output)
+    : it.name.startsWith('mcp__') ? [line.verb, line.what].filter(Boolean).join(': ') : line.what
   const cmd = (it.name === 'Bash' || it.name === 'PowerShell') && typeof it.input?.command === 'string' ? it.input.command as string : ''
   const path = file ? label : typeof it.input?.file_path === 'string' ? shortPath(it.input.file_path, cwd) : cmd || what || (typeof it.input?.pattern === 'string' ? it.input.pattern : '')
   const can = it.output !== undefined || !!hunks?.length
@@ -469,7 +484,10 @@ const Transcript = memo(function Transcript({ session, limit, setLimit, st, star
     if (it.kind === 'tool' && it.name !== SHOW && it.name !== CODEX && it.name !== 'AskUserQuestion' && it.name !== 'ExitPlanMode') {
       const bg = bgOf.get(it.id)
       const status = bg === 'running' ? 'running' : bg === 'failed' ? 'error' : it.status
-      tools.push({ key, item: it, word: toolVerb(it.name).word, failed: status === 'error' && exitOnly(it.name, status, it.output) === null, running: status === 'running', node:<ToolRow key={key} it={it} status={status} bg={bg} cwd={session.cwd} onDiff={st.diff} onBackground={st.background} /> })
+      const row = <ToolRow key={key} it={it} status={status} bg={bg} cwd={session.cwd} onDiff={st.diff} onBackground={st.background} />
+      // a message to another thread stays in view on its own row, never folded into a run of steps
+      if (it.name === 'mcp__orbit__message_thread') { flush(); out.push(<div key={`tools:${key}`} className="tools">{row}</div>); return }
+      tools.push({ key, item: it, word: toolVerb(it.name).word, failed: status === 'error' && exitOnly(it.name, status, it.output) === null, running: status === 'running', node: row })
       // a permission request for this call: its Allow / Deny card, in view under the call (not folded into a run)
       if (it.ask && session.asks?.includes(it.id)) { flush(); out.push(<div key={`${key}:ask`} className="qwrap"><AskCard tabId={session.id} id={it.id} input={{ questions: it.ask }} open /></div>) }
       return
@@ -512,12 +530,7 @@ const Transcript = memo(function Transcript({ session, limit, setLimit, st, star
     if (it.kind === 'warning') { out.push(<WarningRow key={key} event={it.event} text={it.text} />); return }
     if (it.kind === 'thread') {
       if (it.queue?.pending) return
-      out.push(
-        <div key={key} className="msg you from" data-testid="msg-thread">
-          <div className="msg-note">From thread {it.fromTitle}{it.steer ? ', steered while Claude worked' : ''}</div>
-          <div className="md"><Markdown remarkPlugins={[remarkGfm]}>{it.text}</Markdown></div>
-        </div>,
-      )
+      out.push(<div key={key} className="tools"><IncomingRow it={it} /></div>)
       return
     }
     if (it.kind === 'agent') { out.push(<div key={key} className="msg cl from"><div className="msg-note">{it.from}</div><MdBody text={it.text} repo={repo} /></div>); return }

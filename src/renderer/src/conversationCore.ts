@@ -49,10 +49,22 @@ export function toolVerb(name: string): { word: string; tone: VerbTone } {
   if (AGENTS.has(name) || name === 'Workflow') return { word: 'Agent', tone: 'agent' }
   if (name === 'WebFetch' || name === 'WebSearch') return { word: 'Web', tone: 'search' }
   if (name === 'TodoWrite') return { word: 'Plan', tone: 'other' }
+  if (name === 'mcp__orbit__message_thread') return { word: 'Outgoing', tone: 'agent' } // a message to another thread, read as one, not as an Orbit call
   if (name === ADVISOR_TOOL) return { word: 'Advisor', tone: 'advisor' } // a second model was asked: its own colour, so it is not read as one more tool call
   const mcp = name.match(/^mcp__(.+?)__(.+)$/)
   if (mcp) return { word: mcp[1] === 'orbit' || mcp[1] === 'hive' ? 'Orbit' : mcp[1].replace(/^claude_ai_/, '').replace(/[-_]/g, ' ').split(' ')[0], tone: mcp[1] === 'orbit' || mcp[1] === 'hive' ? 'agent' : 'other' }
   return { word: name, tone: 'other' }
+}
+
+// Thread-to-thread messages as rows: "from <thread>: first line" (Incoming) and "to <thread>: first line" (Outgoing).
+// The outgoing name comes from the tool's answer (Sent to / Queued for thread "X"), else the id it was sent to.
+const firstLine = (t: string) => t.split('\n').map((l) => l.trim()).find(Boolean) ?? ''
+export const incomingLine = (fromTitle: string, text: string): string => `from ${fromTitle}: ${firstLine(text)}`
+export function outgoingLine(input: { thread?: unknown; text?: unknown } | undefined, output?: string): string {
+  const title = output?.match(/thread "([^"]+)"/)?.[1]
+  const machine = output?.match(/^([^:\s/]+): /)?.[1]
+  const to = title ? `${title}${machine ? ` on ${machine}` : ''}` : String(input?.thread ?? '')
+  return `to ${to}: ${firstLine(String(input?.text ?? ''))}`
 }
 
 // the dim result at the end of a done row: "212 lines", "7 hits", "exit 0" ... (edits show their counts elsewhere)

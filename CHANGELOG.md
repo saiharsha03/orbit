@@ -4,6 +4,14 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.3.0] - 2026-11-19
+
+### Changed
+
+- Messages between threads show as rows like a tool call instead of chat bubbles: "Incoming from <thread>" and
+  "Outgoing to <thread>" (with the machine for a linked one), with the first line; click a row to read the whole
+  message. Outgoing messages stay in view instead of folding into a run of steps.
+
 ## [5.2.0] - 2026-11-19
 
 ### Added
