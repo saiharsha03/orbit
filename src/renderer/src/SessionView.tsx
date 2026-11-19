@@ -388,6 +388,7 @@ export type ThreadCallbacks = {
   onDequeue: (queueId: string) => Promise<boolean>
   onPromote: (queueId: string) => void
   onSendNow: (id?: string) => void // a queued message's id, an unread steered one's uuid, or everything waiting
+  onCancelSent: (uuid: string) => void // take back a sent message Claude has not read yet
   onStop: () => void
   onBackground: (toolUseId?: string) => void
   onRunInBackground: () => void
@@ -449,7 +450,7 @@ function ErrorCard({ text, tabId, onRetry }: { text: string; tabId: string; onRe
 // the conversation, built only when it changes: typing in the box re-renders the view on every key
 const Transcript = memo(function Transcript({ session, limit, setLimit, st, startRewind }: {
   session: Session; limit: number; setLimit: (f: (n: number) => number) => void
-  st: { loadEarlier: () => void; open: (p: string) => void; diff: ThreadCallbacks['onDiff']; background: (id: string) => void; sendNow: (id: string) => void; retry: () => void }
+  st: { loadEarlier: () => void; open: (p: string) => void; diff: ThreadCallbacks['onDiff']; background: (id: string) => void; sendNow: (id: string) => void; cancelSent: (uuid: string) => void; retry: () => void }
   startRewind: (it: UserItem, i: number) => void
 }) {
   const tasks = useThreadStatus(session.id).tasks
@@ -510,6 +511,7 @@ const Transcript = memo(function Transcript({ session, limit, setLimit, st, star
             : <span className={`seen${it.seen || i < lastReply ? ' read' : ''}`} title={it.seen || i < lastReply ? `Read by Claude${it.seenAt ? ` at ${clock(it.seenAt)}` : ''}` : it.steer && session.busy ? 'Sent: Claude reads it at its next step, when the running tool call ends' : 'Sent'} data-testid={it.seen || i < lastReply ? 'msg-seen' : 'msg-unseen'}>
               {it.seen && it.seenAt ? clock(it.seenAt) : ''}<i className={`codicon codicon-${it.seen || i < lastReply ? 'check-all' : 'check'}`} aria-label={it.seen || i < lastReply ? 'Read' : 'Sent'} />
               {!it.seen && it.steer && it.uuid && session.busy && unreadSteer(it) && <Btn kind="link" onClick={() => st.sendNow(it.uuid!)} testid="msg-send-now" title="Stops the tool call Claude is in the middle of, so it reads this message now">Send now</Btn>}
+              {!it.seen && it.steer && it.uuid && session.busy && unreadSteer(it) && <Btn kind="link" onClick={() => st.cancelSent(it.uuid!)} testid="msg-cancel" title="Take this message back: Claude has not read it yet">Cancel</Btn>}
             </span>}
           {it.at && <span className="sent-at" title="Sent" data-testid="msg-sent-at">{clock(it.at)}</span>}
           {it.uuid && session.sessionId && !session.busy && !it.steer && (
@@ -564,6 +566,7 @@ export function SessionView(p: Props) {
     diff: (x: import('./DiffPanel').DiffSpec) => latest.current.onDiff(x),
     background: (id: string) => latest.current.onBackground(id),
     sendNow: (id: string) => latest.current.onSendNow(id),
+    cancelSent: (uuid: string) => latest.current.onCancelSent(uuid),
     retry: () => latest.current.onSend('Try that again from where it stopped.', []),
   }), [])
   const status = useThreadStatus(session.id)

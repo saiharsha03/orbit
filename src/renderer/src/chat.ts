@@ -146,6 +146,9 @@ export function applyEvent(s: Session, ev: any): Session {
       const rest = (s.worktrees ?? []).filter((w) => w.path !== ev.path)
       return { ...s, worktrees: [...rest, { repo: ev.repo, path: ev.path, branch: ev.branch }] }
     }
+    case 'hive_unsent':
+      // a message Claude had not read, cancelled: it was never sent as far as the conversation goes
+      return { ...s, items: s.items.filter((it) => !(it.kind === 'user' && it.uuid === ev.uuid)) }
     case 'hive_seen':
       // Claude took this message in (at once for a normal send; at its next step for a steered one)
       return s.items.some((it) => it.kind === 'user' && it.uuid === ev.uuid && !it.seen) ? { ...s, items: s.items.map((it) => (it.kind === 'user' && it.uuid === ev.uuid ? { ...it, seen: true, seenAt: Date.now() } : it)) } : s

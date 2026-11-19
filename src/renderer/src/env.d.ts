@@ -149,6 +149,7 @@ interface Window {
     chatDequeue: (tabId: string, queueId: string) => Promise<boolean>
     chatPromote: (tabId: string, queueId: string) => Promise<boolean>
     chatSendNow: (tabId: string, id?: string) => Promise<boolean>
+    chatCancelSent: (tabId: string, uuid: string) => Promise<'cancelled' | 'read'>
     chatInterrupt: (tabId: string) => Promise<void>
     chatContinueAt: (id: string) => Promise<number | null>
     chatCancelContinue: (id: string) => Promise<boolean>

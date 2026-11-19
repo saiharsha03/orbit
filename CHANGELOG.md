@@ -4,6 +4,13 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.5.0] - 2026-11-19
+
+### Added
+
+- Cancel on a message you sent while Claude works, next to Send now, as long as Claude has not read it yet: it is
+  taken back and Claude never sees it. A message Claude already read stays.
+
 ## [5.4.0] - 2026-11-19
 
 ### Added

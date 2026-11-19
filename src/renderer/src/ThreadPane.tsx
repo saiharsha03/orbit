@@ -2,7 +2,7 @@
 // thread only.
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { SessionView, type PanelTab, type ThreadCallbacks } from './SessionView'
-import { loadEarlier, moveToBackground, newBeside, openPage, openTerminal, send, sendNow, setPreview, showDiff, toggleInspector, inspectorTab, drawer } from './actions'
+import { loadEarlier, moveToBackground, newBeside, openPage, openTerminal, send, sendNow, cancelSent, setPreview, showDiff, toggleInspector, inspectorTab, drawer } from './actions'
 import { handoffs, handOff, notNow } from './engine'
 import { setSessions, useSession, useStore, panes } from './store'
 import { isWatcherTab } from '../../shared/readOnlyCore'
@@ -30,6 +30,7 @@ export function ThreadPane({ id, focused }: { id: string; focused: boolean }) {
     onDequeue: (q) => window.api.chatDequeue(id, q),
     onPromote: (q) => void window.api.chatPromote(id, q),
     onSendNow: (x) => sendNow(id, x),
+    onCancelSent: (uuid) => void cancelSent(id, uuid),
     onStop: () => void window.api.chatInterrupt(id),
     onBackground: (toolUseId) => void window.api.chatBackground(id, toolUseId),
     onRunInBackground: () => moveToBackground(id),

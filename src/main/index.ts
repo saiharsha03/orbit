@@ -10,7 +10,7 @@ import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import icon from '../../build/icon.png?asset'
 import trayIco from '../../build/icon.ico?asset'
-import { background, closeAll, closeTab, contextUsage, dequeue, interrupt, liveUsage, promote, PERMISSION_MODE, setThreadMode, THREAD_MODES, recycleThreads, rewindApply, rewindPreview, runInThread, sendMessage, sendNow, setBackground, startBackgroundThread, threadRecap, threadState, transcriptPath, type BackgroundThread, type Outgoing } from './chat'
+import { background, closeAll, closeTab, contextUsage, dequeue, interrupt, liveUsage, promote, PERMISSION_MODE, setThreadMode, THREAD_MODES, recycleThreads, rewindApply, rewindPreview, runInThread, sendMessage, sendNow, cancelSent, setBackground, startBackgroundThread, threadRecap, threadState, transcriptPath, type BackgroundThread, type Outgoing } from './chat'
 import { busyTranscript, configureChat, liveQuery, resumeEverything, runningEverywhere, stopEverything, stoppedQueues, threadFacts, unreadOf, liveTabOf, liveThreads, messageThread, threadRowsForMachine, waitForThread, pauseTeam, resumeTeam, setWatcherStop, stopCodex, teamStates, threadTasks } from './chat'
 import { getTeam, listTeams, onTeamChange, readLog, readTeamFile } from './teams'
 import { cancelWakeup, initThreadWakeups, listWakeups, onWakeupsChanged, pauseWakeups, runWakeupNow, setWakeupsOff, tick as wakeupsTick, wakeupsPaused } from './threadWakeups'
@@ -617,6 +617,7 @@ handle('chat:rewindApply', (_e, tabId: string, cwd: string, sessionId: string, u
 handle('chat:dequeue', (_e, tabId: string, queueId: string) => dequeue(tabId, queueId))
 handle('chat:promote', (_e, tabId: string, queueId: string) => promote(tabId, queueId))
 handle('chat:sendNow', (_e, tabId: string, id?: string) => sendNow(tabId, id))
+handle('chat:cancelSent', (_e, tabId: string, uuid: string) => cancelSent(String(tabId), String(uuid)))
 handle('chat:interrupt', (_e, tabId: string) => interrupt(tabId))
 handle('chat:continueAt', (_e, id: string) => continueAt(String(id)))
 handle('chat:cancelContinue', (_e, id: string) => cancelContinue(String(id)))

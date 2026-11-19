@@ -411,6 +411,9 @@ export function sendNow(tabId: string, id?: string) {
   void window.api.chatSendNow(tabId, id).catch(() => false)
 }
 
+// Cancel a sent message Claude has not read yet (the row goes when main confirms); one it already read stays
+export const cancelSent = (tabId: string, uuid: string) => window.api.chatCancelSent(tabId, uuid).catch(() => 'read' as const)
+
 // ---- new threads with a prepared first message (not sent) ----
 export function threadWithDraft(title: string, text: string, cwd?: string) {
   const s = { ...makeSession(title.slice(0, 60)), cwd: cwd || place.get().folder || place.get().workspace }

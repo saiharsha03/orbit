@@ -1968,6 +1968,19 @@ export async function sendNow(tabId: string, id?: string): Promise<boolean> {
   return true
 }
 
+// Cancel a message sent while Claude works that it has not taken in yet: the CLI drops it from its queue (the SDK's
+// cancelAsyncMessage, not in its types yet). 'read' when Claude already took it in, or it was never waiting there.
+export async function cancelSent(tabId: string, uuid: string): Promise<'cancelled' | 'read'> {
+  const s = live.get(tabId)
+  if (!s || !s.outbox.has(uuid)) return 'read'
+  const q = s.q as unknown as { cancelAsyncMessage?: (id: string) => Promise<boolean> }
+  const ok = await q.cancelAsyncMessage?.(uuid).catch(() => false)
+  if (!ok) return 'read'
+  s.outbox.delete(uuid)
+  s.emit({ type: 'hive_unsent', uuid })
+  return 'cancelled'
+}
+
 // Ctrl+B: move running commands / subagents to the background (one tool call, or all of them);
 // the turn carries on with a "running in the background" result
 // the live session's real context use and window size, as Claude Code computes them (null if not running)

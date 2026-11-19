@@ -104,6 +104,7 @@ contextBridge.exposeInMainWorld('api', {
   chatDequeue: (tabId: string, queueId: string) => ipcRenderer.invoke('chat:dequeue', tabId, queueId),
   chatPromote: (tabId: string, queueId: string) => ipcRenderer.invoke('chat:promote', tabId, queueId),
   chatSendNow: (tabId: string, id?: string) => ipcRenderer.invoke('chat:sendNow', tabId, id),
+  chatCancelSent: (tabId: string, uuid: string) => ipcRenderer.invoke('chat:cancelSent', tabId, uuid),
   chatInterrupt: (tabId: string) => ipcRenderer.invoke('chat:interrupt', tabId),
   chatContinueAt: (id: string): Promise<number | null> => ipcRenderer.invoke('chat:continueAt', id),
   chatCancelContinue: (id: string): Promise<boolean> => ipcRenderer.invoke('chat:cancelContinue', id),
