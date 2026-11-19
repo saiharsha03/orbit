@@ -4,6 +4,12 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.3.1] - 2026-11-19
+
+### Changed
+
+- Claude Agent SDK 0.3.328.
+
 ## [5.3.0] - 2026-11-19
 
 ### Changed
