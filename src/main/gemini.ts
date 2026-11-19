@@ -8,7 +8,7 @@ import { delimiter, join } from 'node:path'
 import type { CodexResult } from './codex'
 
 let exe: string | null | undefined
-function agyExecutable(): string | null {
+export function agyExecutable(): string | null {
   if (exe === undefined) {
     const name = process.platform === 'win32' ? 'agy.exe' : 'agy'
     // the installer puts it in %LOCALAPPDATA%\agy\bin without adding that to PATH

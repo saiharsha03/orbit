@@ -92,6 +92,7 @@ interface Window {
     usageGuardGet: () => Promise<{ available: boolean; on: boolean }>
     usageGuardSet: (on: boolean) => Promise<{ available: boolean; on: boolean }>
     getStatus: (force?: boolean) => Promise<Status>
+    usageProviders: () => Promise<{ codex: import('../../shared/limitsCore').UsageRow[] | null; gemini: import('../../shared/limitsCore').UsageRow[] | null }>
     listDir: (dir: string) => Promise<FsEntry[]>
     listAllFiles: (dir: string) => Promise<string[]>
     searchFiles: (dir: string, q: string) => Promise<string[]>

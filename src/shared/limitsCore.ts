@@ -4,10 +4,13 @@ export type UsageRow = { key: string; label: string; pct: number; resetsAt: stri
 export type Gauge = { key: string; name: string; short: string; used: number; passed: number | null; ahead: boolean; resets: string; says: string }
 
 const HOUR = 3_600_000
+// another agent's window ("codex:five_hour", "gemini:seven_day"): its provider and the window's own key
+export const providerOf = (key: string): string | null => key.match(/^(\w+):/)?.[1] ?? null
+const baseKey = (key: string) => key.replace(/^\w+:/, '')
 // the 5-hour window is five hours long; every other window the plan reports is a 7-day one
-export const windowMs = (key: string): number => (key === 'five_hour' ? 5 * HOUR : 7 * 24 * HOUR)
+export const windowMs = (key: string): number => (baseKey(key) === 'five_hour' ? 5 * HOUR : 7 * 24 * HOUR)
 export const limitName = (u: UsageRow): string =>
-  u.key === 'five_hour' ? '5-hour' : u.key === 'seven_day' ? '7-day' : `7-day ${u.label.match(/\((.+)\)/)?.[1] ?? u.key.replace(/^(seven_day|model)_/, '')}`
+  providerOf(u.key) ? u.label : u.key === 'five_hour' ? '5-hour' : u.key === 'seven_day' ? '7-day' : `7-day ${u.label.match(/\((.+)\)/)?.[1] ?? u.key.replace(/^(seven_day|model)_/, '')}`
 
 // the day always said: today, tomorrow, a weekday within the week, else the date
 export function resetWord(at: Date, now: Date): string {
@@ -28,7 +31,7 @@ export function gaugeOf(u: UsageRow, now: number): Gauge {
   const ahead = used >= 90 || (passed !== null && used > passed + 5)
   const name = limitName(u)
   // its name in the side bar's limits: 5-hour, 7-day, or the model for a per-model window
-  const short = u.key === 'five_hour' ? '5-hour' : u.key === 'seven_day' ? '7-day' : name.replace(/^7-day /, '')
+  const short = providerOf(u.key) ? (baseKey(u.key) === 'five_hour' ? '5-hour' : 'Weekly') : u.key === 'five_hour' ? '5-hour' : u.key === 'seven_day' ? '7-day' : name.replace(/^7-day /, '')
   const resets = at ? resetWord(at, new Date(now)) : ''
   const pace = passed === null ? '' : `, ${Math.round(passed)}% of the window gone: ${ahead ? 'ahead of pace' : 'under pace'}`
   return { key: u.key, name, short, used, passed, ahead, resets, says: `${name}: ${Math.round(used)}% used${resets ? `, resets ${resets}` : ''}${pace}` }

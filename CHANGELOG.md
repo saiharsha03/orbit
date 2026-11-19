@@ -4,6 +4,14 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.6.0] - 2026-11-19
+
+### Added
+
+- The usage limits at the foot of the side bar show Codex's and Gemini's too, under Claude's, each with its 5-hour
+  and weekly use and when it resets. Codex's come from its app server, Gemini's from Antigravity's `/usage` (no model
+  call); both are read at most every 5 minutes, and an agent that is not installed or signed in is left out.
+
 ## [5.5.0] - 2026-11-19
 
 ### Added

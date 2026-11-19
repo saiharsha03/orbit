@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('api', {
   usageGuardGet: () => ipcRenderer.invoke('usageGuard:get'),
   usageGuardSet: (on: boolean) => ipcRenderer.invoke('usageGuard:set', on),
   getStatus: (force?: boolean) => ipcRenderer.invoke('status:get', force === true),
+  usageProviders: () => ipcRenderer.invoke('usage:providers'),
   listDir: (dir: string) => ipcRenderer.invoke('fs:list', dir),
   // every file under a folder (relative, forward slashes), for the "@" mention
   listAllFiles: (dir: string): Promise<string[]> => ipcRenderer.invoke('fs:listAll', dir),

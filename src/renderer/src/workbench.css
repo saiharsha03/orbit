@@ -492,6 +492,9 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 /* ---- v3: the usage limits stacked at the foot of the side bar, each in its own colour: name, share and reset,
    then a full-width bar; ahead of the clock (or nearly out) turns it red ---- */
 .limrows { flex: none; display: flex; flex-direction: column; gap: 9px; width: 100%; padding: 10px 14px 12px; background: none; border: 0; border-top: 1px solid var(--rule); cursor: pointer; text-align: left; }
+.limgroup { display: flex; flex-direction: column; gap: 9px; }
+.limgroup + .limgroup { padding-top: 4px; }
+.limgroup-n { font: 600 11px var(--sans); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
 .limrows:hover { background: color-mix(in srgb, var(--hi) 3%, transparent); }
 .limrow { --c: var(--k-loop); display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: 'n b e' 'g g g'; row-gap: 4px; column-gap: 8px; font: 400 12px var(--sans); color: var(--dim); }
 /* each limit keeps its own colour: 5-hour blue, 7-day violet, a model's own (Fable) amber; nearly out reddens the share */

@@ -6,7 +6,7 @@ import { homedir } from 'node:os'
 import { delimiter, join } from 'node:path'
 
 let exe: string | null | undefined
-function codexExecutable(): string | null {
+export function codexExecutable(): string | null {
   if (exe === undefined) {
     const name = process.platform === 'win32' ? 'codex.exe' : 'codex'
     const dirs = [

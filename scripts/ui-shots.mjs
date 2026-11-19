@@ -144,6 +144,11 @@ const fixtures = {
     ],
     usageAt: NOW, connectors: { connected: 3, total: 5, needsAuth: 1, failed: 1 }, engine: { installed: true, version: '2.4.12' },
   },
+  // the other agents' limits under Claude's
+  'usage:providers': {
+    codex: [{ key: 'codex:five_hour', label: 'Codex 5-hour', pct: 18, resetsAt: iso(NOW + 3.2 * H) }, { key: 'codex:seven_day', label: 'Codex weekly', pct: 9, resetsAt: iso(NOW + 5 * 24 * H) }],
+    gemini: [{ key: 'gemini:five_hour', label: 'Gemini 5-hour', pct: 4, resetsAt: iso(NOW + 4.7 * H) }, { key: 'gemini:seven_day', label: 'Gemini weekly', pct: 2, resetsAt: iso(NOW + 6.9 * 24 * H) }],
+  },
   'engine:latest': '2.4.12',
   'chat:context': { total: 112480, max: 1000000 },
   'chat:mode': 'auto',

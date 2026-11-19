@@ -1,6 +1,7 @@
 // Electron main process. The Agent SDK runs here.
 // first: Hive's data is copied over before any module reads the state folder (carryOver.ts)
 import './carryOver'
+import { providerUsage } from './providerUsage'
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, protocol, screen, shell, Tray } from 'electron'
 import { basename, dirname, join, resolve } from 'node:path'
 import QRCode from 'qrcode'
@@ -569,6 +570,8 @@ handle('session:stats', (_e, path: string) => sessionStats(path))
 handle('usageGuard:get', () => usageGuardState())
 handle('usageGuard:set', (_e, on: boolean) => setUsageGuard(!!on))
 handle('status:get', (_e, force: unknown) => getStatus(force === true))
+// Codex's and Gemini's limits for the side bar, under Claude's (read at most every 5 minutes)
+handle('usage:providers', () => providerUsage())
 handle('fs:list', (_e, dir: string) => listDir(dir))
 handle('fs:listAll', (_e, dir: string) => listFiles(String(dir)))
 // Find in conversation: the window's own find, so it searches the whole window (message box and side panels too).
