@@ -4,6 +4,14 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.7.0] - 2026-11-23
+
+### Added
+
+- The usage limits at the foot of the side bar fold: click Claude, Codex or Gemini to fold its rows into one line of
+  shares (5-hour 18% Weekly 9%, each in its colour, one ahead of the clock in the warning colour), click again to
+  open it. Fold all / Open all next to Usage does every agent at once. What is folded stays folded after a restart.
+
 ## [5.6.1] - 2026-11-23
 
 ### Fixed

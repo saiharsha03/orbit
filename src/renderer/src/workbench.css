@@ -491,11 +491,22 @@ body.panel-drag { cursor: row-resize; user-select: none; }
 
 /* ---- v3: the usage limits stacked at the foot of the side bar, each in its own colour: name, share and reset,
    then a full-width bar; ahead of the clock (or nearly out) turns it red ---- */
-.limrows { flex: none; display: flex; flex-direction: column; gap: 9px; width: 100%; padding: 10px 14px 12px; background: none; border: 0; border-top: 1px solid var(--rule); cursor: pointer; text-align: left; }
-.limgroup { display: flex; flex-direction: column; gap: 9px; }
+.limrows { flex: none; display: flex; flex-direction: column; gap: 9px; width: 100%; padding: 10px 14px 12px; border-top: 1px solid var(--rule); }
+.limgroup { display: flex; flex-direction: column; gap: 6px; }
 .limgroup + .limgroup { padding-top: 4px; }
-.limgroup-n { font: 600 11px var(--sans); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
-.limrows:hover { background: color-mix(in srgb, var(--hi) 3%, transparent); }
+.limgroup-n { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 0; background: none; border: 0; cursor: pointer; text-align: left; font: 400 12px var(--sans); color: var(--dim); }
+.limgroup-t { font: 600 11px var(--sans); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+.limgroup-n:hover .limgroup-t, .limgroup-n:hover .limgroup-c { color: var(--ink); }
+.limgroup-c { margin-left: auto; font-style: normal; font-size: 10px; color: var(--faint); }
+.limsum { --c: var(--k-loop); color: var(--c); white-space: nowrap; }
+.limsum[data-k='five_hour'] { --c: #7aa2f7; } .limsum[data-k='seven_day'] { --c: #bb9af7; } .limsum[data-k='model'] { --c: #e0af68; }
+.limsum b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.limsum.ahead b { color: var(--fail); }
+.limgroup-rows { display: flex; flex-direction: column; gap: 9px; width: 100%; padding: 0; background: none; border: 0; cursor: pointer; text-align: left; }
+.limgroup-rows:hover { background: color-mix(in srgb, var(--hi) 3%, transparent); }
+.limhead { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px 0; font: 500 12px var(--sans); color: var(--dim); }
+.limhead button { padding: 0; background: none; border: 0; cursor: pointer; font: 400 11px var(--sans); color: var(--faint); }
+.limhead button:hover { color: var(--ink); }
 .limrow { --c: var(--k-loop); display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: 'n b e' 'g g g'; row-gap: 4px; column-gap: 8px; font: 400 12px var(--sans); color: var(--dim); }
 /* each limit keeps its own colour: 5-hour blue, 7-day violet, a model's own (Fable) amber; nearly out reddens the share */
 .limrow[data-k='five_hour'] { --c: #7aa2f7; } .limrow[data-k='seven_day'] { --c: #bb9af7; } .limrow[data-k='model'] { --c: #e0af68; }
