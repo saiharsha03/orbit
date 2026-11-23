@@ -312,8 +312,8 @@ button.rail-gh:hover { color: var(--dim); }
 .ip-row .a { font: 12px var(--mono); color: var(--hi); }
 .ip-row .w { color: var(--dim); font-size: 12px; text-align: right; }
 .ip-row.new .hi { color: var(--signal); }
-.ip-foot { padding: 12px 18px 14px; font-size: 12px; color: var(--dim); display: flex; gap: 10px; align-items: center; }
-.ip-foot span { flex: 1; }
+.ip-foot { padding: 12px 18px 14px; font-size: 12px; color: var(--dim); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; align-items: center; }
+.ip-foot span { flex: 1 0 100%; }
 
 /* toasts */
 .toasts { position: fixed; right: 18px; bottom: 36px; z-index: 60; display: flex; flex-direction: column; gap: 6px; max-width: 460px; }

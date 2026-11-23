@@ -4,6 +4,13 @@ All notable changes to Orbit (called Hive until 2.0) are documented here. The fo
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.6.1] - 2026-11-23
+
+### Fixed
+
+- Allow my IP no longer cuts off its last button when the pop-up shows Close, Already allowed and Allow now: the
+  note sits on its own line and the buttons go on the line under it.
+
 ## [5.6.0] - 2026-11-19
 
 ### Added
